@@ -1,0 +1,692 @@
+{
+  "app_title": {
+    "en": "🏀 Euroleague Analytics",
+    "el": "🏀 Euroleague Analytics",
+    "de": "🏀 Euroleague Analysen",
+    "es": "🏀 Análisis de la Euroleague"
+  },
+  "lang_selection": {
+    "en": "🌐 Language",
+    "el": "🌐 Γλώσσα",
+    "de": "🌐 Sprache",
+    "es": "🌐 Idioma"
+  },
+  "analysis_mode": {
+    "en": "🔍 Analysis Mode",
+    "el": "🔍 Λειτουργία Ανάλυσης",
+    "de": "🔍 Analysemodus",
+    "es": "🔍 Modo de Análisis"
+  },
+  "mode_single": {
+    "en": "Single Game Analysis",
+    "el": "Ανάλυση Μεμονωμένου Αγώνα",
+    "de": "Einzelspiel-Analyse",
+    "es": "Análisis de un Solo Juego"
+  },
+  "mode_season": {
+    "en": "Season Overview",
+    "el": "Επισκόπηση Σεζόν",
+    "de": "Saisonübersicht",
+    "es": "Resumen de la Temporada"
+  },
+  "mode_glossary": {
+    "en": "📖 Metrics Glossary",
+    "el": "📖 Γλωσσάρι Μετρικών",
+    "de": "📖 Metriken-Glossar",
+    "es": "📖 Glosario de Métricas"
+  },
+  "selection_header": {
+    "en": "📅 Selection",
+    "el": "📅 Επιλογή",
+    "de": "📅 Auswahl",
+    "es": "📅 Selección"
+  },
+  "season_dropdown": {
+    "en": "Season (start year)",
+    "el": "Σεζόν (έτος έναρξης)",
+    "de": "Saison (Startjahr)",
+    "es": "Temporada (año de inicio)"
+  },
+  "round_dropdown": {
+    "en": "Round",
+    "el": "Αγωνιστική",
+    "de": "Runde",
+    "es": "Jornada"
+  },
+  "matchup_dropdown": {
+    "en": "Matchup",
+    "el": "Αναμέτρηση",
+    "de": "Begegnung",
+    "es": "Encuentro"
+  },
+  "team_dropdown": {
+    "en": "Select Team",
+    "el": "Επιλογή Ομάδας",
+    "de": "Team auswählen",
+    "es": "Seleccionar Equipo"
+  },
+  "dashboard_pages": {
+    "en": "📊 Dashboard Pages",
+    "el": "📊 Σελίδες",
+    "de": "📊 Dashboard-Seiten",
+    "es": "📊 Páginas del Panel"
+  },
+  "navigate_to": {
+    "en": "Navigate to:",
+    "el": "Μετάβαση σε:",
+    "de": "Gehe zu:",
+    "es": "Navegar a:"
+  },
+  "nav_player_stats": {
+    "en": "🏅 Player Advanced Stats",
+    "el": "🏅 Στατιστικά Παικτών",
+    "de": "🏅 Erweiterte Spielerstatistiken",
+    "es": "🏅 Estadísticas Avanzadas de Jugadores"
+  },
+  "nav_shot_chart": {
+    "en": "🎯 Shot Chart",
+    "el": "🎯 Χάρτης Βολών",
+    "de": "🎯 Wurfdiagramm",
+    "es": "🎯 Mapa de Tiros"
+  },
+  "nav_radar": {
+    "en": "📡 Player Comparison Radar",
+    "el": "📡 Ραντάρ Σύγκρισης",
+    "de": "📡 Spieler-Radar",
+    "es": "📡 Radar de Comparación"
+  },
+  "nav_lineups": {
+    "en": "👥 Lineup & Synergy",
+    "el": "👥 Πεντάδες & Συνέργειες",
+    "de": "👥 Aufstellungen & Synergie",
+    "es": "👥 Alineaciones y Sinergia"
+  },
+  "nav_assist": {
+    "en": "🔗 Assist Network",
+    "el": "🔗 Δίκτυο Ασίστ",
+    "de": "🔗 Assist-Netzwerk",
+    "es": "🔗 Red de Asistencias"
+  },
+  "nav_clutch": {
+    "en": "🔥 Clutch & Momentum",
+    "el": "🔥 Clutch & Momentum",
+    "de": "🔥 Clutch & Momentum",
+    "es": "🔥 Clutch & Momentum"
+  },
+  "err_no_schedule": {
+    "en": "No schedule found for Season {season}",
+    "el": "Δεν βρέθηκε πρόγραμμα για τη σεζόν {season}",
+    "de": "Kein Spielplan für Saison {season} gefunden",
+    "es": "No se encontró calendario para la Temporada {season}"
+  },
+  "loading_data": {
+    "en": "⏳ Fetching advanced insights from Euroleague API...",
+    "el": "⏳ Ανάκτηση δεδομένων από το Euroleague API...",
+    "de": "⏳ Lade erweiterte Daten von der Euroleague API...",
+    "es": "⏳ Obteniendo datos avanzados de la API de Euroleague..."
+  },
+  "err_load_game": {
+    "en": "❌ Failed to load game data (Game {gamecode}): {e}",
+    "el": "❌ Αποτυχία φόρτωσης δεδομένων αγώνα (Αγώνας {gamecode}): {e}",
+    "de": "❌ Fehler beim Laden der Spieldaten (Spiel {gamecode}): {e}",
+    "es": "❌ Error al cargar datos del juego (Juego {gamecode}): {e}"
+  },
+  "season_game_footer": {
+    "en": "Season {season} • Game {gamecode}",
+    "el": "Σεζόν {season} • Αγώνας {gamecode}",
+    "de": "Saison {season} • Spiel {gamecode}",
+    "es": "Temporada {season} • Juego {gamecode}"
+  },
+  "hdr_player_stats": {
+    "en": "Player Advanced Stats",
+    "el": "Στατιστικά Παικτών",
+    "de": "Erweiterte Spielerstatistiken",
+    "es": "Estadísticas Avanzadas"
+  },
+  "no_adv_stats": {
+    "en": "No advanced stats available.",
+    "el": "Μη διαθέσιμα στατιστικά.",
+    "de": "Keine Daten verfügbar.",
+    "es": "No hay estadísticas disponibles."
+  },
+  "filter_team": {
+    "en": "Filter by Team",
+    "el": "Φίλτρο Ομάδας",
+    "de": "Nach Team filtern",
+    "es": "Filtrar por Equipo"
+  },
+  "filter_player": {
+    "en": "Filter by Player",
+    "el": "Φίλτρο Παίκτη",
+    "de": "Nach Spieler filtern",
+    "es": "Filtrar por Jugador"
+  },
+  "filter_all": {
+    "en": "All",
+    "el": "Όλοι",
+    "de": "Alle",
+    "es": "Todos"
+  },
+  "filter_min_min": {
+    "en": "Minimum Minutes",
+    "el": "Ελάχιστα Λεπτά",
+    "de": "Mindestminuten",
+    "es": "Minutos Mínimos"
+  },
+  "export_csv": {
+    "en": "Export to CSV",
+    "el": "Εξαγωγή σε CSV",
+    "de": "Als CSV exportieren",
+    "es": "Exportar a CSV"
+  },
+  "explorer_title": {
+    "en": "Advanced Analytics Explorer",
+    "el": "Εξερεύνηση Analytics",
+    "de": "Analytics Explorer",
+    "es": "Explorador de Análisis"
+  },
+  "col_player": {
+    "en": "Player",
+    "el": "Παίκτης",
+    "de": "Spieler",
+    "es": "Jugador"
+  },
+  "col_team": {
+    "en": "Team",
+    "el": "Ομάδα",
+    "de": "Team",
+    "es": "Equipo"
+  },
+  "col_min": {
+    "en": "Min",
+    "el": "Λεπτά",
+    "de": "Min",
+    "es": "Min"
+  },
+  "col_pts": {
+    "en": "Pts",
+    "el": "Πόντοι",
+    "de": "Pkt",
+    "es": "Pts"
+  },
+  "col_ortg": {
+    "en": "ORtg",
+    "el": "ORtg",
+    "de": "ORtg",
+    "es": "ORtg"
+  },
+  "col_drtg": {
+    "en": "DRtg",
+    "el": "DRtg",
+    "de": "DRtg",
+    "es": "DRtg"
+  },
+  "col_netrtg": {
+    "en": "NetRtg",
+    "el": "NetRtg",
+    "de": "NetRtg",
+    "es": "NetRtg"
+  },
+  "col_ts": {
+    "en": "TS%",
+    "el": "TS%",
+    "de": "TS%",
+    "es": "TS%"
+  },
+  "col_tusg": {
+    "en": "tUSG%",
+    "el": "tUSG%",
+    "de": "tUSG%",
+    "es": "tUSG%"
+  },
+  "col_lineup": {
+    "en": "Lineup",
+    "el": "Πεντάδα",
+    "de": "Aufstellung",
+    "es": "Alineación"
+  },
+  "col_poss": {
+    "en": "Possessions",
+    "el": "Κατοχές",
+    "de": "Ballbesitze",
+    "es": "Posesiones"
+  },
+  "hdr_season_overview": {
+    "en": "Season Overview",
+    "el": "Επισκόπηση Σεζόν",
+    "de": "Saisonübersicht",
+    "es": "Resumen de la Temporada"
+  },
+  "warn_select_team": {
+    "en": "Please select a team.",
+    "el": "Παρακαλώ επιλέξτε ομάδα.",
+    "de": "Bitte wählen Sie ein Team.",
+    "es": "Seleccione un equipo."
+  },
+  "hdr_league_eff": {
+    "en": "🌍 League Efficiency Landscape",
+    "el": "🌍 Δείκτες Αποδοτικότητας Λίγκας",
+    "de": "🌍 Liga-Effizienz Landschaft",
+    "es": "🌍 Eficiencia de la Liga"
+  },
+  "sub_league_eff": {
+    "en": "Offensive Rating vs Defensive Rating (Top Right is Best)",
+    "el": "Επίθεση vs Άμυνα (Πάνω Δεξιά το Καλύτερο)",
+    "de": "ORtg vs DRtg",
+    "es": "ORtg vs DRtg"
+  },
+  "fetching_league_eff": {
+    "en": "Fetching league efficiencies...",
+    "el": "Λήψη δεδομένων αποδοτικότητας...",
+    "de": "Lade Liga-Effizienzen...",
+    "es": "Obteniendo datos..."
+  },
+  "err_league_eff": {
+    "en": "Could not fetch league efficiency.",
+    "el": "Αδυναμία λήψης αποδοτικότητας.",
+    "de": "Konnte Liga-Effizienz nicht laden.",
+    "es": "No se pudo obtener la eficiencia."
+  },
+  "lbl_ortg": {
+    "en": "Offensive Rating",
+    "el": "Offensive Rating",
+    "de": "Offensive Rating",
+    "es": "Offensive Rating"
+  },
+  "lbl_drtg": {
+    "en": "Defensive Rating",
+    "el": "Defensive Rating",
+    "de": "Defensive Rating",
+    "es": "Defensive Rating"
+  },
+  "agg_season": {
+    "en": "Aggregating full season data for {team_code}... (~15 seconds, then cached)",
+    "el": "Συλλογή δεδομένων σεζόν για {team_code}... (~15 δευτ., μετά caching)",
+    "de": "Aggregiere Spieldaten für {team_code}...",
+    "es": "Agregando datos para {team_code}..."
+  },
+  "no_season_stats": {
+    "en": "No season stats available for {team_code}.",
+    "el": "Μη διαθέσιμα στατιστικά σεζόν.",
+    "de": "Keine Statistiken.",
+    "es": "Sin estadísticas."
+  },
+  "hdr_player_usage": {
+    "en": "📈 {team_code} Player Usage vs Efficiency",
+    "el": "📈 {team_code} Αποδοτικότητα Παικτών",
+    "de": "📈 {team_code} Spieler-Nutzung",
+    "es": "📈 Uso vs Eficiencia en {team_code}"
+  },
+  "sub_player_usage": {
+    "en": "True Usage Rate (tUSG%) vs True Shooting (TS%). Bubble size = Minutes Played.",
+    "el": "tUSG% vs TS%. Μέγεθος φούσκας = Λεπτά συμμετοχής.",
+    "de": "tUSG% vs TS%",
+    "es": "tUSG% vs TS%"
+  },
+  "hdr_most_used": {
+    "en": "👥 {team_code} Most Used 5-man Lineups",
+    "el": "👥 {team_code} Δημοφιλέστερες Πεντάδες",
+    "de": "👥 {team_code} Häufigste Aufstellungen",
+    "es": "👥 Alineaciones en {team_code}"
+  },
+  "sub_most_used": {
+    "en": "Filtered for >20 minutes combined playing time",
+    "el": "Φίλτρο για >20 λεπτά παρουσίας",
+    "de": "Gefiltert (>20 Minuten)",
+    "es": "Filtrado (>20 minutos)"
+  },
+  "no_lineups": {
+    "en": "No lineups matched the minimum minutes criteria.",
+    "el": "Καμία πεντάδα.",
+    "de": "Keine Aufstellungen.",
+    "es": "Sin alineaciones."
+  },
+  "hdr_best_net": {
+    "en": "🏆 Best by Net Rating",
+    "el": "🏆 Καλύτερο Net Rating",
+    "de": "🏆 Bestes Net Rating",
+    "es": "🏆 Mejor Net Rating"
+  },
+  "hdr_worst_net": {
+    "en": "💀 Worst by Net Rating",
+    "el": "💀 Χειρότερο Net Rating",
+    "de": "💀 Schlechtestes Net Rating",
+    "es": "💀 Peor Net Rating"
+  },
+  "hdr_glossary": {
+    "en": "📖 Advanced Metrics Glossary",
+    "el": "📖 Γλωσσάρι Μετρικών",
+    "de": "📖 Glossar",
+    "es": "📖 Glosario"
+  },
+  "gloss_ortg_title": {
+    "en": "📈 Offensive Rating (ORtg)",
+    "el": "📈 Επιθετική Αξιολόγηση (ORtg)",
+    "de": "📈 Offensiv-Rating (ORtg)",
+    "es": "📈 Rating Ofensivo (ORtg)"
+  },
+  "gloss_ortg_desc": {
+    "en": "The total number of points a player or team produces per 100 possessions. This isolates efficiency from the pace of play. If a team scores 85 points in a slow 70-possession game, their impressive `121.4 ORtg` reveals their elite offense despite the low total score.",
+    "el": "Οι συνολικοί πόντοι που παράγει μια ομάδα ή παίκτης ανά 100 κατοχές. Απομονώνει την αποτελεσματικότητα από τον ρυθμό. Αν μια ομάδα βάλει 85 πόντους σε έναν αργό αγώνα 70 κατοχών, το `121.4 ORtg` αποδεικνύει την επιθετική της υπεροχή.",
+    "de": "Die Gesamtzahl der Punkte, die ein Spieler oder Team pro 100 Ballbesitze erzielt. Das isoliert die Effizienz vom Spieltempo.",
+    "es": "El número total de puntos que un jugador o equipo produce por cada 100 posesiones. Esto aísla la eficiencia del ritmo de juego."
+  },
+  "gloss_drtg_title": {
+    "en": "🛡 Defensive Rating (DRtg)",
+    "el": "🛡 Αμυντική Αξιολόγηση (DRtg)",
+    "de": "🛡 Defensiv-Rating (DRtg)",
+    "es": "🛡 Rating Defensivo (DRtg)"
+  },
+  "gloss_drtg_desc": {
+    "en": "The total number of points a team allows per 100 opponent possessions. Lower is better. If a defensive lineup has an `85.0 DRtg` over a 5-minute stretch, they are locking down the opponent.",
+    "el": "Οι συνολικοί πόντοι που δέχεται μια ομάδα ανά 100 κατοχές του αντιπάλου. Όσο χαμηλότερα τόσο καλύτερα.",
+    "de": "Die Gesamtzahl der Punkte, die ein Team pro 100 gegnerische Ballbesitze zulässt. Niedriger ist besser.",
+    "es": "El número total de puntos que un equipo permite por cada 100 posesiones del oponente. Menos es mejor."
+  },
+  "gloss_net_title": {
+    "en": "+/- Net Rating (NetRtg)",
+    "el": "+/- Καθαρή Αξιολόγηση (NetRtg)",
+    "de": "+/- Net Rating (NetRtg)",
+    "es": "+/- Rating Neto (NetRtg)"
+  },
+  "gloss_net_desc": {
+    "en": "`Offensive Rating - Defensive Rating`. A `+15.0 Net Rating` means the 5-man lineup outscores their opponents by 15 points per 100 possessions while on the floor. It is the ultimate metric for lineup synergy.",
+    "el": "`ORtg - DRtg`. Ένα Net Rating στο `+15.0` σημαίνει ότι η πεντάδα κερδίζει τον αντίπαλο κατά 15 πόντους ανά 100 κατοχές όσο αγωνίζεται.",
+    "de": "`ORtg - DRtg`. Ein Net Rating von `+15.0` bedeutet, die Aufstellung erzielt 15 Punkte mehr pro 100 Ballbesitze.",
+    "es": "`ORtg - DRtg`. Un Rating Neto de `+15.0` significa que la alineación supera al oponente por 15 puntos por cada 100 posesiones."
+  },
+  "gloss_ts_title": {
+    "en": "🎯 True Shooting Percentage (TS%)",
+    "el": "🎯 Πραγματικό Ποσοστό Ευστοχίας (TS%)",
+    "de": "🎯 True Shooting Percentage (TS%)",
+    "es": "🎯 Porcentaje de Tiro Verdadero (TS%)"
+  },
+  "gloss_ts_desc": {
+    "en": "A holistic shooting efficiency metric that weighs 3-pointers, 2-pointers, and Free Throws into a single percentage. \n`Formula: Points / (2 * (FGA + (0.44 * FTA)))`. Average Euroleague TS% is ~58%.",
+    "el": "Ένας απόλυτος δείκτης ευστοχίας που συνδυάζει τρίποντα, δίποντα και βολές. `Τύπος: Points / (2 * (FGA + (0.44 * FTA)))`.",
+    "de": "Eine holistische Wurf-Effizienz-Metrik, die 3-Punkt-, 2-Punkt- und Freiwürfe in einen einzigen Prozentsatz wichtet.",
+    "es": "Una métrica de eficiencia de tiro holística que pondera tiros de 3, tiros de 2 y tiros libres."
+  },
+  "gloss_tusg_title": {
+    "en": "🔥 True Usage Rate (tUSG%)",
+    "el": "🔥 Πραγματικό Ποσοστό Χρήσης (tUSG%)",
+    "de": "🔥 True Usage Rate (tUSG%)",
+    "es": "🔥 Tasa de Uso Verdadero (tUSG%)"
+  },
+  "gloss_tusg_desc": {
+    "en": "The percentage of team plays \"used\" by a specific player while they are on the floor (ending in a shot, free throw, or turnover). High-volume stars typically have a usage rate over `25%`.",
+    "el": "Το ποσοστό των ομαδικών επιθέσεων που \"ξοδεύει\" ένας παίκτης όσο παίζει (σε σουτ, βολές, ή λάθος).",
+    "de": "Der Prozentsatz der Spielzüge, die ein bestimmter Spieler auf dem Spielfeld abschließt.",
+    "es": "El porcentaje de jugadas terminadas por un jugador en el campo."
+  },
+  "gloss_stop_title": {
+    "en": "🧱 Stop Rate",
+    "el": "🧱 Ποσοστό Στοπ (Stop Rate)",
+    "de": "🧱 Stop Rate",
+    "es": "🧱 Tasa de Paradas (Stop Rate)"
+  },
+  "gloss_stop_desc": {
+    "en": "The percentage of an opponent's possessions that end in a \"Stop\" (Missed shot + Defensive Rebound, or a forced Turnover) while a player or lineup is on the floor.",
+    "el": "Το ποσοστό των αντιπάλων επιθέσεων που καταλήγουν σε \"Στοπ\" (χαμένο σουτ + αμυντικό ριμπάουντ, ή λάθος).",
+    "de": "Prozentsatz der gegnerischen Ballbesitze, die ohne Punkt enden.",
+    "es": "El porcentaje de las posesiones del oponente que terminan sin anotar."
+  },
+  "gloss_ast_title": {
+    "en": "🤝 Assist Ratio (AST%)",
+    "el": "🤝 Ποσοστό Ασίστ (AST%)",
+    "de": "🤝 Assist Ratio (AST%)",
+    "es": "🤝 Ratio de Asistencias (AST%)"
+  },
+  "gloss_ast_desc": {
+    "en": "An estimate of the percentage of teammate field goals a player assisted while on the floor. High-IQ point guards frequently exceed `35%`.",
+    "el": "Εκτίμηση του ποσοστού των καλαθιών των συμπαικτών που προήλθαν από ασίστ του παίκτη. Καλoί playmaker φτάνουν το 35%.",
+    "de": "Eine Schätzung des Prozentsatzes der von Mitspielern erzielten Field Goals, die assistiert wurden.",
+    "es": "Estimación del porcentaje de tiros de campo anotados que el jugador asistió."
+  },
+  "gloss_tov_title": {
+    "en": "🗑 Turnover Ratio (TOV%)",
+    "el": "🗑 Ποσοστό Λαθών (TOV%)",
+    "de": "🗑 Turnover Ratio (TOV%)",
+    "es": "🗑 Ratio de Pérdidas (TOV%)"
+  },
+  "gloss_tov_desc": {
+    "en": "An estimate of turnovers committed per 100 plays. Lower is better.",
+    "el": "Εκτίμηση των λαθών ανά 100 κατοχές. Όσο μικρότερο τόσο καλύτερα.",
+    "de": "Eine Schätzung der begangenen Turnovers pro 100 Spielzüge.",
+    "es": "Una estimación de las pérdidas cometidas por 100 jugadas."
+  },
+  "gloss_tip_title": {
+    "en": "💡 **Why Per 100 Possessions?**",
+    "el": "💡 **Γιατί ανά 100 Κατοχές;**",
+    "de": "💡 **Warum pro 100 Ballbesitze?**",
+    "es": "💡 **¿Por qué por 100 Posesiones?**"
+  },
+  "gloss_tip_desc": {
+    "en": "Basketball is a game of alternating turns. By analyzing stats *Per 100 Possessions*, we completely eliminate pace variance.",
+    "el": "Το μπάσκετ είναι παιχνίδι εναλλασσόμενων κατοχών. Μελετώντας στατιστικά *ανά 100 κατοχές*, διαγράφουμε τον ρυθμό και βρίσκουμε την αληθινή αποδοτικότητα.",
+    "de": "Basketball ist ein Rhythmus-Spiel. Durch die Analyse pro 100 Ballbesitze eliminieren wir die Tempoabweichungen.",
+    "es": "El baloncesto depende del ritmo. Al analizamos por 100 posesiones, eliminamos la variación de la velocidad del juego."
+  },
+  "metric_players": {
+    "en": "Players",
+    "el": "Παίκτες",
+    "de": "Spieler",
+    "es": "Jugadores"
+  },
+  "metric_avg": {
+    "en": "Avg",
+    "el": "Μ.Ο.",
+    "de": "Durchschn.",
+    "es": "Prom."
+  },
+  "desc_clutch": {
+    "en": "Clutch = last 5 min of Q4/OT, score within 5 points.",
+    "el": "Clutch = τελευταία 5 λεπτά 4ης περιόδου/παράτασης, διαφορά έως 5 πόντους.",
+    "de": "Clutch = letzte 5 Min. von Q4/OT, Punktedifferenz < 5.",
+    "es": "Clutch = últimos 5 min. del Q4/OT, diferencia de < 5 pt."
+  },
+  "info_no_clutch": {
+    "en": "ℹ️ No clutch situations detected.",
+    "el": "ℹ️ Δεν βρέθηκαν καταστάσεις clutch.",
+    "de": "ℹ️ Keine Clutch-Situationen erkannt.",
+    "es": "ℹ️ No se detectaron situaciones clutch."
+  },
+  "info_no_runs": {
+    "en": "ℹ️ No scoring runs detected.",
+    "el": "ℹ️ Δεν βρέθηκαν σερί.",
+    "de": "ℹ️ Keine Scoring-Runs erkannt.",
+    "es": "ℹ️ No se detectaron rachas."
+  },
+  "desc_runs": {
+    "en": "Scoring runs of 8+ unanswered points.",
+    "el": "Σερί 8+ αναπάντητων πόντων.",
+    "de": "Scoring-Runs mit 8+ unbeantworteten Punkten.",
+    "es": "Rachas de 8+ puntos sin respuesta."
+  },
+  "info_no_fouls": {
+    "en": "ℹ️ No foul trouble detected.",
+    "el": "ℹ️ Κανένα πρόβλημα φάουλ.",
+    "de": "ℹ️ Keine Foul-Probleme erkannt.",
+    "es": "ℹ️ No se detectaron problemas de faltas."
+  },
+  "desc_fouls": {
+    "en": "Impact on team ratings when star gets 2+ fouls early.",
+    "el": "Αντίκτυπος όταν ο σταρ κάνει 2+ φάουλ νωρίς.",
+    "de": "Einfluss auf das Team-Rating bei 2+ Fouls früh im Spiel.",
+    "es": "Impacto cuando la estrella comete 2+ faltas temprano."
+  },
+  "lbl_foul2": {
+    "en": "2nd foul in Q",
+    "el": "2ο φάουλ στην Q",
+    "de": "2. Foul in Q",
+    "es": "2ª falta en Q"
+  },
+  "lbl_before": {
+    "en": "Before",
+    "el": "Πριν",
+    "de": "Vorher",
+    "es": "Antes"
+  },
+  "lbl_after": {
+    "en": "After",
+    "el": "Μετά",
+    "de": "Danach",
+    "es": "Después"
+  },
+  "lbl_min_events": {
+    "en": "Min PBP events",
+    "el": "Ελάχιστα Γεγονότα PBP",
+    "de": "Min. PBP-Ereignisse",
+    "es": "Min. Eventos PBP"
+  },
+  "lbl_player": {
+    "en": "Player",
+    "el": "Παίκτης",
+    "de": "Spieler",
+    "es": "Jugador"
+  },
+  "tab_5man": {
+    "en": "🏅 5-Man Lineups",
+    "el": "🏅 Πεντάδες",
+    "de": "🏅 5-Mann-Aufstellungen",
+    "es": "🏅 Alineaciones de 5"
+  },
+  "tab_duo": {
+    "en": "👥 Duo Synergy",
+    "el": "👥 Συνεργασία Διδύμων",
+    "de": "👥 Duo-Synergie",
+    "es": "👥 Sinergia de Dúos"
+  },
+  "tab_trio": {
+    "en": "🔺 Trio Synergy",
+    "el": "🔺 Συνεργασία Τριών",
+    "de": "🔺 Trio-Synergie",
+    "es": "🔺 Sinergia de Tríos"
+  },
+  "tab_clutch": {
+    "en": "⏰ Clutch Stats",
+    "el": "⏰ Στατιστικά Clutch",
+    "de": "⏰ Clutch-Stats",
+    "es": "⏰ Estadísticas Clutch"
+  },
+  "tab_runs": {
+    "en": "🏃 Run Stoppers",
+    "el": "🏃 Διακοπές Σερί",
+    "de": "🏃 Run-Stopper",
+    "es": "🏃 Rompe-Rachas"
+  },
+  "tab_fouls": {
+    "en": "⚠️ Foul Trouble Impact",
+    "el": "⚠️ Πρόβλημα Φάουλ",
+    "de": "⚠️ Foul-Probleme-Auswirkung",
+    "es": "⚠️ Impacto de Faltas"
+  },
+  "lbl_made": {
+    "en": "Made",
+    "el": "Εύστοχα",
+    "de": "Treffer",
+    "es": "Anotados"
+  },
+  "lbl_missed": {
+    "en": "Missed",
+    "el": "Άστοχα",
+    "de": "Fehlwürfe",
+    "es": "Fallados"
+  },
+  "lbl_ts": {
+    "en": "TS%",
+    "el": "TS%",
+    "de": "TS%",
+    "es": "TS%"
+  },
+  "lbl_tusg": {
+    "en": "tUSG%",
+    "el": "tUSG%",
+    "de": "tUSG%",
+    "es": "tUSG%"
+  },
+  "lbl_upcoming": {
+    "en": "Upcoming",
+    "el": "Προσεχώς",
+    "de": "Bevorstehend",
+    "es": "Próximo"
+  },
+  "err_no_shots": {
+    "en": "No shots for this selection.",
+    "el": "Κανένα σουτ για αυτή την επιλογή.",
+    "de": "Keine Würfe für diese Auswahl.",
+    "es": "No hay tiros para esta selección."
+  },
+  "no_shot_data": {
+    "en": "No shot data available.",
+    "el": "Δεν υπάρχουν δεδομένα σουτ.",
+    "de": "Keine Wurfdaten verfügbar.",
+    "es": "No hay datos de tiros disponibles."
+  },
+  "col_actions": {
+    "en": "Actions",
+    "el": "Ενέργειες",
+    "de": "Aktionen",
+    "es": "Acciones"
+  },
+  "col_ast": {
+    "en": "Assists",
+    "el": "Ασίστ",
+    "de": "Assists",
+    "es": "Asistencias"
+  },
+  "col_fga": {
+    "en": "FGA",
+    "el": "Σουτ",
+    "de": "FGA",
+    "es": "TCA"
+  },
+  "col_period": {
+    "en": "Period",
+    "el": "Περίοδος",
+    "de": "Viertel",
+    "es": "Periodo"
+  },
+  "col_play_type": {
+    "en": "Play Type",
+    "el": "Τύπος Play",
+    "de": "Spielzug-Typ",
+    "es": "Tipo de Jugada"
+  },
+  "col_pts_ag": {
+    "en": "Opp Pts",
+    "el": "Πόντοι Κατά",
+    "de": "Gegnerische Punkte",
+    "es": "Pts Contra"
+  },
+  "col_run_pts": {
+    "en": "Run (pts)",
+    "el": "Σερί (πόντοι)",
+    "de": "Lauf (Pkte)",
+    "es": "Racha (pts)"
+  },
+  "col_stopper": {
+    "en": "Stopper",
+    "el": "Στόπερ",
+    "de": "Stopper",
+    "es": "Defensor"
+  },
+  "col_time": {
+    "en": "Time",
+    "el": "Χρόνος",
+    "de": "Zeit",
+    "es": "Tiempo"
+  },
+  "col_tov": {
+    "en": "TOV",
+    "el": "Λάθη",
+    "de": "TOV",
+    "es": "PÉRD"
+  },
+  "col_usage": {
+    "en": "Usage%",
+    "el": "Χρήση%",
+    "de": "Nutzung%",
+    "es": "Uso%"
+  }
+}

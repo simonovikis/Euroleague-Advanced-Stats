@@ -1,0 +1,23 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: euroleague_postgres
+    env_file:
+      - .env
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # Persist data across container restarts
+      - pgdata:/var/lib/postgresql/data
+      # Auto-run schema on first init
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-euroleague}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
