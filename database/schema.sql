@@ -35,6 +35,11 @@ CREATE TABLE IF NOT EXISTS games (
     home_score  INT,
     away_score  INT,
     game_date   VARCHAR(30),                  -- stored as string; API doesn't always give clean dates
+    round       INT,
+    played      BOOLEAN      DEFAULT FALSE,
+    referee1    VARCHAR(150),
+    referee2    VARCHAR(150),
+    referee3    VARCHAR(150),
 
     PRIMARY KEY (season, gamecode)
 );

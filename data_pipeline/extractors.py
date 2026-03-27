@@ -448,7 +448,7 @@ def get_league_efficiency_landscape(season: int, competition: str = COMPETITION)
         def_df = apply_team_aliases(def_df, ["team_code"])
 
         merged = pd.merge(
-            off_df[['team_code', 'team_name', 'pointsScored', 'twoPointersAttempted', 'threePointersAttempted', 'freeThrowsAttempted', 'offensiveRebounds', 'turnovers']],
+            off_df[['team_code', 'team_name', 'gamesPlayed', 'pointsScored', 'twoPointersAttempted', 'threePointersAttempted', 'freeThrowsAttempted', 'offensiveRebounds', 'turnovers']],
             def_df[['team_code', 'pointsScored', 'twoPointersAttempted', 'threePointersAttempted', 'freeThrowsAttempted', 'offensiveRebounds', 'turnovers']],
             on='team_code',
             suffixes=('_off', '_def')
@@ -464,9 +464,222 @@ def get_league_efficiency_landscape(season: int, competition: str = COMPETITION)
 
         merged['ortg'] = np.where(merged['poss_off'] > 0, (merged['pointsScored_off'] / merged['poss_off']) * 100, np.nan)
         merged['drtg'] = np.where(merged['poss_def'] > 0, (merged['pointsScored_def'] / merged['poss_def']) * 100, np.nan)
+        merged['net_rtg'] = merged['ortg'] - merged['drtg']
 
-        return merged[['team_code', 'team_name', 'ortg', 'drtg', 'poss_off']].sort_values('ortg', ascending=False).reset_index(drop=True)
+        # Pace = average possessions per 40 minutes
+        # Accumulated possessions / games played = possessions per game = pace per 40 min
+        merged['pace'] = np.where(
+            merged['gamesPlayed'] > 0,
+            merged['poss_off'] / merged['gamesPlayed'],
+            np.nan,
+        )
+
+        return merged[['team_code', 'team_name', 'ortg', 'drtg', 'net_rtg', 'pace', 'poss_off']].sort_values('ortg', ascending=False).reset_index(drop=True)
 
     except Exception as e:
         logger.error(f"Failed to fetch league efficiency for {season}: {e}")
+        return pd.DataFrame()
+
+
+def get_season_game_metadata(
+    season: int,
+    competition: str = COMPETITION,
+) -> pd.DataFrame:
+    """
+    Fetch per-game metadata for a full season from the GameMetadata endpoint.
+
+    Returns a DataFrame with columns including:
+        Season, Gamecode, Round, Date, Stadium,
+        CodeTeamA, CodeTeamB, ScoreA, ScoreB,
+        CoachA, CoachB, Referee1, Referee2, Referee3, Phase, ...
+
+    Parameters
+    ----------
+    season : int
+        The start year of the season.
+    competition : str
+        "E" for Euroleague, "U" for EuroCup.
+    """
+    try:
+        from euroleague_api.game_metadata import GameMetadata
+        gm = GameMetadata(competition)
+        df = gm.get_game_metadata_single_season(season)
+
+        if df.empty:
+            logger.warning(f"No game metadata found for season {season}")
+            return pd.DataFrame()
+
+        logger.info(f"Game metadata: {len(df)} games for season {season}")
+
+        # Apply team aliases
+        df = apply_team_aliases(df, ["CodeTeamA", "CodeTeamB"])
+
+        return df
+
+    except Exception as e:
+        logger.error(f"Failed to fetch game metadata for season {season}: {e}")
+        return pd.DataFrame()
+
+
+def get_situational_scoring(
+    season: int,
+    competition: str = COMPETITION,
+) -> pd.DataFrame:
+    """
+    Fetch team-level situational scoring profile for a full season.
+
+    Merges advanced stats (scoring distribution percentages) with
+    traditional stats (steals, turnovers, offensive rebounds, assists).
+
+    Returns a DataFrame with columns:
+        team_code, team_name, points_per_game,
+        pts_from_2pt_pct, pts_from_3pt_pct, pts_from_ft_pct,
+        steals_pg, turnovers_pg, off_reb_pg, assists_pg
+    """
+    try:
+        from euroleague_api.team_stats import TeamStats
+        ts = TeamStats(competition)
+
+        adv = ts.get_team_stats(
+            endpoint='advanced',
+            params={'Season': season},
+            phase_type_code='RS',
+            statistic_mode='PerGame',
+        )
+        trad = ts.get_team_stats(
+            endpoint='traditional',
+            params={'Season': season},
+            phase_type_code='RS',
+            statistic_mode='PerGame',
+        )
+
+        if adv.empty or trad.empty:
+            logger.warning(f"Empty stats for situational scoring, season {season}")
+            return pd.DataFrame()
+
+        # Rename team code columns
+        adv = adv.rename(columns={"team.code": "team_code", "team.name": "team_name"})
+        trad = trad.rename(columns={"team.code": "team_code"})
+
+        # Apply team aliases
+        adv = apply_team_aliases(adv, ["team_code"])
+        trad = apply_team_aliases(trad, ["team_code"])
+
+        # Parse percentage strings (e.g. "54.2%" -> 54.2)
+        def parse_pct(col):
+            return col.astype(str).str.replace('%', '', regex=False).astype(float)
+
+        result = pd.DataFrame({
+            "team_code": adv["team_code"],
+            "team_name": adv["team_name"],
+            "pts_from_2pt_pct": parse_pct(adv["pointsFromTwoPointersPercentage"]),
+            "pts_from_3pt_pct": parse_pct(adv["pointsFromThreePointersPercentage"]),
+            "pts_from_ft_pct": parse_pct(adv["pointsFromFreeThrowsPercentage"]),
+            "efg_pct": parse_pct(adv["effectiveFieldGoalPercentage"]),
+            "ts_pct": parse_pct(adv["trueShootingPercentage"]),
+        })
+
+        # Merge traditional stats
+        trad_slim = trad[["team_code", "pointsScored", "steals", "turnovers",
+                          "offensiveRebounds", "assists"]].rename(columns={
+            "pointsScored": "points_per_game",
+            "steals": "steals_pg",
+            "turnovers": "turnovers_pg",
+            "offensiveRebounds": "off_reb_pg",
+            "assists": "assists_pg",
+        })
+
+        result = result.merge(trad_slim, on="team_code", how="left")
+        logger.info(f"Situational scoring: {len(result)} teams for season {season}")
+        return result.sort_values("points_per_game", ascending=False).reset_index(drop=True)
+
+    except Exception as e:
+        logger.error(f"Failed to fetch situational scoring for season {season}: {e}")
+        return pd.DataFrame()
+
+
+def get_home_away_splits(
+    season: int,
+    competition: str = COMPETITION,
+) -> pd.DataFrame:
+    """
+    Calculate Home vs. Away ORtg, DRtg, Net Rating, and Win Percentage for all teams.
+
+    Instead of fetching 300+ individual game advanced stats (which takes ~1 min),
+    this uses the team's season-long Pace (from get_league_efficiency_landscape)
+    combined with the game scores from the season schedule to approximate
+    per-game possessions and calculate accurate ratings instantly.
+    """
+    try:
+        schedule = get_season_schedule(season, competition)
+        eff = get_league_efficiency_landscape(season, competition)
+
+        if schedule.empty or eff.empty:
+            logger.warning(f"Empty schedule or efficiency data for splits, season {season}")
+            return pd.DataFrame()
+
+        # Only use completed games
+        played = schedule[schedule["played"] == True].copy()
+        
+        # Merge with efficiency data to get season-long Pace per team
+        pace_map = dict(zip(eff["team_code"], eff["pace"]))
+        
+        team_codes = eff["team_code"].unique()
+        split_records = []
+
+        for team in team_codes:
+            team_pace = pace_map.get(team, 70.0) # default fallback pace
+            
+            # Home Games
+            hm = played[played["home_code"] == team]
+            hm_games = len(hm)
+            hm_wins = len(hm[hm["home_score"] > hm["away_score"]])
+            hm_pts_for = hm["home_score"].sum()
+            hm_pts_against = hm["away_score"].sum()
+            hm_win_pct = (hm_wins / hm_games * 100) if hm_games > 0 else 0.0
+            hm_poss = team_pace * hm_games
+            hm_ortg = (hm_pts_for / hm_poss * 100) if hm_poss > 0 else 0.0
+            hm_drtg = (hm_pts_against / hm_poss * 100) if hm_poss > 0 else 0.0
+            hm_net = hm_ortg - hm_drtg
+
+            # Away Games
+            aw = played[played["away_code"] == team]
+            aw_games = len(aw)
+            aw_wins = len(aw[aw["away_score"] > aw["home_score"]])
+            aw_pts_for = aw["away_score"].sum()
+            aw_pts_against = aw["home_score"].sum()
+            aw_win_pct = (aw_wins / aw_games * 100) if aw_games > 0 else 0.0
+            aw_poss = team_pace * aw_games
+            aw_ortg = (aw_pts_for / aw_poss * 100) if aw_poss > 0 else 0.0
+            aw_drtg = (aw_pts_against / aw_poss * 100) if aw_poss > 0 else 0.0
+            aw_net = aw_ortg - aw_drtg
+
+            # Advantage
+            hm_adv = hm_net - aw_net
+
+            # Get team name
+            tm_name = eff[eff["team_code"] == team]["team_name"].iloc[0]
+
+            split_records.append({
+                "team_code": team,
+                "team_name": tm_name,
+                "home_games": hm_games,
+                "home_win_pct": hm_win_pct,
+                "home_ortg": hm_ortg,
+                "home_drtg": hm_drtg,
+                "home_net": hm_net,
+                "away_games": aw_games,
+                "away_win_pct": aw_win_pct,
+                "away_ortg": aw_ortg,
+                "away_drtg": aw_drtg,
+                "away_net": aw_net,
+                "home_adv_diff": hm_adv
+            })
+
+        df = pd.DataFrame(split_records)
+        logger.info(f"Home/Away splits computed for {len(df)} teams")
+        return df.sort_values("home_adv_diff", ascending=False).reset_index(drop=True)
+
+    except Exception as e:
+        logger.error(f"Failed to compute home/away splits for season {season}: {e}")
         return pd.DataFrame()

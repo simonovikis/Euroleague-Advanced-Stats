@@ -688,5 +688,533 @@
     "el": "Χρήση%",
     "de": "Nutzung%",
     "es": "Uso%"
+  },
+  "hdr_referee_stats": {
+    "en": "Referee Analytics",
+    "el": "Αναλύσεις Διαιτητών",
+    "de": "Schiedsrichter-Analyse",
+    "es": "Análisis de Árbitros"
+  },
+  "sub_referee_stats": {
+    "en": "Win/loss record under each official (min games filter applied)",
+    "el": "Ρεκόρ Ν/Η ανά διαιτητή (εφαρμόζεται φίλτρο ελάχιστων αγώνων)",
+    "de": "Gewinn-/Verlustbilanz pro Schiedsrichter (Mindestspielfilter aktiv)",
+    "es": "Registro de victorias/derrotas por árbitro (filtro mínimo de partidos)"
+  },
+  "lbl_min_ref_games": {
+    "en": "Minimum games officiated",
+    "el": "Ελάχιστοι αγώνες διαιτησίας",
+    "de": "Mindestanzahl gepfiffener Spiele",
+    "es": "Mínimo de partidos arbitrados"
+  },
+  "fetching_referee_stats": {
+    "en": "Fetching referee data...",
+    "el": "Φόρτωση δεδομένων διαιτησίας...",
+    "de": "Lade Schiedsrichterdaten...",
+    "es": "Cargando datos de árbitros..."
+  },
+  "no_referee_stats": {
+    "en": "No referee data available for this team/season.",
+    "el": "Δεν βρέθηκαν δεδομένα διαιτησίας για αυτή την ομάδα/σεζόν.",
+    "de": "Keine Schiedsrichterdaten für dieses Team/Saison verfügbar.",
+    "es": "No hay datos de árbitros para este equipo/temporada."
+  },
+  "col_referee": {
+    "en": "Referee",
+    "el": "Διαιτητής",
+    "de": "Schiedsrichter",
+    "es": "Árbitro"
+  },
+  "col_games": {
+    "en": "Games",
+    "el": "Αγώνες",
+    "de": "Spiele",
+    "es": "Partidos"
+  },
+  "col_wins": {
+    "en": "Wins",
+    "el": "Νίκες",
+    "de": "Siege",
+    "es": "Victorias"
+  },
+  "col_losses": {
+    "en": "Losses",
+    "el": "Ήττες",
+    "de": "Niederlagen",
+    "es": "Derrotas"
+  },
+  "col_win_pct": {
+    "en": "Win %",
+    "el": "Νίκες %",
+    "de": "Sieg %",
+    "es": "Vic. %"
+  },
+  "metric_total_refs": {
+    "en": "Referees",
+    "el": "Διαιτητές",
+    "de": "Schiedsrichter",
+    "es": "Árbitros"
+  },
+  "metric_best_ref": {
+    "en": "Best Win %",
+    "el": "Καλύτερο Ν%",
+    "de": "Bestes Sieg %",
+    "es": "Mejor Vic. %"
+  },
+  "metric_worst_ref": {
+    "en": "Worst Win %",
+    "el": "Χειρότερο Ν%",
+    "de": "Schlechtestes Sieg %",
+    "es": "Peor Vic. %"
+  },
+  "mode_referee": {
+    "en": "Referee Analytics",
+    "el": "Αναλύσεις Διαιτητών",
+    "de": "Schiedsrichter-Analyse",
+    "es": "Análisis de Árbitros"
+  },
+  "lbl_select_team": {
+    "en": "Select Team",
+    "el": "Επιλέξτε Ομάδα",
+    "de": "Team auswählen",
+    "es": "Seleccionar Equipo"
+  },
+  "hdr_pace_eff": {
+    "en": "⚡ Pace vs. Net Rating",
+    "el": "⚡ Ρυθμός vs. Καθαρή Αξιολόγηση",
+    "de": "⚡ Tempo vs. Net Rating",
+    "es": "⚡ Ritmo vs. Rating Neto"
+  },
+  "sub_pace_eff": {
+    "en": "Possessions per game vs. Net Rating (ORtg − DRtg). Top-right = fast & efficient.",
+    "el": "Κατοχές ανά αγώνα vs. Net Rating (ORtg − DRtg). Πάνω-δεξιά = γρήγοροι & αποδοτικοί.",
+    "de": "Ballbesitze pro Spiel vs. Net Rating (ORtg − DRtg). Oben rechts = schnell & effizient.",
+    "es": "Posesiones por partido vs. Rating Neto (ORtg − DRtg). Arriba derecha = rápido y eficiente."
+  },
+  "lbl_pace": {
+    "en": "Pace (Possessions/Game)",
+    "el": "Ρυθμός (Κατοχές/Αγώνα)",
+    "de": "Tempo (Ballbesitze/Spiel)",
+    "es": "Ritmo (Posesiones/Partido)"
+  },
+  "lbl_net_rtg": {
+    "en": "Net Rating",
+    "el": "Καθαρή Αξιολόγηση",
+    "de": "Net Rating",
+    "es": "Rating Neto"
+  },
+  "q_fast_eff": {
+    "en": "Fast & Efficient",
+    "el": "Γρήγοροι & Αποδοτικοί",
+    "de": "Schnell & Effizient",
+    "es": "Rápido y Eficiente"
+  },
+  "q_slow_eff": {
+    "en": "Slow & Efficient",
+    "el": "Αργοί & Αποδοτικοί",
+    "de": "Langsam & Effizient",
+    "es": "Lento y Eficiente"
+  },
+  "q_fast_ineff": {
+    "en": "Fast & Inefficient",
+    "el": "Γρήγοροι & Αναποτελεσματικοί",
+    "de": "Schnell & Ineffizient",
+    "es": "Rápido e Ineficiente"
+  },
+  "q_slow_ineff": {
+    "en": "Slow & Inefficient",
+    "el": "Αργοί & Αναποτελεσματικοί",
+    "de": "Langsam & Ineffizient",
+    "es": "Lento e Ineficiente"
+  },
+  "hdr_sit_scoring": {
+    "en": "🎯 Scoring Profile",
+    "el": "🎯 Προφίλ Σκοραρίσματος",
+    "de": "🎯 Scoring-Profil",
+    "es": "🎯 Perfil de Anotación"
+  },
+  "sub_sit_scoring": {
+    "en": "How is each team scoring? Scoring distribution (%) and key possession indicators vs. league average.",
+    "el": "Πώς σκοράρει κάθε ομάδα; Κατανομή πόντων (%) και βασικοί δείκτες κατοχής vs. μέσος όρος λίγκας.",
+    "de": "Wie erzielt jedes Team Punkte? Scoring-Verteilung (%) und Ballbesitz-Kennzahlen vs. Liga-Durchschnitt.",
+    "es": "¿Cómo anota cada equipo? Distribución de anotación (%) e indicadores de posesión vs. promedio de la liga."
+  },
+  "fetching_sit_scoring": {
+    "en": "Fetching scoring profile...",
+    "el": "Φόρτωση προφίλ...",
+    "de": "Lade Scoring-Profil...",
+    "es": "Cargando perfil..."
+  },
+  "no_sit_scoring": {
+    "en": "No situational scoring data available.",
+    "el": "Δεν υπάρχουν δεδομένα σκοραρίσματος.",
+    "de": "Keine Scoring-Daten verfügbar.",
+    "es": "No hay datos de anotación disponibles."
+  },
+  "lbl_2pt_pct": {
+    "en": "Points from 2PT (%)",
+    "el": "Πόντοι από 2Π (%)",
+    "de": "Punkte aus 2PT (%)",
+    "es": "Puntos de 2PT (%)"
+  },
+  "lbl_3pt_pct": {
+    "en": "Points from 3PT (%)",
+    "el": "Πόντοι από 3Π (%)",
+    "de": "Punkte aus 3PT (%)",
+    "es": "Puntos de 3PT (%)"
+  },
+  "lbl_ft_pct": {
+    "en": "Points from FT (%)",
+    "el": "Πόντοι από ΒΟΛ (%)",
+    "de": "Punkte aus FT (%)",
+    "es": "Puntos de TL (%)"
+  },
+  "lbl_league_avg": {
+    "en": "League Avg",
+    "el": "Μ.Ο. Λίγκας",
+    "de": "Liga-Durchschnitt",
+    "es": "Prom. Liga"
+  },
+  "lbl_pct_of_pts": {
+    "en": "% of Total Points",
+    "el": "% Συνολικών Πόντων",
+    "de": "% der Gesamtpunkte",
+    "es": "% del Total de Puntos"
+  },
+  "lbl_steals_pg": {
+    "en": "Steals/Game",
+    "el": "Κλεψίματα/Αγώνα",
+    "de": "Steals/Spiel",
+    "es": "Robos/Partido"
+  },
+  "lbl_turnovers_pg": {
+    "en": "Turnovers/Game",
+    "el": "Λάθη/Αγώνα",
+    "de": "Turnovers/Spiel",
+    "es": "Pérdidas/Partido"
+  },
+  "lbl_off_reb_pg": {
+    "en": "Off. Reb./Game",
+    "el": "Επιθ. Ριμπ./Αγώνα",
+    "de": "Off. Reb./Spiel",
+    "es": "Reb. Of./Partido"
+  },
+  "lbl_assists_pg": {
+    "en": "Assists/Game",
+    "el": "Ασίστ/Αγώνα",
+    "de": "Assists/Spiel",
+    "es": "Asist./Partido"
+  },
+  "hdr_pos_scoring": {
+    "en": "🏀 Positional Scoring Distribution",
+    "el": "🏀 Κατανομή Πόντων ανά Θέση",
+    "de": "🏀 Punkte nach Position",
+    "es": "🏀 Distribución de Puntos por Posición"
+  },
+  "sub_pos_scoring": {
+    "en": "Percentage of team points by position (Guard / Forward / Center). Positions inferred from stats.",
+    "el": "Ποσοστό πόντων ομάδας ανά θέση (Guard / Forward / Center). Θέσεις βάσει στατιστικών.",
+    "de": "Prozentuale Team-Punkte nach Position (Guard / Forward / Center). Positionen aus Statistiken.",
+    "es": "Porcentaje de puntos por posición (Base / Alero / Pívot). Posiciones estimadas."
+  },
+  "hdr_pos_scoring_season": {
+    "en": "🍩 Season Scoring by Position",
+    "el": "🍩 Πόντοι Σεζόν ανά Θέση",
+    "de": "🍩 Saisonpunkte nach Position",
+    "es": "🍩 Anotación por Posición en Temporada"
+  },
+  "sub_pos_scoring_season": {
+    "en": "Season-long point distribution by inferred position (Guard / Forward / Center).",
+    "el": "Κατανομή πόντων σεζόν ανά εκτιμώμενη θέση (Guard / Forward / Center).",
+    "de": "Saisonweite Punkteverteilung nach geschätzter Position.",
+    "es": "Distribución de puntos por posición estimada a lo largo de la temporada."
+  },
+  "no_pos_scoring": {
+    "en": "No positional data available.",
+    "el": "Δεν υπάρχουν δεδομένα θέσεων.",
+    "de": "Keine Positionsdaten verfügbar.",
+    "es": "No hay datos de posición disponibles."
+  },
+  "hdr_home_away": {
+    "en": "🏠✈️ Home vs. Away Performance",
+    "el": "🏠✈️ Απόδοση Εντός vs Εκτός Έδρας",
+    "de": "🏠✈️ Heim- vs Auswärtsleistung",
+    "es": "🏠✈️ Rendimiento Local vs Visitante"
+  },
+  "sub_home_away": {
+    "en": "Compare team performance at home versus on the road. Highlighted team is the currently selected one.",
+    "el": "Συγκρίνετε την απόδοση ομάδων εντός και εκτός έδρας. Η επιλεγμένη ομάδα είναιτονισμένη.",
+    "de": "Vergleichen Sie die Leistung der Teams zu Hause und auswärts. Das ausgewählte Team ist hervorgehoben.",
+    "es": "Compare el rendimiento del equipo en casa frente a fuera. El equipo resaltado es el seleccionado."
+  },
+  "fetching_home_away": {
+    "en": "Calculating Home/Away splits...",
+    "el": "Υπολογισμός διαφοράς Εντός/Εκτός...",
+    "de": "Berechne Heim-/Auswärtssplits...",
+    "es": "Calculando divisiones Local/Visitante..."
+  },
+  "no_home_away": {
+    "en": "No Home/Away data available yet.",
+    "el": "Δεν υπάρχουν δεδομένα Εντός/Εκτός.",
+    "de": "Noch keine Heim-/Auswärtsdaten verfügbar.",
+    "es": "Aún no hay datos de Local/Visitante."
+  },
+  "tab_net_rtg": {
+    "en": "Net Rating",
+    "el": "Net Rating (Διαφορά)",
+    "de": "Net Rating",
+    "es": "Net Rating"
+  },
+  "tab_ortg": {
+    "en": "Offensive Rating",
+    "el": "Επιθετική Αξιολόγηση",
+    "de": "Offensiv-Rating (ORtg)",
+    "es": "Rating Ofensivo (ORtg)"
+  },
+  "tab_drtg": {
+    "en": "Defensive Rating",
+    "el": "Αμυντική Αξιολόγηση",
+    "de": "Defensiv-Rating (DRtg)",
+    "es": "Rating Defensivo (DRtg)"
+  },
+  "lbl_home": {
+    "en": "Home",
+    "el": "Εντός",
+    "de": "Heim",
+    "es": "Local"
+  },
+  "lbl_away": {
+    "en": "Away",
+    "el": "Εκτός",
+    "de": "Auswärts",
+    "es": "Visitante"
+  },
+  "lbl_home_net": {
+    "en": "Home Net Rtg",
+    "el": "Εντός Net Rtg",
+    "de": "Heim Net Rtg",
+    "es": "Local Net Rtg"
+  },
+  "lbl_away_net": {
+    "en": "Away Net Rtg",
+    "el": "Εκτός Net Rtg",
+    "de": "Auswärts Net Rtg",
+    "es": "Visitante Net Rtg"
+  },
+  "nav_playmaking": {
+    "en": "🎯 Playmaking & xP",
+    "el": "🎯 Playmaking & xP",
+    "de": "🎯 Spielgestaltung & xP",
+    "es": "🎯 Creatividad & xP"
+  },
+  "hdr_playmaking": {
+    "en": "Playmaking & Assist Network",
+    "el": "Playmaking & Δίκτυο Ασίστ",
+    "de": "Spielgestaltung & Assist-Netzwerk",
+    "es": "Creatividad & Red de Asistencias"
+  },
+  "sub_playmaking": {
+    "en": "Adjusted Assist Quality (AAQ) and Assisted xPoints (AxP) — measuring playmaking impact through Expected Points on assisted shots.",
+    "el": "Ποιότητα Ασίστ (AAQ) & Πόντοι Ασίστ (AxP) — μέτρηση playmaking μέσω αναμενόμενων πόντων.",
+    "de": "Assist-Qualität (AAQ) & Assistierte Erwartungspunkte (AxP) — Spielgestaltung über xP auf assistierten Würfen.",
+    "es": "Calidad de Asistencia (AAQ) y xPuntos Asistidos (AxP) — impacto creativo mediante puntos esperados."
+  },
+  "tab_aaq": {
+    "en": "🏅 Top Creators (AAQ)",
+    "el": "🏅 Κορυφαίοι Δημιουργοί (AAQ)",
+    "de": "🏅 Top-Kreative (AAQ)",
+    "es": "🏅 Mejores Creadores (AAQ)"
+  },
+  "tab_axp": {
+    "en": "🎯 Top Finishers (AxP)",
+    "el": "🎯 Κορυφαίοι Τελειωτές (AxP)",
+    "de": "🎯 Top-Finisher (AxP)",
+    "es": "🎯 Mejores Finalizadores (AxP)"
+  },
+  "tab_duos": {
+    "en": "🤝 Lethal Duos",
+    "el": "🤝 Φονικά Ντουέτα",
+    "de": "🤝 Tödliche Duos",
+    "es": "🤝 Dúos Letales"
+  },
+  "tab_duo_network": {
+    "en": "🔥 xP Heatmap",
+    "el": "🔥 Heatmap xP",
+    "de": "🔥 xP-Heatmap",
+    "es": "🔥 Mapa de Calor xP"
+  },
+  "hdr_aaq": {
+    "en": "Top Creators — Adjusted Assist Quality",
+    "el": "Κορυφαίοι Δημιουργοί — Ποιότητα Ασίστ",
+    "de": "Top-Kreative — Assist-Qualität",
+    "es": "Mejores Creadores — Calidad de Asistencia"
+  },
+  "desc_aaq": {
+    "en": "Average Expected Points (xP) of the shots created by a player's assists. Higher AAQ = finding teammates in better positions.",
+    "el": "Μέσοι Αναμενόμενοι Πόντοι (xP) σουτ που δημιουργούνται από ασίστ. Υψηλότερο AAQ = εύρεση συμπαικτών σε καλύτερες θέσεις.",
+    "de": "Durchschnittliche erwartete Punkte (xP) der durch Assists erzeugten Würfe.",
+    "es": "Promedio de Puntos Esperados (xP) de los tiros creados por las asistencias del jugador."
+  },
+  "hdr_axp": {
+    "en": "Top Finishers — Assisted xPoints",
+    "el": "Κορυφαίοι Τελειωτές — Πόντοι Ασίστ (AxP)",
+    "de": "Top-Finisher — Assistierte xPunkte",
+    "es": "Mejores Finalizadores — xPuntos Asistidos"
+  },
+  "desc_axp": {
+    "en": "Total and average Expected Points on assisted shots a player makes. High AxP = elite shot converter off assists.",
+    "el": "Σύνολο & μέσος όρος αναμενόμενων πόντων σε ασιστάρισμένα σουτ. Υψηλό AxP = εξαιρετικός τελειωτής.",
+    "de": "Gesamte & durchschnittliche erwartete Punkte auf assistierten Würfen.",
+    "es": "Puntos esperados totales y promedio en tiros asistidos. Alto AxP = gran finalizador."
+  },
+  "hdr_duos_xp": {
+    "en": "Lethal Duos — Total xP by Combination",
+    "el": "Φονικά Ντουέτα — Συνολικό xP ανά Συνδυασμό",
+    "de": "Tödliche Duos — Gesamte xP pro Kombination",
+    "es": "Dúos Letales — xP Total por Combinación"
+  },
+  "desc_duos_xp": {
+    "en": "Total Expected Points generated by each passer-shooter duo. The thicker the connection, the more xP they produce together.",
+    "el": "Συνολικοί αναμενόμενοι πόντοι ανά ζεύγος. Όσο πιο έντονη η σύνδεση, τόσο περισσότερα xP παράγουν μαζί.",
+    "de": "Gesamte erwartete Punkte pro Passer-Werfer-Duo.",
+    "es": "Puntos esperados totales generados por cada dúo pasador-tirador."
+  },
+  "hdr_duo_heatmap": {
+    "en": "Assist Network — xP Heatmap",
+    "el": "Δίκτυο Ασίστ — Heatmap xP",
+    "de": "Assist-Netzwerk — xP-Heatmap",
+    "es": "Red de Asistencias — Mapa de Calor xP"
+  },
+  "desc_duo_heatmap": {
+    "en": "Heatmap showing total Expected Points created between each passer → scorer connection. Brighter = more productive duo.",
+    "el": "Heatmap με τους συνολικούς αναμενόμενους πόντους ανά σύνδεση passer → scorer.",
+    "de": "Heatmap der gesamten erwarteten Punkte pro Passer → Werfer-Verbindung.",
+    "es": "Mapa de calor de puntos esperados por cada conexión pasador → anotador."
+  },
+  "col_passer": {
+    "en": "Passer",
+    "el": "Πασέρ",
+    "de": "Passgeber",
+    "es": "Pasador"
+  },
+  "col_shooter": {
+    "en": "Scorer",
+    "el": "Σκόρερ",
+    "de": "Werfer",
+    "es": "Anotador"
+  },
+  "col_total_ast": {
+    "en": "Total Assists",
+    "el": "Σύνολο Ασίστ",
+    "de": "Gesamte Assists",
+    "es": "Total Asistencias"
+  },
+  "col_ast_shots": {
+    "en": "Assisted Shots",
+    "el": "Ασιστάρισμένα Σουτ",
+    "de": "Assistierte Würfe",
+    "es": "Tiros Asistidos"
+  },
+  "col_duo_xp": {
+    "en": "Duo xP",
+    "el": "xP Ντουέτου",
+    "de": "Duo-xP",
+    "es": "xP del Dúo"
+  },
+  "no_playmaking": {
+    "en": "No playmaking data available. Assist-shot linking requires PBP and shot data.",
+    "el": "Μη διαθέσιμα δεδομένα playmaking. Απαιτούνται PBP και δεδομένα σουτ.",
+    "de": "Keine Spielgestaltungsdaten verfügbar.",
+    "es": "No hay datos de creatividad disponibles."
+  },
+  "hdr_clutch_close": {
+    "en": "🎯 Clutch & Close Games",
+    "el": "🎯 Clutch & Κοντινοί Αγώνες",
+    "de": "🎯 Clutch & Knappe Spiele",
+    "es": "🎯 Clutch & Partidos Cerrados"
+  },
+  "sub_clutch_close": {
+    "en": "Analyzing close-game performance vs. overall dominance. Close game = final margin within the threshold. Bubble size = close games played.",
+    "el": "Ανάλυση απόδοσης σε κοντινούς αγώνες vs. γενική κυριαρχία. Κοντινός αγώνας = τελική διαφορά εντός ορίου.",
+    "de": "Analyse der Leistung in knappen Spielen vs. Gesamtdominanz. Knappes Spiel = Endstand innerhalb der Schwelle.",
+    "es": "Análisis del rendimiento en partidos cerrados vs. dominio general. Partido cerrado = margen final dentro del umbral."
+  },
+  "lbl_close_threshold": {
+    "en": "Close game threshold (max margin)",
+    "el": "Όριο κοντινού αγώνα (μέγ. διαφορά)",
+    "de": "Schwelle für knappes Spiel (max. Differenz)",
+    "es": "Umbral de partido cerrado (margen máx.)"
+  },
+  "fetching_clutch_close": {
+    "en": "Computing close-game stats...",
+    "el": "Υπολογισμός στατιστικών...",
+    "de": "Berechne Statistiken...",
+    "es": "Calculando estadísticas..."
+  },
+  "no_clutch_close": {
+    "en": "No close-game data available for this season.",
+    "el": "Δεν υπάρχουν δεδομένα κοντινών αγώνων.",
+    "de": "Keine Daten für knappe Spiele verfügbar.",
+    "es": "No hay datos de partidos cerrados disponibles."
+  },
+  "lbl_close_win_pct": {
+    "en": "Close Game Win %",
+    "el": "Νίκες Κοντινών %",
+    "de": "Knappe-Spiel-Sieg %",
+    "es": "Vic. Partidos Cerrados %"
+  },
+  "lbl_league_avg_close": {
+    "en": "League Avg Close Win %",
+    "el": "Μ.Ο. Λίγκας Κοντινών %",
+    "de": "Liga-Durchschnitt %",
+    "es": "Prom. Liga %"
+  },
+  "lbl_close_record": {
+    "en": "Close Game Record",
+    "el": "Ρεκόρ Κοντινών Αγώνων",
+    "de": "Knappes-Spiel-Bilanz",
+    "es": "Récord Partidos Cerrados"
+  },
+  "hdr_clutch_dominance": {
+    "en": "Clutch DNA vs. True Dominance",
+    "el": "Clutch DNA vs. Αληθινή Κυριαρχία",
+    "de": "Clutch-DNA vs. Wahre Dominanz",
+    "es": "ADN Clutch vs. Dominio Real"
+  },
+  "desc_clutch_dominance": {
+    "en": "X = Avg Point Differential (true dominance), Y = Close Game Win %. Teams in the top-left rely on clutch DNA; top-right teams are dominant AND clutch.",
+    "el": "X = Μέση Διαφορά Πόντων, Y = Νίκες Κοντινών %. Ομάδες πάνω αριστερά βασίζονται σε clutch DNA· πάνω δεξιά = κυρίαρχες ΚΑΙ clutch.",
+    "de": "X = Durchschn. Punktdifferenz, Y = Knappe-Spiel-Sieg %. Oben links = Clutch-abhängig; oben rechts = dominant UND clutch.",
+    "es": "X = Diferencia de Puntos Prom., Y = Vic. Cerrados %. Arriba izq. = dependiente del clutch; arriba der. = dominante Y clutch."
+  },
+  "lbl_avg_pt_diff": {
+    "en": "Avg Point Differential",
+    "el": "Μέση Διαφορά Πόντων",
+    "de": "Durchschn. Punktedifferenz",
+    "es": "Diferencia de Puntos Prom."
+  },
+  "hdr_clutch_overall": {
+    "en": "Clutch vs. Overall Success",
+    "el": "Clutch vs. Συνολική Επιτυχία",
+    "de": "Clutch vs. Gesamterfolg",
+    "es": "Clutch vs. Éxito General"
+  },
+  "desc_clutch_overall": {
+    "en": "X = Overall Win %, Y = Close Game Win %. Teams above the diagonal line over-perform in clutch situations relative to their overall record.",
+    "el": "X = Συνολικές Νίκες %, Y = Νίκες Κοντινών %. Ομάδες πάνω από τη διαγώνιο υπεραποδίδουν σε clutch.",
+    "de": "X = Gesamtsieg %, Y = Knappe-Spiel-Sieg %. Teams über der Diagonale zeigen in knappen Spielen eine Überperformance.",
+    "es": "X = Vic. General %, Y = Vic. Cerrados %. Equipos sobre la diagonal rinden mejor en clutch que su récord global."
+  },
+  "lbl_overall_win_pct": {
+    "en": "Overall Win %",
+    "el": "Συνολικές Νίκες %",
+    "de": "Gesamtsieg %",
+    "es": "Vic. General %"
+  },
+  "cap_home_adv": {
+    "en": "Teams are sorted left-to-right from largest Home Advantage to smallest.",
+    "el": "Οι ομάδες ταξινομούνται από το μεγαλύτερο πλεονέκτημα έδρας προς το μικρότερο.",
+    "de": "Teams sind von links nach rechts vom größten Heimvorteil zum kleinsten sortiert.",
+    "es": "Los equipos están ordenados de mayor a menor ventaja de campo."
   }
 }

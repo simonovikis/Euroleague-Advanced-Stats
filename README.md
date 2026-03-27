@@ -177,9 +177,18 @@ players ───────────┤
                   └──────────────┘     └──────────────┘
 ```
 
-The architecture supports both:
-- **Historical analysis**: batch-load seasons via the ETL pipeline
-- **Live mode**: real-time API fetching directly in the dashboard (future: WebSocket integration)
+The architecture supports two data access paradigms:
+
+1. **Live Mode (Current Default)**
+   - The Streamlit dashboard fetches real-time data directly from the Euroleague API.
+   - Incurs network latency (~5-10s per team depending on the query).
+   - No database or Docker setup required.
+
+2. **DB Mode (Under Development)**
+   - Reads pre-computed, persisted data from the PostgreSQL container.
+   - Eliminates API rate limits and network latency (sub-second load times).
+   - **How to populate:** Run `docker-compose up -d` to spin up postgres, then execute `data_pipeline/load_to_db.py` to run the ETL pipeline.
+   - *Note: The database schema is fully updated to support all features, but the dashboard's query layer (`streamlit_app/queries.py`) is currently being migrated to support a global `.env` toggle for DB Mode.*
 
 ---
 

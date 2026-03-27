@@ -33,9 +33,10 @@ _project_root = Path(__file__).resolve().parent.parent
 load_dotenv(_project_root / ".env")
 
 
-# ========================================================================
-# LIVE MODE — Direct API extraction + transformation
-# ========================================================================
+def _use_db() -> bool:
+    """Check if the dashboard should read from the PostgreSQL DB instead of the live API."""
+    return os.getenv("USE_DB", "false").lower() == "true"
+
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_season_schedule(
@@ -46,7 +47,30 @@ def fetch_season_schedule(
     Fetch the full schedule for a season and cache it for 1 hour.
     Used to populate the cascading Season/Round/Matchup dropdowns.
     """
-    from data_pipeline.extractors import get_season_schedule, apply_team_aliases
+    from data_pipeline.extractors import apply_team_aliases
+    
+    if _use_db():
+        engine = _get_db_engine()
+        if engine:
+            import pandas as pd
+            query = f"""
+                SELECT 
+                    season, gamecode, 
+                    home_team AS home_code, away_team AS away_code, 
+                    home_score, away_score, 
+                    game_date, round, played, 
+                    referee1, referee2, referee3 
+                FROM games 
+                WHERE season = {season}
+                ORDER BY round ASC, game_date ASC
+            """
+            with engine.connect() as conn:
+                schedule = pd.read_sql(query, conn)
+            if not schedule.empty:
+                return apply_team_aliases(schedule, ["home_code", "away_code"])
+
+    # Fallback to Live API
+    from data_pipeline.extractors import get_season_schedule
     schedule = get_season_schedule(season, competition)
     if not schedule.empty:
         schedule = apply_team_aliases(schedule, ["home_code", "away_code"])
@@ -88,6 +112,8 @@ def fetch_game_data_live(
         foul_trouble_impact,
         build_assist_network,
         compute_shot_quality,
+        link_assists_to_shots,
+        compute_playmaking_metrics,
     )
 
     # 1. Extract raw data
@@ -119,6 +145,10 @@ def fetch_game_data_live(
     # 7. Shot quality
     shot_quality = compute_shot_quality(shots_df)
 
+    # 8. Playmaking metrics (AAQ, AxP, Duos)
+    assist_shot_links = link_assists_to_shots(pbp_df, shots_df)
+    playmaking = compute_playmaking_metrics(assist_shot_links, min_assists=1)
+
     return {
         "boxscore": boxscore_df,
         "pbp": pbp_df,
@@ -134,12 +164,56 @@ def fetch_game_data_live(
         "duo_synergy": duo_synergy,
         "trio_synergy": trio_synergy,
         "shot_quality": shot_quality,
+        "assist_shot_links": assist_shot_links,
+        "playmaking_aaq": playmaking["aaq"],
+        "playmaking_axp": playmaking["axp"],
+        "playmaking_duos": playmaking["duos"],
     }
 
 
 @st.cache_data(ttl=3600)
 def fetch_league_efficiency_landscape(season: int, competition: str = COMPETITION) -> pd.DataFrame:
     """Fetch and calculate all 18 teams' ORtg and DRtg for the given season."""
+    if _use_db():
+        engine = _get_db_engine()
+        if engine:
+            import pandas as pd
+            from sqlalchemy import text
+            query = text("""
+                WITH team_poss AS (
+                    SELECT team_code, SUM(possessions) AS poss, MAX(team_name) AS team_name
+                    FROM player_advanced_stats
+                    WHERE season = :season
+                    GROUP BY team_code
+                ),
+                team_pts AS (
+                    SELECT
+                        t.team_code,
+                        SUM(CASE WHEN g.home_team = t.team_code THEN g.home_score ELSE g.away_score END) AS pts_scored,
+                        SUM(CASE WHEN g.home_team = t.team_code THEN g.away_score ELSE g.home_score END) AS pts_allowed,
+                        COUNT(g.gamecode) AS games
+                    FROM teams t
+                    JOIN games g ON t.team_code = g.home_team OR t.team_code = g.away_team
+                    WHERE g.season = :season AND g.played = TRUE
+                    GROUP BY t.team_code
+                )
+                SELECT
+                    p.team_code, p.team_name,
+                    t.games,
+                    p.poss AS possessions,
+                    (p.poss / t.games) AS pace,
+                    (t.pts_scored / p.poss * 100) AS ortg,
+                    (t.pts_allowed / p.poss * 100) AS drtg,
+                    ((t.pts_scored / p.poss * 100) - (t.pts_allowed / p.poss * 100)) AS net_rtg
+                FROM team_poss p
+                JOIN team_pts t ON p.team_code = t.team_code
+                ORDER BY net_rtg DESC
+            """)
+            with engine.connect() as conn:
+                 df = pd.read_sql(query, conn, params={"season": season})
+            if not df.empty:
+                 return df
+
     from data_pipeline.extractors import get_league_efficiency_landscape
     return get_league_efficiency_landscape(season, competition)
 
@@ -267,3 +341,163 @@ def query_team_stats_db() -> pd.DataFrame:
 
     with engine.connect() as conn:
         return pd.read_sql(SQL_TEAM_STATS, conn)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_season_game_metadata(
+    season: int,
+    competition: str = COMPETITION,
+) -> pd.DataFrame:
+    """Fetch per-game metadata (including referees) for a full season."""
+    if _use_db():
+        return fetch_season_schedule(season, competition)
+    from data_pipeline.extractors import get_season_game_metadata
+    return get_season_game_metadata(season, competition)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_referee_stats(
+    season: int,
+    team_code: str,
+    min_games: int = 3,
+    competition: str = COMPETITION,
+) -> pd.DataFrame:
+    """Fetch and compute referee win/loss stats for a team in a season."""
+    if _use_db():
+        engine = _get_db_engine()
+        if engine:
+            import pandas as pd
+            from sqlalchemy import text
+            query = text("""
+                WITH ref_games AS (
+                    SELECT gamecode, home_team, away_team, home_score, away_score, referee1 AS referee FROM games WHERE season = :season AND played = TRUE AND (home_team = :team OR away_team = :team) AND referee1 IS NOT NULL
+                    UNION ALL
+                    SELECT gamecode, home_team, away_team, home_score, away_score, referee2 FROM games WHERE season = :season AND played = TRUE AND (home_team = :team OR away_team = :team) AND referee2 IS NOT NULL
+                    UNION ALL
+                    SELECT gamecode, home_team, away_team, home_score, away_score, referee3 FROM games WHERE season = :season AND played = TRUE AND (home_team = :team OR away_team = :team) AND referee3 IS NOT NULL
+                )
+                SELECT
+                    referee,
+                    COUNT(gamecode) AS games,
+                    SUM(CASE WHEN (home_team = :team AND home_score > away_score) OR (away_team = :team AND away_score > home_score) THEN 1 ELSE 0 END) AS wins
+                FROM ref_games
+                GROUP BY referee
+                HAVING COUNT(gamecode) >= :min_games
+            """)
+            with engine.connect() as conn:
+                df = pd.read_sql(query, conn, params={"season": season, "team": team_code, "min_games": min_games})
+            if not df.empty:
+                df["losses"] = df["games"] - df["wins"]
+                df["win_pct"] = (df["wins"] / df["games"] * 100).round(1)
+                return df.sort_values("win_pct", ascending=False).reset_index(drop=True)
+
+    metadata_df = fetch_season_game_metadata(season, competition)
+    if metadata_df.empty:
+        return pd.DataFrame()
+    from data_pipeline.transformers import compute_referee_stats
+    return compute_referee_stats(metadata_df, team_code, min_games)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_close_game_stats(
+    season: int,
+    close_threshold: int = 5,
+    competition: str = COMPETITION,
+) -> pd.DataFrame:
+    """Compute close-game / clutch DNA stats for all teams in a season."""
+    schedule = fetch_season_schedule(season, competition)
+    if schedule.empty:
+        return pd.DataFrame()
+    from data_pipeline.transformers import compute_close_game_stats
+    return compute_close_game_stats(schedule, close_threshold)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_situational_scoring(
+    season: int,
+    competition: str = COMPETITION,
+) -> pd.DataFrame:
+    """Fetch team-level situational scoring profile for a season."""
+    if _use_db():
+        engine = _get_db_engine()
+        if engine:
+            import pandas as pd
+            from sqlalchemy import text
+            query = text("""
+                SELECT
+                    team_code,
+                    SUM(fgm2 * 2) AS pts_from_2pt,
+                    SUM(fgm3 * 3) AS pts_from_3pt,
+                    SUM(ftm) AS pts_from_ft,
+                    SUM(points) AS total_pts,
+                    (SUM(fgm2 * 2)::FLOAT / SUM(points) * 100) AS pts_from_2pt_pct,
+                    (SUM(fgm3 * 3)::FLOAT / SUM(points) * 100) AS pts_from_3pt_pct,
+                    (SUM(ftm)::FLOAT / SUM(points) * 100) AS pts_from_ft_pct,
+                    COUNT(DISTINCT gamecode) AS games,
+                    SUM(steals)::FLOAT / COUNT(DISTINCT gamecode) AS steals_pg,
+                    SUM(turnovers)::FLOAT / COUNT(DISTINCT gamecode) AS turnovers_pg,
+                    SUM(off_rebounds)::FLOAT / COUNT(DISTINCT gamecode) AS off_reb_pg,
+                    SUM(assists)::FLOAT / COUNT(DISTINCT gamecode) AS assists_pg
+                FROM player_advanced_stats
+                WHERE season = :season AND points > 0
+                GROUP BY team_code
+            """)
+            with engine.connect() as conn:
+                df = pd.read_sql(query, conn, params={"season": season})
+            if not df.empty:
+                return df
+
+    import importlib
+    import data_pipeline.extractors as _ext_mod
+    importlib.reload(_ext_mod)
+    return _ext_mod.get_situational_scoring(season, competition)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_home_away_splits(
+    season: int,
+    competition: str = COMPETITION,
+) -> pd.DataFrame:
+    """Fetch Home vs Away advanced splits (ORtg, DRtg, Net Rating) for all teams."""
+    if _use_db():
+        engine = _get_db_engine()
+        if engine:
+            import pandas as pd
+            from sqlalchemy import text
+            query = text("""
+                WITH team_poss AS (
+                    SELECT team_code, is_home, SUM(possessions) AS poss FROM player_advanced_stats WHERE season = :season GROUP BY team_code, is_home
+                ),
+                team_games AS (
+                    SELECT home_team AS team_code, TRUE AS is_home, COUNT(*) AS games, SUM(home_score) AS pts_for, SUM(away_score) AS pts_against, SUM(CASE WHEN home_score > away_score THEN 1 ELSE 0 END) AS wins FROM games WHERE season = :season AND played = TRUE GROUP BY home_team
+                    UNION ALL
+                    SELECT away_team AS team_code, FALSE AS is_home, COUNT(*) AS games, SUM(away_score) AS pts_for, SUM(home_score) AS pts_against, SUM(CASE WHEN away_score > home_score THEN 1 ELSE 0 END) AS wins FROM games WHERE season = :season AND played = TRUE GROUP BY away_team
+                )
+                SELECT
+                    h.team_code,
+                    h.games AS home_games,
+                    (h.wins::FLOAT / h.games * 100) AS home_win_pct,
+                    (h.pts_for / hp.poss * 100) AS home_ortg,
+                    (h.pts_against / hp.poss * 100) AS home_drtg,
+                    (h.pts_for / hp.poss * 100) - (h.pts_against / hp.poss * 100) AS home_net,
+                    a.games AS away_games,
+                    (a.wins::FLOAT / a.games * 100) AS away_win_pct,
+                    (a.pts_for / ap.poss * 100) AS away_ortg,
+                    (a.pts_against / ap.poss * 100) AS away_drtg,
+                    (a.pts_for / ap.poss * 100) - (a.pts_against / ap.poss * 100) AS away_net,
+                    ((h.pts_for / hp.poss * 100) - (h.pts_against / hp.poss * 100)) - ((a.pts_for / ap.poss * 100) - (a.pts_against / ap.poss * 100)) AS home_adv_diff
+                FROM team_games h
+                JOIN team_poss hp ON h.team_code = hp.team_code AND h.is_home = TRUE AND hp.is_home = TRUE
+                JOIN team_games a ON h.team_code = a.team_code AND a.is_home = FALSE
+                JOIN team_poss ap ON a.team_code = ap.team_code AND ap.is_home = FALSE
+                ORDER BY home_adv_diff DESC
+            """)
+            with engine.connect() as conn:
+                df = pd.read_sql(query, conn, params={"season": season})
+            if not df.empty:
+                return df
+
+    import importlib
+    import data_pipeline.extractors as _ext_mod
+    importlib.reload(_ext_mod)
+    return _ext_mod.get_home_away_splits(season, competition)

@@ -19,28 +19,48 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
 logger = logging.getLogger(__name__)
-
 # Load .env from project root
 _project_root = Path(__file__).resolve().parent.parent
-load_dotenv(_project_root / ".env")
 
+import sys
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
+
+load_dotenv(_project_root / ".env")
 
 def get_engine() -> Engine:
     """
     Build a SQLAlchemy engine from environment variables.
 
-    Uses psycopg2 as the database driver.
+    Uses psycopg2 as the database driver natively.
     """
-    user = os.getenv("POSTGRES_USER", "euroleague")
-    password = os.getenv("POSTGRES_PASSWORD", "euroleague_pass_2024")
-    host = os.getenv("POSTGRES_HOST", "localhost")
-    port = os.getenv("POSTGRES_PORT", "5432")
-    db = os.getenv("POSTGRES_DB", "euroleague_db")
+    # Prefer a full connection string if provided
+    db_url = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")
+    
+    if db_url:
+        # Ensure it uses psycopg2
+        if db_url.startswith("postgres://"):
+            db_url = db_url.replace("postgres://", "postgresql+psycopg2://", 1)
+        elif db_url.startswith("postgresql://"):
+            db_url = db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+        url = db_url
+    else:
+        user = os.getenv("POSTGRES_USER", "euroleague")
+        password = os.getenv("POSTGRES_PASSWORD", "euroleague_pass_2024")
+        host = os.getenv("POSTGRES_HOST", "localhost")
+        port = os.getenv("POSTGRES_PORT", "5432")
+        db = os.getenv("POSTGRES_DB", "euroleague_db")
+        url = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{db}"
 
-    url = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{db}"
-    engine = create_engine(url, echo=False)
-    logger.info(f"Database engine created for {host}:{port}/{db}")
-    return engine
+    try:
+        engine = create_engine(url, echo=False)
+        # Log safely without exposing password
+        safe_url = url.split("@")[-1] if "@" in url else "unknown_host"
+        logger.info(f"Database engine created for {safe_url}")
+        return engine
+    except Exception as e:
+        logger.error(f"Failed to create database engine: {e}")
+        raise
 
 
 def load_teams(engine: Engine, boxscore_df: pd.DataFrame) -> None:
@@ -141,14 +161,27 @@ def load_game(engine: Engine, game_info_df: pd.DataFrame) -> None:
     records = game_info_df.to_dict("records")
 
     sql = text("""
-        INSERT INTO games (season, gamecode, home_team, away_team, home_score, away_score)
-        VALUES (:season, :gamecode, :home_team, :away_team, :home_score, :away_score)
+        INSERT INTO games (season, gamecode, home_team, away_team, home_score, away_score, game_date, round, played, referee1, referee2, referee3)
+        VALUES (:season, :gamecode, :home_team, :away_team, :home_score, :away_score, :game_date, :round, :played, :referee1, :referee2, :referee3)
         ON CONFLICT (season, gamecode) DO UPDATE
             SET home_team  = EXCLUDED.home_team,
                 away_team  = EXCLUDED.away_team,
                 home_score = EXCLUDED.home_score,
-                away_score = EXCLUDED.away_score
+                away_score = EXCLUDED.away_score,
+                game_date  = EXCLUDED.game_date,
+                round      = EXCLUDED.round,
+                played     = EXCLUDED.played,
+                referee1   = EXCLUDED.referee1,
+                referee2   = EXCLUDED.referee2,
+                referee3   = EXCLUDED.referee3
     """)
+
+    # We need to make sure the records dict has these keys, even if missing from the dataframe
+    for req_key in ['game_date', 'round', 'played', 'referee1', 'referee2', 'referee3']:
+        for rec in records:
+            if req_key not in rec or pd.isna(rec[req_key]):
+                rec[req_key] = None if req_key != 'played' else False
+
 
     with engine.begin() as conn:
         conn.execute(sql, records)
@@ -375,3 +408,55 @@ def run_pipeline(
     load_player_advanced_stats(engine, advanced_df)
 
     logger.info(f"=== Pipeline complete: season={season}, gamecode={gamecode} ===")
+
+
+def load_season(
+    season: int,
+    competition: str = "E",
+) -> None:
+    """
+    End-to-end pipeline for an entire season:
+      1. Fetch the schedule.
+      2. Loop over every played game and run `run_pipeline`.
+
+    Usage:
+        from data_pipeline.load_to_db import load_season
+        load_season(season=2024)
+    """
+    from data_pipeline.extractors import get_season_schedule
+
+    logger.info(f"=== Starting full-season load for {competition}{season} ===")
+    schedule = get_season_schedule(season, competition)
+    if schedule.empty:
+        logger.error("Failed to load schedule. Aborting.")
+        return
+
+    played_games = schedule[schedule["played"] == True]
+    total = len(played_games)
+    logger.info(f"Found {total} played games to load.")
+
+    for i, row in played_games.iterrows():
+        gc = row["gamecode"]
+        logger.info(f"Loading game {gc} ({i+1}/{total})...")
+        try:
+            run_pipeline(season, gc, competition)
+        except Exception as e:
+            logger.error(f"Error loading {competition}{season} game {gc}: {e}")
+
+    logger.info(f"=== Completed full-season load for {competition}{season} ===")
+
+
+if __name__ == "__main__":
+    import argparse
+    parser = argparse.ArgumentParser(description="Euroleague ETL Pipeline")
+    parser.add_argument("--season", type=int, help="Season year (e.g. 2024)", required=True)
+    parser.add_argument("--game", type=int, help="Specific gamecode to load")
+    args = parser.parse_args()
+
+    # Configure logging for CLI usage
+    logging.basicConfig(level=logging.INFO, format='%(name)s - %(levelname)s - %(message)s')
+
+    if args.game:
+        run_pipeline(args.season, args.game)
+    else:
+        load_season(args.season)

@@ -42,7 +42,6 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-@st.cache_data
 def load_translations():
     with open(Path(_project_root) / "streamlit_app" / "translations.json", "r", encoding="utf-8") as f:
         return json.load(f)
@@ -182,13 +181,15 @@ with st.sidebar:
 
     st.markdown(f"### 🔍 {t('analysis_mode')}")
     
-    mode_options = [t("mode_single"), t("mode_season"), t("mode_glossary")]
+    mode_options = [t("mode_single"), t("mode_season"), t("mode_referee"), t("mode_glossary")]
     selected_mode = st.radio("Analysis Mode", mode_options, label_visibility="collapsed")
     
     if selected_mode == t("mode_single"):
         view_mode = "Single Game Analysis"
     elif selected_mode == t("mode_season"):
         view_mode = "Season Overview"
+    elif selected_mode == t("mode_referee"):
+        view_mode = "Referee Analytics"
     else:
         view_mode = "Metrics Glossary"
     st.markdown("---")
@@ -280,6 +281,7 @@ with st.sidebar:
                     t("nav_radar"),
                     t("nav_lineups"),
                     t("nav_assist"),
+                    t("nav_playmaking"),
                     t("nav_clutch"),
                 ],
                 label_visibility="collapsed",
@@ -348,9 +350,332 @@ if view_mode == "Season Overview":
             font=dict(color="#e4e4f0"), showlegend=False, height=500
         )
         st.plotly_chart(fig_eff, use_container_width=True)
+
+        # --- 1b. Pace vs Net Rating ---
+        st.markdown(f"### {t('hdr_pace_eff')}")
+        st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_pace_eff')}</p>", unsafe_allow_html=True)
+
+        # Derive pace and net_rtg if not already present (handles stale cache)
+        if "net_rtg" not in eff_df.columns:
+            eff_df["net_rtg"] = eff_df["ortg"] - eff_df["drtg"]
+        if "pace" not in eff_df.columns:
+            # poss_off is accumulated; estimate games from schedule
+            n_teams = len(eff_df)
+            total_games = len(schedule) if not schedule.empty else 1
+            avg_games = max(total_games / max(n_teams, 1), 1)
+            eff_df["pace"] = eff_df["poss_off"] / avg_games
+
+        # Highlight selected team
+        eff_df["color_pace"] = np.where(eff_df["team_code"] == team_code, "#8b5cf6", "#4b5563")
+        eff_df["size_pace"] = np.where(eff_df["team_code"] == team_code, 15, 10)
+
+        fig_pace = px.scatter(
+            eff_df, x="pace", y="net_rtg", hover_name="team_name",
+            color="color_pace", size="size_pace", color_discrete_map="identity",
+            text="team_code",
+            labels={"pace": t("lbl_pace"), "net_rtg": t("lbl_net_rtg")},
+        )
+        fig_pace.update_traces(textposition="top center", textfont_size=9)
+
+        # Quadrant lines at averages
+        mean_pace = eff_df["pace"].mean()
+        mean_net = eff_df["net_rtg"].mean()
+        fig_pace.add_hline(y=mean_net, line_dash="dash", line_color="#374151")
+        fig_pace.add_vline(x=mean_pace, line_dash="dash", line_color="#374151")
+
+        # Quadrant labels
+        x_range = eff_df["pace"].max() - eff_df["pace"].min()
+        y_range = eff_df["net_rtg"].max() - eff_df["net_rtg"].min()
+        quadrant_labels = [
+            (mean_pace + x_range * 0.25, mean_net + y_range * 0.35, t("q_fast_eff")),
+            (mean_pace - x_range * 0.25, mean_net + y_range * 0.35, t("q_slow_eff")),
+            (mean_pace + x_range * 0.25, mean_net - y_range * 0.35, t("q_fast_ineff")),
+            (mean_pace - x_range * 0.25, mean_net - y_range * 0.35, t("q_slow_ineff")),
+        ]
+        for qx, qy, qlabel in quadrant_labels:
+            fig_pace.add_annotation(
+                x=qx, y=qy, text=qlabel, showarrow=False,
+                font=dict(size=11, color="#6b7280"), opacity=0.5,
+            )
+
+        fig_pace.update_layout(
+            plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#e4e4f0"), showlegend=False, height=520,
+        )
+        st.plotly_chart(fig_pace, use_container_width=True)
         
     st.markdown("---")
-    
+
+    # --- 1c. Situational Scoring ---
+    st.markdown(f"### {t('hdr_sit_scoring')}")
+    st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_sit_scoring')}</p>", unsafe_allow_html=True)
+
+    with st.spinner(t("fetching_sit_scoring")):
+        from streamlit_app.queries import fetch_situational_scoring
+        sit_df = fetch_situational_scoring(season_to_fetch)
+
+    if sit_df.empty:
+        st.info(t("no_sit_scoring"))
+    else:
+        team_row = sit_df[sit_df["team_code"] == team_code]
+        if team_row.empty:
+            st.info(t("no_sit_scoring"))
+        else:
+            team_row = team_row.iloc[0]
+            league_avg = sit_df[["pts_from_2pt_pct", "pts_from_3pt_pct", "pts_from_ft_pct",
+                                  "steals_pg", "turnovers_pg", "off_reb_pg", "assists_pg"]].mean()
+
+            # Grouped bar chart: team vs league avg
+            import plotly.graph_objects as go
+
+            categories = [t("lbl_2pt_pct"), t("lbl_3pt_pct"), t("lbl_ft_pct")]
+            team_vals = [team_row["pts_from_2pt_pct"], team_row["pts_from_3pt_pct"], team_row["pts_from_ft_pct"]]
+            league_vals = [league_avg["pts_from_2pt_pct"], league_avg["pts_from_3pt_pct"], league_avg["pts_from_ft_pct"]]
+
+            fig_sit = go.Figure()
+            fig_sit.add_trace(go.Bar(
+                name=team_code, x=categories, y=team_vals,
+                marker_color="#8b5cf6", text=[f"{v:.1f}%" for v in team_vals], textposition="outside",
+            ))
+            fig_sit.add_trace(go.Bar(
+                name=t("lbl_league_avg"), x=categories, y=league_vals,
+                marker_color="#4b5563", text=[f"{v:.1f}%" for v in league_vals], textposition="outside",
+            ))
+            fig_sit.update_layout(
+                barmode="group",
+                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#e4e4f0"), height=400,
+                yaxis_title=t("lbl_pct_of_pts"),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            )
+            st.plotly_chart(fig_sit, use_container_width=True)
+
+            # KPI metrics row
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric(
+                t("lbl_steals_pg"),
+                f"{team_row['steals_pg']:.1f}",
+                f"{team_row['steals_pg'] - league_avg['steals_pg']:+.1f} vs avg",
+            )
+            c2.metric(
+                t("lbl_turnovers_pg"),
+                f"{team_row['turnovers_pg']:.1f}",
+                f"{team_row['turnovers_pg'] - league_avg['turnovers_pg']:+.1f} vs avg",
+                delta_color="inverse",
+            )
+            c3.metric(
+                t("lbl_off_reb_pg"),
+                f"{team_row['off_reb_pg']:.1f}",
+                f"{team_row['off_reb_pg'] - league_avg['off_reb_pg']:+.1f} vs avg",
+            )
+            c4.metric(
+                t("lbl_assists_pg"),
+                f"{team_row['assists_pg']:.1f}",
+                f"{team_row['assists_pg'] - league_avg['assists_pg']:+.1f} vs avg",
+            )
+
+    st.markdown("---")
+
+    # --- 1d. Home vs. Away Performance ---
+    st.markdown(f"### {t('hdr_home_away', default='🏠✈️ Home vs. Away Performance')}")
+    st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_home_away', default='Compare team performance at home versus on the road. Highlighted team is the currently selected one.')}</p>", unsafe_allow_html=True)
+
+    with st.spinner(t("fetching_home_away", default="Calculating Home/Away splits...")):
+        from streamlit_app.queries import fetch_home_away_splits
+        ha_df = fetch_home_away_splits(season_to_fetch)
+
+    if ha_df.empty:
+        st.info(t("no_home_away", default="No Home/Away data available yet."))
+    else:
+        # Sort by Home Advantage (Net Rating drop)
+        ha_df = ha_df.sort_values("home_adv_diff", ascending=False)
+        
+        tab_net, tab_ortg, tab_drtg = st.tabs([
+            t("tab_net_rtg", default="Net Rating"), 
+            t("tab_ortg", default="Offensive Rating"), 
+            t("tab_drtg", default="Defensive Rating")
+        ])
+        
+        def build_ha_chart(df, col_home, col_away, title_y):
+            import plotly.graph_objects as go
+            fig = go.Figure()
+            c_home = ["#8b5cf6" if c == team_code else "#6b7280" for c in df["team_code"]]
+            c_away = ["#06b6d4" if c == team_code else "#4b5563" for c in df["team_code"]]
+            
+            fig.add_trace(go.Bar(name=t("lbl_home", default="Home"), x=df["team_code"], y=df[col_home], marker_color=c_home))
+            fig.add_trace(go.Bar(name=t("lbl_away", default="Away"), x=df["team_code"], y=df[col_away], marker_color=c_away))
+            
+            min_y = min(df[col_home].min(), df[col_away].min()) - 3
+            max_y = max(df[col_home].max(), df[col_away].max()) + 3
+            
+            fig.update_layout(
+                barmode="group",
+                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#e4e4f0"), height=380,
+                yaxis_title=title_y,
+                yaxis=dict(range=[min_y, max_y]),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            )
+            return fig
+
+        with tab_net:
+            st.plotly_chart(build_ha_chart(ha_df, "home_net", "away_net", t("lbl_net_rating", default="Net Rating")), use_container_width=True)
+            st.caption(t("cap_home_adv", default="Teams are sorted left-to-right from largest Home Advantage to smallest."))
+        with tab_ortg:
+            st.plotly_chart(build_ha_chart(ha_df, "home_ortg", "away_ortg", t("lbl_ortg", default="ORtg")), use_container_width=True)
+        with tab_drtg:
+            st.plotly_chart(build_ha_chart(ha_df, "home_drtg", "away_drtg", t("lbl_drtg", default="DRtg")), use_container_width=True)
+
+    st.markdown("---")
+
+    # --- 1e. Clutch & Close Games ---
+    st.markdown(f"### {t('hdr_clutch_close')}")
+    st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_clutch_close')}</p>", unsafe_allow_html=True)
+
+    close_threshold = st.slider(
+        t("lbl_close_threshold"),
+        min_value=1, max_value=15, value=5, key="close_threshold",
+    )
+
+    with st.spinner(t("fetching_clutch_close")):
+        from streamlit_app.queries import fetch_close_game_stats
+        close_df = fetch_close_game_stats(season_to_fetch, close_threshold)
+
+    if close_df.empty:
+        st.info(t("no_clutch_close"))
+    else:
+        # Metric cards for selected team
+        team_row = close_df[close_df["team_code"] == team_code]
+        if not team_row.empty:
+            tr = team_row.iloc[0]
+            league_avg = tr["league_avg_close_win_pct"]
+            c1, c2, c3 = st.columns(3)
+            c1.metric(
+                t("lbl_close_win_pct"),
+                f"{tr['close_win_pct']:.1f}%" if not pd.isna(tr["close_win_pct"]) else "N/A",
+                f"{tr['close_win_pct'] - league_avg:+.1f} vs avg" if not pd.isna(tr["close_win_pct"]) else None,
+            )
+            c2.metric(
+                t("lbl_league_avg_close"),
+                f"{league_avg:.1f}%",
+            )
+            c3.metric(
+                t("lbl_close_record"),
+                f"{int(tr['close_wins'])}-{int(tr['close_losses'])}",
+                f"{int(tr['close_games_played'])} close games",
+            )
+
+        # Filter to teams with at least 1 close game for scatter plots
+        plot_df = close_df[close_df["close_games_played"] > 0].copy()
+        plot_df["is_selected"] = plot_df["team_code"] == team_code
+
+        if len(plot_df) >= 2:
+            league_avg_cw = plot_df["league_avg_close_win_pct"].iloc[0]
+
+            # Scatter Plot 1: Clutch vs. Dominance
+            st.markdown(f"#### {t('hdr_clutch_dominance')}")
+            st.markdown(f"<p style='color:#9ca3af; font-size:0.85rem;'>{t('desc_clutch_dominance')}</p>", unsafe_allow_html=True)
+
+            plot_df["color"] = np.where(plot_df["is_selected"], "#8b5cf6", "#4b5563")
+
+            fig_dom = go.Figure()
+            # Non-selected teams
+            others = plot_df[~plot_df["is_selected"]]
+            fig_dom.add_trace(go.Scatter(
+                x=others["avg_point_diff"], y=others["close_win_pct"],
+                mode="markers+text", text=others["team_code"],
+                textposition="top center", textfont=dict(size=9, color="#9ca3af"),
+                marker=dict(
+                    size=others["close_games_played"] * 3 + 8,
+                    color="#4b5563", opacity=0.7,
+                    line=dict(width=1, color="rgba(255,255,255,0.2)"),
+                ),
+                hovertemplate="%{customdata[0]}<br>Pt Diff: %{x:.1f}<br>Close W%%: %{y:.1f}%%<br>Close GP: %{customdata[1]}<extra></extra>",
+                customdata=list(zip(others["team_name"], others["close_games_played"])),
+                showlegend=False,
+            ))
+            # Selected team
+            sel = plot_df[plot_df["is_selected"]]
+            if not sel.empty:
+                fig_dom.add_trace(go.Scatter(
+                    x=sel["avg_point_diff"], y=sel["close_win_pct"],
+                    mode="markers+text", text=sel["team_code"],
+                    textposition="top center", textfont=dict(size=11, color="#f0f0ff"),
+                    marker=dict(
+                        size=sel["close_games_played"].iloc[0] * 3 + 8,
+                        color="#8b5cf6", opacity=1.0,
+                        line=dict(width=2, color="#f0f0ff"),
+                    ),
+                    hovertemplate="%{customdata[0]}<br>Pt Diff: %{x:.1f}<br>Close W%%: %{y:.1f}%%<br>Close GP: %{customdata[1]}<extra></extra>",
+                    customdata=list(zip(sel["team_name"], sel["close_games_played"])),
+                    showlegend=False,
+                ))
+
+            fig_dom.add_hline(y=league_avg_cw, line_dash="dash", line_color="#f59e0b",
+                              annotation_text=f"League Avg: {league_avg_cw:.1f}%",
+                              annotation_font_color="#f59e0b")
+            fig_dom.add_vline(x=0, line_dash="dash", line_color="#374151")
+
+            # Quadrant annotations
+            x_min, x_max = plot_df["avg_point_diff"].min(), plot_df["avg_point_diff"].max()
+            fig_dom.add_annotation(x=x_max * 0.7, y=league_avg_cw + 20, text="Dominant & Clutch",
+                                   showarrow=False, font=dict(size=10, color="#10b981"), opacity=0.5)
+            fig_dom.add_annotation(x=x_min * 0.7, y=league_avg_cw + 20, text="Clutch DNA\n(close-game reliant)",
+                                   showarrow=False, font=dict(size=10, color="#f59e0b"), opacity=0.5)
+            fig_dom.add_annotation(x=x_max * 0.7, y=league_avg_cw - 20, text="Dominant but\nnot Clutch",
+                                   showarrow=False, font=dict(size=10, color="#6366f1"), opacity=0.5)
+
+            fig_dom.update_layout(
+                xaxis_title=t("lbl_avg_pt_diff"), yaxis_title=t("lbl_close_win_pct"),
+                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#e4e4f0"), height=520, showlegend=False,
+            )
+            st.plotly_chart(fig_dom, use_container_width=True)
+
+            # Scatter Plot 2: Clutch vs. Overall Success
+            st.markdown(f"#### {t('hdr_clutch_overall')}")
+            st.markdown(f"<p style='color:#9ca3af; font-size:0.85rem;'>{t('desc_clutch_overall')}</p>", unsafe_allow_html=True)
+
+            fig_ov = go.Figure()
+            others2 = plot_df[~plot_df["is_selected"]]
+            fig_ov.add_trace(go.Scatter(
+                x=others2["overall_win_pct"], y=others2["close_win_pct"],
+                mode="markers+text", text=others2["team_code"],
+                textposition="top center", textfont=dict(size=9, color="#9ca3af"),
+                marker=dict(size=10, color="#4b5563", opacity=0.7,
+                            line=dict(width=1, color="rgba(255,255,255,0.2)")),
+                hovertemplate="%{customdata}<br>Win%%: %{x:.1f}%%<br>Close W%%: %{y:.1f}%%<extra></extra>",
+                customdata=others2["team_name"],
+                showlegend=False,
+            ))
+            sel2 = plot_df[plot_df["is_selected"]]
+            if not sel2.empty:
+                fig_ov.add_trace(go.Scatter(
+                    x=sel2["overall_win_pct"], y=sel2["close_win_pct"],
+                    mode="markers+text", text=sel2["team_code"],
+                    textposition="top center", textfont=dict(size=11, color="#f0f0ff"),
+                    marker=dict(size=14, color="#8b5cf6", opacity=1.0,
+                                line=dict(width=2, color="#f0f0ff")),
+                    hovertemplate="%{customdata}<br>Win%%: %{x:.1f}%%<br>Close W%%: %{y:.1f}%%<extra></extra>",
+                    customdata=sel2["team_name"],
+                    showlegend=False,
+                ))
+
+            # Trend line approximation — diagonal reference (equal close and overall win %)
+            fig_ov.add_shape(type="line", x0=0, y0=0, x1=100, y1=100,
+                             line=dict(dash="dot", color="rgba(255,255,255,0.15)"))
+
+            fig_ov.update_layout(
+                xaxis_title=t("lbl_overall_win_pct"), yaxis_title=t("lbl_close_win_pct"),
+                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#e4e4f0"), height=500, showlegend=False,
+            )
+            st.plotly_chart(fig_ov, use_container_width=True)
+        else:
+            st.info(t("no_clutch_close"))
+
+    st.markdown("---")
+
     # --- 2. Team Averages & Lineups ---
     with st.spinner(t("agg_season", team_code=team_code)):
         season_data = fetch_team_season_data(season_to_fetch, team_code)
@@ -387,6 +712,40 @@ if view_mode == "Season Overview":
     st.plotly_chart(fig_usage, use_container_width=True)
     
     st.markdown("---")
+
+    # --- 2b. Positional Scoring (Season Average) ---
+    st.markdown(f"### {t('hdr_pos_scoring_season')}")
+    st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_pos_scoring_season')}</p>", unsafe_allow_html=True)
+
+    season_box = season_data.get("boxscore", pd.DataFrame())
+    if not season_box.empty and "Points" in season_box.columns:
+        from data_pipeline.transformers import compute_positional_scoring
+        pos_season = compute_positional_scoring(season_box, team_code=team_code)
+        if not pos_season.empty and pos_season["points"].sum() > 0:
+            pos_colors = {"Guard": "#8b5cf6", "Forward": "#06b6d4", "Center": "#f59e0b"}
+            fig_donut = px.pie(
+                pos_season, names="position", values="points",
+                color="position",
+                color_discrete_map=pos_colors,
+                hole=0.5,
+            )
+            fig_donut.update_traces(
+                textinfo="label+percent",
+                textfont_size=14,
+                hovertemplate="%{label}: %{value} pts (%{percent})",
+            )
+            fig_donut.update_layout(
+                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#e4e4f0"), height=400,
+                showlegend=False,
+            )
+            st.plotly_chart(fig_donut, use_container_width=True)
+        else:
+            st.info(t("no_pos_scoring"))
+    else:
+        st.info(t("no_pos_scoring"))
+
+    st.markdown("---")
     
     st.markdown(t("hdr_most_used", team_code=team_code))
     st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_most_used')}</p>", unsafe_allow_html=True)
@@ -414,7 +773,87 @@ if view_mode == "Season Overview":
                 hide_index=True
             )
             
+
     # Stop execution here so Single Game views don't render!
+    st.stop()
+
+
+# ========================================================================
+# PAGE: REFEREE ANALYTICS
+# ========================================================================
+if view_mode == "Referee Analytics":
+    st.markdown(f'<p class="section-header">🏛️ {t("hdr_referee_stats")}</p>', unsafe_allow_html=True)
+    st.markdown(
+        f"<p style='color:#9ca3af; font-size:0.9rem;'>"
+        f"{t('sub_referee_stats')}"
+        f"</p>",
+        unsafe_allow_html=True,
+    )
+    st.markdown("---")
+
+    season_to_fetch = st.session_state.get("selected_season", 2025)
+
+    # Team selector — build from schedule
+    schedule = fetch_season_schedule(season_to_fetch)
+    if schedule.empty:
+        st.warning(t("err_no_schedule", season=season_to_fetch))
+        st.stop()
+
+    all_teams = sorted(
+        set(schedule["home_code"].dropna().unique()) | set(schedule["away_code"].dropna().unique())
+    )
+    selected_team = st.selectbox(
+        t("lbl_select_team"),
+        all_teams,
+        key="referee_team_picker",
+    )
+
+    min_ref_games = st.slider(
+        t("lbl_min_ref_games"),
+        min_value=1, max_value=10, value=3, key="min_ref_games"
+    )
+
+    with st.spinner(t("fetching_referee_stats")):
+        from streamlit_app.queries import fetch_referee_stats
+        ref_stats = fetch_referee_stats(season_to_fetch, selected_team, min_games=min_ref_games)
+
+    if ref_stats.empty:
+        st.info(t("no_referee_stats"))
+    else:
+        # KPI summary at the top
+        best_pct = ref_stats["win_pct"].max()
+        worst_pct = ref_stats["win_pct"].min()
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric(t("metric_total_refs"), len(ref_stats))
+        c2.metric(t("metric_best_ref"), f"{best_pct:.1f}%")
+        c3.metric(t("metric_worst_ref"), f"{worst_pct:.1f}%")
+
+        st.markdown("---")
+
+        # Styled datatable
+        win_pct_label = t("col_win_pct")
+        display_df = ref_stats.rename(columns={
+            "referee": t("col_referee"),
+            "games": t("col_games"),
+            "wins": t("col_wins"),
+            "losses": t("col_losses"),
+            "win_pct": win_pct_label,
+        })
+
+        def highlight_win_pct(row):
+            styles = [""] * len(row)
+            if win_pct_label in row.index:
+                idx = list(row.index).index(win_pct_label)
+                if row.iloc[idx] == best_pct:
+                    styles[idx] = "background-color: rgba(16,185,129,0.25); color: #10b981; font-weight: bold"
+                elif row.iloc[idx] == worst_pct:
+                    styles[idx] = "background-color: rgba(239,68,68,0.25); color: #ef4444; font-weight: bold"
+            return styles
+
+        styled = display_df.style.apply(highlight_win_pct, axis=1).format(precision=1)
+        st.dataframe(styled, use_container_width=True, hide_index=True, height=450)
+
     st.stop()
 
 
@@ -625,6 +1064,43 @@ if page == t("nav_player_stats"):
             fig.add_vline(x=avg_drtg, line_dash="dash", line_color="rgba(255,255,255,0.2)")
             st.plotly_chart(fig, use_container_width=True)
 
+        # --- Positional Scoring Distribution (Single Game) ---
+        st.markdown("---")
+        st.markdown(f"### {t('hdr_pos_scoring')}")
+        st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_pos_scoring')}</p>", unsafe_allow_html=True)
+
+        boxscore_raw = data.get("boxscore", pd.DataFrame())
+        if not boxscore_raw.empty and "Points" in boxscore_raw.columns:
+            from data_pipeline.transformers import compute_positional_scoring
+            import plotly.graph_objects as go
+
+            teams_in_game = sorted(boxscore_raw["Team"].dropna().unique())
+            fig_pos = go.Figure()
+
+            pos_colors = {"Guard": "#8b5cf6", "Forward": "#06b6d4", "Center": "#f59e0b"}
+
+            for tm in teams_in_game:
+                pos_df = compute_positional_scoring(boxscore_raw, team_code=tm)
+                for _, row in pos_df.iterrows():
+                    fig_pos.add_trace(go.Bar(
+                        name=row["position"],
+                        x=[tm], y=[row["pct"]],
+                        marker_color=pos_colors.get(row["position"], "#6b7280"),
+                        text=f"{row['pct']:.1f}%", textposition="inside",
+                        legendgroup=row["position"],
+                        showlegend=(tm == teams_in_game[0]),
+                    ))
+
+            fig_pos.update_layout(
+                barmode="stack",
+                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#e4e4f0"), height=380,
+                yaxis_title=t("lbl_pct_of_pts"),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            )
+            st.plotly_chart(fig_pos, use_container_width=True)
+        else:
+            st.info(t("no_pos_scoring"))
 
 # ========================================================================
 # PAGE 2: SHOT CHART
@@ -1028,7 +1504,155 @@ elif page == t("nav_assist"):
 
 
 # ========================================================================
-# PAGE 6: CLUTCH & MOMENTUM
+# PAGE 6: PLAYMAKING & ASSIST NETWORK (AAQ / AxP)
+# ========================================================================
+elif page == t("nav_playmaking"):
+    st.markdown(f'<p class="section-header">{t("hdr_playmaking")}</p>', unsafe_allow_html=True)
+    st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_playmaking')}</p>", unsafe_allow_html=True)
+
+    aaq_df = data.get("playmaking_aaq", pd.DataFrame())
+    axp_df = data.get("playmaking_axp", pd.DataFrame())
+    duos_df = data.get("playmaking_duos", pd.DataFrame())
+    assist_links = data.get("assist_shot_links", pd.DataFrame())
+
+    tab_aaq, tab_axp, tab_duos, tab_network = st.tabs([
+        t("tab_aaq"), t("tab_axp"), t("tab_duos"), t("tab_duo_network"),
+    ])
+
+    # --- AAQ: Top Creators ---
+    with tab_aaq:
+        st.markdown(f"#### {t('hdr_aaq')}")
+        st.markdown(f"<p style='color:#9ca3af; font-size:0.85rem;'>{t('desc_aaq')}</p>", unsafe_allow_html=True)
+        if aaq_df.empty:
+            st.info(t("no_playmaking"))
+        else:
+            display_aaq = aaq_df[["passer_name", "team", "total_assists", "aaq"]].rename(columns={
+                "passer_name": t("col_passer"), "team": t("col_team"),
+                "total_assists": t("col_total_ast"), "aaq": "AAQ (xP)",
+            })
+            st.dataframe(display_aaq, use_container_width=True, hide_index=True)
+
+            if len(aaq_df) >= 2:
+                fig_aaq = px.bar(
+                    aaq_df.head(15), x="passer_name", y="aaq",
+                    color="aaq", color_continuous_scale=["#312e81", "#6366f1", "#f59e0b"],
+                    labels={"passer_name": t("col_passer"), "aaq": "AAQ (xP)"},
+                    text="aaq",
+                )
+                fig_aaq.update_traces(texttemplate="%{text:.2f}", textposition="outside")
+                fig_aaq.update_layout(
+                    template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(15,15,35,0.8)", height=420,
+                    font=dict(family="Inter"), showlegend=False,
+                    xaxis_tickangle=-45,
+                )
+                st.plotly_chart(fig_aaq, use_container_width=True)
+
+    # --- AxP: Top Finishers ---
+    with tab_axp:
+        st.markdown(f"#### {t('hdr_axp')}")
+        st.markdown(f"<p style='color:#9ca3af; font-size:0.85rem;'>{t('desc_axp')}</p>", unsafe_allow_html=True)
+        if axp_df.empty:
+            st.info(t("no_playmaking"))
+        else:
+            display_axp = axp_df[["shooter_name", "team", "assisted_shots", "axp_total", "axp_avg"]].rename(columns={
+                "shooter_name": t("col_shooter"), "team": t("col_team"),
+                "assisted_shots": t("col_ast_shots"), "axp_total": "AxP Total", "axp_avg": "AxP Avg",
+            })
+            st.dataframe(display_axp, use_container_width=True, hide_index=True)
+
+            if len(axp_df) >= 2:
+                fig_axp = px.scatter(
+                    axp_df, x="assisted_shots", y="axp_avg",
+                    size="axp_total", hover_name="shooter_name",
+                    color="team", text="shooter_name",
+                    labels={"assisted_shots": t("col_ast_shots"), "axp_avg": "AxP Avg", "axp_total": "AxP Total"},
+                    color_discrete_sequence=["#6366f1", "#f59e0b", "#10b981", "#ef4444"],
+                )
+                fig_axp.update_traces(textposition="top center", textfont_size=9)
+                fig_axp.update_layout(
+                    template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(15,15,35,0.8)", height=450,
+                    font=dict(family="Inter"),
+                )
+                st.plotly_chart(fig_axp, use_container_width=True)
+
+    # --- Duo xP ---
+    with tab_duos:
+        st.markdown(f"#### {t('hdr_duos_xp')}")
+        st.markdown(f"<p style='color:#9ca3af; font-size:0.85rem;'>{t('desc_duos_xp')}</p>", unsafe_allow_html=True)
+        if duos_df.empty:
+            st.info(t("no_playmaking"))
+        else:
+            duo_teams = sorted(duos_df["team"].unique())
+            sel_duo_team_xp = st.selectbox(t("col_team"), [t("filter_all")] + duo_teams, key="duo_xp_team")
+            duos_f = duos_df if sel_duo_team_xp == t("filter_all") else duos_df[duos_df["team"] == sel_duo_team_xp]
+
+            display_duos = duos_f[["passer_name", "shooter_name", "team", "assists", "duo_xp"]].rename(columns={
+                "passer_name": t("col_passer"), "shooter_name": t("col_shooter"),
+                "team": t("col_team"), "assists": t("col_ast"), "duo_xp": t("col_duo_xp"),
+            })
+            st.dataframe(display_duos, use_container_width=True, hide_index=True)
+
+    # --- Duo Heatmap / Network ---
+    with tab_network:
+        st.markdown(f"#### {t('hdr_duo_heatmap')}")
+        st.markdown(f"<p style='color:#9ca3af; font-size:0.85rem;'>{t('desc_duo_heatmap')}</p>", unsafe_allow_html=True)
+
+        if assist_links.empty:
+            st.info(t("no_playmaking"))
+        else:
+            net_teams = sorted(assist_links["team"].unique())
+            sel_net_team = st.selectbox(t("team_dropdown"), net_teams, key="xp_net_team")
+            team_links = assist_links[assist_links["team"] == sel_net_team]
+
+            if team_links.empty:
+                st.info(t("no_playmaking"))
+            else:
+                # Build xP matrix for heatmap
+                duo_agg = (
+                    team_links.groupby(["passer_name", "shooter_name"])
+                    .agg(total_xp=("xp", "sum"), count=("xp", "size"))
+                    .reset_index()
+                )
+                passers = sorted(duo_agg["passer_name"].unique())
+                shooters = sorted(duo_agg["shooter_name"].unique())
+                all_names = sorted(set(passers) | set(shooters))
+
+                matrix = pd.DataFrame(0.0, index=all_names, columns=all_names)
+                for _, row in duo_agg.iterrows():
+                    matrix.loc[row["passer_name"], row["shooter_name"]] = row["total_xp"]
+
+                fig_hm = go.Figure(data=go.Heatmap(
+                    z=matrix.values,
+                    x=matrix.columns.tolist(),
+                    y=matrix.index.tolist(),
+                    colorscale=[
+                        [0, "rgba(15,15,35,0.9)"],
+                        [0.25, "#312e81"],
+                        [0.5, "#6366f1"],
+                        [0.75, "#a78bfa"],
+                        [1.0, "#f59e0b"],
+                    ],
+                    hovertemplate="Passer: %{y}<br>Scorer: %{x}<br>Total xP: %{z:.2f}<extra></extra>",
+                    showscale=True,
+                    colorbar=dict(title="xP"),
+                ))
+                fig_hm.update_layout(
+                    template="plotly_dark",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(15,15,35,0.8)",
+                    height=500,
+                    xaxis=dict(title=t("col_shooter"), tickangle=45, tickfont=dict(size=10)),
+                    yaxis=dict(title=t("col_passer"), tickfont=dict(size=10), autorange="reversed"),
+                    font=dict(family="Inter"),
+                    margin=dict(l=120, b=120),
+                )
+                st.plotly_chart(fig_hm, use_container_width=True)
+
+
+# ========================================================================
+# PAGE 7: CLUTCH & MOMENTUM
 # ========================================================================
 elif page == t("nav_clutch"):
     st.markdown(f'<p class="section-header">{t("nav_clutch")}</p>', unsafe_allow_html=True)
