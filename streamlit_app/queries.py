@@ -453,6 +453,24 @@ def fetch_situational_scoring(
     return _ext_mod.get_situational_scoring(season, competition)
 
 
+# ========================================================================
+# LIVE GAME QUERIES (no caching — always fetch fresh data)
+# ========================================================================
+
+def fetch_live_games(season: int, competition: str = COMPETITION) -> list:
+    """Detect games currently in progress. Not cached — hits API each call."""
+    from data_pipeline.live_extractor import detect_live_games
+    return detect_live_games(season, competition)
+
+
+def fetch_live_game_data_fresh(
+    season: int, gamecode: int, competition: str = COMPETITION
+) -> dict:
+    """Fetch fresh boxscore + PBP for a live game. Never cached."""
+    from data_pipeline.live_extractor import fetch_live_game_data
+    return fetch_live_game_data(season, gamecode, competition)
+
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_home_away_splits(
     season: int,

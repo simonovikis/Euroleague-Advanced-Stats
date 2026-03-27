@@ -1324,5 +1324,143 @@
     "el": "Κατανοήστε κάθε μετρική: ORtg, DRtg, TS%, tUSG% και άλλα.",
     "de": "Verstehen Sie jede erweiterte Metrik: ORtg, DRtg, TS%, tUSG% und mehr.",
     "es": "Comprenda cada métrica avanzada: ORtg, DRtg, TS%, tUSG% y más."
+  },
+  "nav_live_label": {
+    "en": "Live Center",
+    "el": "Live Center",
+    "de": "Live Center",
+    "es": "Centro en Vivo"
+  },
+  "card_live_title": {
+    "en": "Live Match Center",
+    "el": "Live Match Center",
+    "de": "Live Match Center",
+    "es": "Centro de Partidos en Vivo"
+  },
+  "card_live_desc": {
+    "en": "Real-time analytics for games in progress: live lineups, momentum runs, and win probability.",
+    "el": "Ανάλυση σε πραγματικό χρόνο για αγώνες σε εξέλιξη: συνθέσεις, momentum, πιθανότητα νίκης.",
+    "de": "Echtzeit-Analysen für laufende Spiele: Live-Aufstellungen, Momentum, Siegwahrscheinlichkeit.",
+    "es": "Análisis en tiempo real de partidos en curso: alineaciones, rachas y probabilidad de victoria."
+  },
+  "live_no_games": {
+    "en": "No live games detected at this moment. Games are checked for today's schedule where PBP data is available.",
+    "el": "Δεν εντοπίστηκαν ζωντανοί αγώνες αυτή τη στιγμή.",
+    "de": "Derzeit keine Live-Spiele erkannt.",
+    "es": "No se detectaron partidos en vivo en este momento."
+  },
+  "live_select_game": {
+    "en": "Select a live game to analyze",
+    "el": "Επιλέξτε ζωντανό αγώνα για ανάλυση",
+    "de": "Wählen Sie ein Live-Spiel zur Analyse",
+    "es": "Seleccione un partido en vivo para analizar"
+  },
+  "live_autorefresh": {
+    "en": "Auto-refreshing every 30 seconds",
+    "el": "Αυτόματη ανανέωση κάθε 30 δευτερόλεπτα",
+    "de": "Automatische Aktualisierung alle 30 Sekunden",
+    "es": "Actualización automática cada 30 segundos"
+  },
+  "live_current_lineups": {
+    "en": "Current Lineups on Floor",
+    "el": "Τρέχουσες Πεντάδες στο Παρκέ",
+    "de": "Aktuelle Aufstellungen auf dem Feld",
+    "es": "Alineaciones Actuales en Cancha"
+  },
+  "live_momentum": {
+    "en": "Momentum Tracker",
+    "el": "Ανίχνευση Momentum",
+    "de": "Momentum-Tracker",
+    "es": "Rastreador de Momentum"
+  },
+  "live_win_prob": {
+    "en": "Live Win Probability",
+    "el": "Πιθανότητα Νίκης σε Πραγματικό Χρόνο",
+    "de": "Live-Siegwahrscheinlichkeit",
+    "es": "Probabilidad de Victoria en Vivo"
+  },
+  "live_scoring_run": {
+    "en": "{team} is on a {pts}-0 run in the last {dur}",
+    "el": "{team} έχει σερί {pts}-0 στα τελευταία {dur}",
+    "de": "{team} ist auf einem {pts}-0 Lauf in den letzten {dur}",
+    "es": "{team} tiene una racha de {pts}-0 en los últimos {dur}"
+  },
+  "live_no_run": {
+    "en": "No active scoring run at the moment.",
+    "el": "Κανένα ενεργό σερί αυτή τη στιγμή.",
+    "de": "Kein aktiver Scoring-Run im Moment.",
+    "es": "No hay racha de puntuación activa en este momento."
+  },
+  "live_period": {
+    "en": "Q{period}",
+    "el": "Q{period}",
+    "de": "V{period}",
+    "es": "C{period}"
+  },
+  "live_overtime": {
+    "en": "OT{num}",
+    "el": "OT{num}",
+    "de": "OT{num}",
+    "es": "OT{num}"
+  },
+  "live_game_clock": {
+    "en": "Game Clock",
+    "el": "Χρόνος Αγώνα",
+    "de": "Spieluhr",
+    "es": "Reloj de Juego"
+  },
+  "live_on_court": {
+    "en": "On Court",
+    "el": "Στο Παρκέ",
+    "de": "Auf dem Feld",
+    "es": "En Cancha"
+  },
+  "live_net_rtg": {
+    "en": "Net Rtg",
+    "el": "Net Rtg",
+    "de": "Net Rtg",
+    "es": "Net Rtg"
+  },
+  "live_score_diff_timeline": {
+    "en": "Score Differential Timeline",
+    "el": "Χρονολόγιο Διαφοράς Σκορ",
+    "de": "Punktedifferenz-Zeitachse",
+    "es": "Línea de Tiempo de Diferencia de Puntuación"
+  },
+  "live_wp_timeline": {
+    "en": "Win Probability Timeline",
+    "el": "Χρονολόγιο Πιθανότητας Νίκης",
+    "de": "Siegwahrscheinlichkeit-Zeitachse",
+    "es": "Línea de Tiempo de Probabilidad de Victoria"
+  },
+  "live_tab_overview": {
+    "en": "📊 Live Overview",
+    "el": "📊 Ζωντανή Επισκόπηση",
+    "de": "📊 Live-Übersicht",
+    "es": "📊 Resumen en Vivo"
+  },
+  "live_tab_momentum": {
+    "en": "🔥 Momentum",
+    "el": "🔥 Momentum",
+    "de": "🔥 Momentum",
+    "es": "🔥 Momentum"
+  },
+  "live_tab_winprob": {
+    "en": "📈 Win Probability",
+    "el": "📈 Πιθανότητα Νίκης",
+    "de": "📈 Siegwahrscheinlichkeit",
+    "es": "📈 Probabilidad de Victoria"
+  },
+  "live_checking": {
+    "en": "Checking for live games...",
+    "el": "Αναζήτηση ζωντανών αγώνων...",
+    "de": "Suche nach Live-Spielen...",
+    "es": "Buscando partidos en vivo..."
+  },
+  "live_fetching_data": {
+    "en": "Fetching live data...",
+    "el": "Λήψη ζωντανών δεδομένων...",
+    "de": "Lade Live-Daten...",
+    "es": "Obteniendo datos en vivo..."
   }
 }
