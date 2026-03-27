@@ -471,6 +471,19 @@ def fetch_live_game_data_fresh(
     return fetch_live_game_data(season, gamecode, competition)
 
 
+# ========================================================================
+# SCOUTING ENGINE QUERIES
+# ========================================================================
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def fetch_scouting_player_pool(
+    season: int, competition: str = COMPETITION
+) -> pd.DataFrame:
+    """Fetch and cache league-wide player stats for the scouting engine."""
+    from data_pipeline.scouting_engine import fetch_league_player_stats
+    return fetch_league_player_stats(season, competition)
+
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_home_away_splits(
     season: int,

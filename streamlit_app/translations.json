@@ -1462,5 +1462,83 @@
     "el": "Λήψη ζωντανών δεδομένων...",
     "de": "Lade Live-Daten...",
     "es": "Obteniendo datos en vivo..."
+  },
+  "nav_scouting_label": {
+    "en": "Scouting",
+    "el": "Scouting",
+    "de": "Scouting",
+    "es": "Scouting"
+  },
+  "card_scouting_title": {
+    "en": "AI Scouting Engine",
+    "el": "AI Scouting Engine",
+    "de": "KI-Scouting-Engine",
+    "es": "Motor de Scouting IA"
+  },
+  "card_scouting_desc": {
+    "en": "Find statistically similar players using machine learning on 11-dimensional feature vectors.",
+    "el": "Βρείτε στατιστικά παρόμοιους παίκτες με μηχανική μάθηση σε 11 διαστάσεις.",
+    "de": "Finden Sie statistisch ähnliche Spieler mit ML auf 11-dimensionalen Merkmalsvektoren.",
+    "es": "Encuentre jugadores estadísticamente similares usando ML en vectores de 11 dimensiones."
+  },
+  "scout_select_player": {
+    "en": "Select a target player",
+    "el": "Επιλέξτε παίκτη-στόχο",
+    "de": "Zielspieler auswählen",
+    "es": "Seleccione un jugador objetivo"
+  },
+  "scout_loading_pool": {
+    "en": "Loading league-wide player stats...",
+    "el": "Φόρτωση στατιστικών παικτών σε επίπεδο πρωταθλήματος...",
+    "de": "Laden der ligaweiten Spielerstatistiken...",
+    "es": "Cargando estadísticas de jugadores de toda la liga..."
+  },
+  "scout_similar_title": {
+    "en": "Top {n} Most Similar Players to {player}",
+    "el": "Top {n} Πιο Παρόμοιοι Παίκτες με {player}",
+    "de": "Top {n} ähnlichste Spieler zu {player}",
+    "es": "Top {n} Jugadores Más Similares a {player}"
+  },
+  "scout_radar_title": {
+    "en": "Statistical Profile Comparison",
+    "el": "Σύγκριση Στατιστικού Προφίλ",
+    "de": "Statistischer Profilvergleich",
+    "es": "Comparación de Perfil Estadístico"
+  },
+  "scout_no_player": {
+    "en": "Player not found in the dataset. Try a different name.",
+    "el": "Ο παίκτης δεν βρέθηκε. Δοκιμάστε διαφορετικό όνομα.",
+    "de": "Spieler nicht im Datensatz gefunden. Versuchen Sie einen anderen Namen.",
+    "es": "Jugador no encontrado en el conjunto de datos. Pruebe otro nombre."
+  },
+  "scout_similarity": {
+    "en": "Similarity",
+    "el": "Ομοιότητα",
+    "de": "Ähnlichkeit",
+    "es": "Similitud"
+  },
+  "scout_feature_table": {
+    "en": "Feature Comparison (Raw Values)",
+    "el": "Σύγκριση Χαρακτηριστικών (Πραγματικές Τιμές)",
+    "de": "Merkmalsvergleich (Rohwerte)",
+    "es": "Comparación de Características (Valores Crudos)"
+  },
+  "scout_method_note": {
+    "en": "Similarity is computed using cosine distance on 11 StandardScaler-normalized features.",
+    "el": "Η ομοιότητα υπολογίζεται με cosine distance σε 11 κανονικοποιημένα χαρακτηριστικά.",
+    "de": "Die Ähnlichkeit wird mittels Kosinus-Distanz auf 11 standardisierten Merkmalen berechnet.",
+    "es": "La similitud se calcula usando distancia coseno en 11 características normalizadas."
+  },
+  "scout_profile": {
+    "en": "Player Profile",
+    "el": "Προφίλ Παίκτη",
+    "de": "Spielerprofil",
+    "es": "Perfil del Jugador"
+  },
+  "scout_min_filter": {
+    "en": "Min. minutes/game filter",
+    "el": "Ελάχ. λεπτά/αγώνα",
+    "de": "Min. Minuten/Spiel Filter",
+    "es": "Filtro mín. minutos/partido"
   }
 }

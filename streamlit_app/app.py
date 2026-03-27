@@ -163,11 +163,12 @@ NAV_SINGLE = t("nav_single_label")
 NAV_SEASON = t("nav_season_label")
 NAV_ADVANCED = t("nav_advanced_label")
 NAV_LIVE = t("nav_live_label")
+NAV_SCOUTING = t("nav_scouting_label")
 NAV_REFEREE = t("nav_referee_label")
 NAV_GLOSSARY = t("nav_glossary_label")
 
-NAV_OPTIONS = [NAV_HOME, NAV_SINGLE, NAV_SEASON, NAV_ADVANCED, NAV_LIVE, NAV_REFEREE, NAV_GLOSSARY]
-NAV_ICONS = ["house-fill", "trophy-fill", "bar-chart-line-fill", "lightning-charge-fill", "broadcast", "clipboard-check", "book-half"]
+NAV_OPTIONS = [NAV_HOME, NAV_SINGLE, NAV_SEASON, NAV_ADVANCED, NAV_LIVE, NAV_SCOUTING, NAV_REFEREE, NAV_GLOSSARY]
+NAV_ICONS = ["house-fill", "trophy-fill", "bar-chart-line-fill", "lightning-charge-fill", "broadcast", "search", "clipboard-check", "book-half"]
 
 selected_nav = option_menu(
     menu_title=None,
@@ -383,9 +384,10 @@ if selected_nav == NAV_HOME:
             )
 
     st.markdown("")
-    row2 = st.columns(3)
+    row2 = st.columns(4)
     cards_row2 = [
         ("📡", t("card_live_title"), t("card_live_desc")),
+        ("🔍", t("card_scouting_title"), t("card_scouting_desc")),
         ("⚖️", t("card_referee_title"), t("card_referee_desc")),
         ("📖", t("card_glossary_title"), t("card_glossary_desc")),
     ]
@@ -1894,6 +1896,216 @@ elif selected_nav == NAV_LIVE:
             if "live_cache" in st.session_state:
                 del st.session_state["live_cache"]
             st.rerun()
+
+
+# ========================================================================
+# PAGE: AI SCOUTING ENGINE
+# ========================================================================
+elif selected_nav == NAV_SCOUTING:
+    st.markdown(f'<p class="section-header">{t("card_scouting_title")}</p>', unsafe_allow_html=True)
+    st.markdown(
+        f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('scout_method_note')}</p>",
+        unsafe_allow_html=True,
+    )
+
+    season_scout = st.session_state.get("selected_season", 2025)
+
+    from streamlit_app.queries import fetch_scouting_player_pool
+    from data_pipeline.scouting_engine import (
+        find_similar_players,
+        build_radar_comparison,
+        FEATURE_COLUMNS,
+        FEATURE_LABELS,
+        MIN_MINUTES_PG,
+    )
+
+    with st.spinner(t("scout_loading_pool")):
+        player_pool = fetch_scouting_player_pool(season_scout)
+
+    if player_pool.empty:
+        st.warning(t("err_no_schedule", season=season_scout))
+        st.stop()
+
+    # --- Sidebar-style filters in columns ---
+    col_sel, col_filter = st.columns([3, 1])
+
+    with col_filter:
+        min_mpg = st.slider(
+            t("scout_min_filter"),
+            min_value=5, max_value=25, value=int(MIN_MINUTES_PG),
+            key="scout_min_mpg",
+        )
+
+    filtered_pool = player_pool[player_pool["minutes_pg"] >= min_mpg].copy()
+
+    player_names = sorted(filtered_pool["player_name"].dropna().unique())
+    if not player_names:
+        st.info("No players meet the current minutes filter.")
+        st.stop()
+
+    with col_sel:
+        target_player = st.selectbox(
+            t("scout_select_player"),
+            player_names,
+            key="scout_target",
+        )
+
+    # --- Target player profile card ---
+    target_row = filtered_pool[filtered_pool["player_name"] == target_player]
+    if target_row.empty:
+        st.warning(t("scout_no_player"))
+        st.stop()
+
+    tr = target_row.iloc[0]
+    st.markdown(f"### {t('scout_profile')}: {target_player}")
+
+    prof_cols = st.columns(6)
+    prof_cols[0].metric(t("col_team"), tr["team_code"])
+    prof_cols[1].metric("GP", f"{int(tr['games_played'])}")
+    prof_cols[2].metric("MPG", f"{tr['minutes_pg']:.1f}")
+    prof_cols[3].metric("PPG", f"{tr['points_pg']:.1f}")
+    prof_cols[4].metric("TS%", f"{tr['ts_pct']:.1%}")
+    prof_cols[5].metric("tUSG%", f"{tr['true_usg_pct']:.1%}")
+
+    st.markdown("---")
+
+    # --- Find similar players ---
+    top_n = 5
+    similar_df = find_similar_players(target_player, filtered_pool, top_n=top_n)
+
+    if similar_df.empty:
+        st.warning(t("scout_no_player"))
+        st.stop()
+
+    st.markdown(f"### {t('scout_similar_title', n=top_n, player=target_player)}")
+
+    # Display results table
+    display_similar = similar_df.copy()
+    display_similar["similarity"] = display_similar["similarity"].apply(lambda x: f"{x:.2%}")
+
+    fmt_cols = {
+        "player_name": t("col_player"),
+        "team_code": t("col_team"),
+        "similarity": t("scout_similarity"),
+        "points_pg": "PPG",
+        "minutes_pg": "MPG",
+    }
+    feat_fmt = {f: FEATURE_LABELS[f] for f in FEATURE_COLUMNS}
+    fmt_cols.update(feat_fmt)
+
+    show_cols = ["player_name", "team_code", "similarity", "points_pg", "minutes_pg"] + FEATURE_COLUMNS
+    show_cols = [c for c in show_cols if c in display_similar.columns]
+
+    # Format percentage features for display
+    pct_feats = ["ts_pct", "true_usg_pct", "stop_rate", "assist_ratio", "orb_pct", "drb_pct", "three_pt_rate", "ft_rate"]
+    display_tbl = display_similar[show_cols].copy()
+    for pf in pct_feats:
+        if pf in display_tbl.columns:
+            display_tbl[pf] = display_tbl[pf].apply(lambda x: f"{x:.1%}" if pd.notna(x) else "N/A")
+
+    st.dataframe(
+        display_tbl.rename(columns=fmt_cols),
+        use_container_width=True, hide_index=True,
+    )
+
+    # --- Similarity bar chart ---
+    sim_bar = similar_df[["player_name", "similarity"]].copy()
+    sim_bar["pct"] = sim_bar["similarity"] * 100
+
+    fig_sim = go.Figure(go.Bar(
+        x=sim_bar["pct"],
+        y=sim_bar["player_name"],
+        orientation="h",
+        marker=dict(
+            color=sim_bar["pct"],
+            colorscale=[[0, "#312e81"], [0.5, "#6366f1"], [1.0, "#f59e0b"]],
+        ),
+        text=sim_bar["pct"].apply(lambda x: f"{x:.1f}%"),
+        textposition="outside",
+        hovertemplate="%{y}: %{x:.1f}% similarity<extra></extra>",
+    ))
+    fig_sim.update_layout(
+        template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(15,15,35,0.8)", height=280,
+        xaxis=dict(title="Cosine Similarity (%)", range=[0, 105]),
+        yaxis=dict(autorange="reversed"),
+        font=dict(family="Inter"), margin=dict(l=150, r=60, t=20, b=40),
+    )
+    st.plotly_chart(fig_sim, use_container_width=True)
+
+    st.markdown("---")
+
+    # --- Radar chart: target vs #1 match ---
+    st.markdown(f"### {t('scout_radar_title')}")
+
+    best_match = similar_df.iloc[0]["player_name"]
+    radar_data = build_radar_comparison(target_player, best_match, filtered_pool)
+
+    if radar_data is None:
+        st.info("Cannot build radar comparison.")
+    else:
+        labels = radar_data["labels"]
+        t_vals = radar_data["target_values"]
+        s_vals = radar_data["similar_values"]
+
+        # Close the polygon
+        labels_closed = labels + [labels[0]]
+        t_closed = t_vals + [t_vals[0]]
+        s_closed = s_vals + [s_vals[0]]
+
+        fig_radar = go.Figure()
+        fig_radar.add_trace(go.Scatterpolar(
+            r=t_closed, theta=labels_closed, fill="toself",
+            name=target_player,
+            fillcolor="rgba(99,102,241,0.25)",
+            line=dict(color="#6366f1", width=2.5),
+        ))
+        fig_radar.add_trace(go.Scatterpolar(
+            r=s_closed, theta=labels_closed, fill="toself",
+            name=best_match,
+            fillcolor="rgba(245,158,11,0.25)",
+            line=dict(color="#f59e0b", width=2.5),
+        ))
+        fig_radar.update_layout(
+            polar=dict(
+                bgcolor="rgba(15,15,35,0.8)",
+                radialaxis=dict(visible=True, range=[0, 1], showticklabels=False,
+                                gridcolor="rgba(255,255,255,0.1)"),
+                angularaxis=dict(gridcolor="rgba(255,255,255,0.1)",
+                                 tickfont=dict(size=11, color="#e4e4f0")),
+            ),
+            template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)", height=520,
+            font=dict(family="Inter"),
+            legend=dict(x=0.3, y=-0.1, orientation="h", font=dict(size=13)),
+        )
+        st.plotly_chart(fig_radar, use_container_width=True)
+
+        # Raw values comparison table
+        st.markdown(f"#### {t('scout_feature_table')}")
+        t_raw = radar_data["target_raw"]
+        s_raw = radar_data["similar_raw"]
+
+        comparison_rows = []
+        for feat in FEATURE_COLUMNS:
+            label = FEATURE_LABELS[feat]
+            tv = t_raw[feat]
+            sv = s_raw[feat]
+            if feat in pct_feats:
+                tv_str = f"{tv:.1%}"
+                sv_str = f"{sv:.1%}"
+            else:
+                tv_str = f"{tv:.2f}"
+                sv_str = f"{sv:.2f}"
+            comparison_rows.append({
+                "Metric": label,
+                target_player: tv_str,
+                best_match: sv_str,
+            })
+
+        st.dataframe(
+            pd.DataFrame(comparison_rows),
+            use_container_width=True, hide_index=True,
+        )
 
 
 # ========================================================================
