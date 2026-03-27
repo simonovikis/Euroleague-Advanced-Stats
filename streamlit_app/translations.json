@@ -1481,6 +1481,150 @@
     "de": "Finden Sie statistisch ähnliche Spieler mit ML auf 11-dimensionalen Merkmalsvektoren.",
     "es": "Encuentre jugadores estadísticamente similares usando ML en vectores de 11 dimensiones."
   },
+  "nav_leaders_label": {
+    "en": "League Leaders",
+    "el": "Πρώτοι Σκόρερ",
+    "de": "Liga-Führende",
+    "es": "Líderes de Liga"
+  },
+  "card_leaders_title": {
+    "en": "League Leaders",
+    "el": "Πρώτοι Σκόρερ",
+    "de": "Liga-Führende",
+    "es": "Líderes de Liga"
+  },
+  "card_leaders_desc": {
+    "en": "Top 10 leaderboards for points, rebounds, assists, shooting percentages, and more across the league.",
+    "el": "Κατατάξεις Top 10 για πόντους, ριμπάουντ, ασίστ, ποσοστά σουτ και άλλα σε ολόκληρο το πρωτάθλημα.",
+    "de": "Top-10-Ranglisten für Punkte, Rebounds, Assists, Trefferquoten und mehr in der gesamten Liga.",
+    "es": "Tablas de Top 10 para puntos, rebotes, asistencias, porcentajes de tiro y más en toda la liga."
+  },
+  "leaders_title": {
+    "en": "League Leaders",
+    "el": "Πρώτοι Σκόρερ",
+    "de": "Liga-Führende",
+    "es": "Líderes de Liga"
+  },
+  "leaders_subtitle": {
+    "en": "Top players across the Euroleague by traditional statistical categories for the selected season.",
+    "el": "Κορυφαίοι παίκτες σε παραδοσιακές στατιστικές κατηγορίες για την επιλεγμένη σεζόν.",
+    "de": "Top-Spieler der Euroleague nach traditionellen Statistikkategorien für die ausgewählte Saison.",
+    "es": "Mejores jugadores de la Euroleague por categorías estadísticas tradicionales de la temporada seleccionada."
+  },
+  "leaders_loading": {
+    "en": "Loading league-wide player stats...",
+    "el": "Φόρτωση στατιστικών παικτών...",
+    "de": "Lade ligaweite Spielerstatistiken...",
+    "es": "Cargando estadísticas de jugadores de la liga..."
+  },
+  "leaders_view_by": {
+    "en": "View by",
+    "el": "Προβολή κατά",
+    "de": "Ansicht nach",
+    "es": "Ver por"
+  },
+  "leaders_per_game": {
+    "en": "Per Game",
+    "el": "Ανά Αγώνα",
+    "de": "Pro Spiel",
+    "es": "Por Partido"
+  },
+  "leaders_totals": {
+    "en": "Totals",
+    "el": "Σύνολα",
+    "de": "Gesamt",
+    "es": "Totales"
+  },
+  "leaders_no_data": {
+    "en": "No player stats available for this view mode.",
+    "el": "Δεν υπάρχουν στατιστικά παικτών για αυτή τη λειτουργία.",
+    "de": "Keine Spielerstatistiken für diese Ansicht verfügbar.",
+    "es": "No hay estadísticas de jugadores disponibles para este modo."
+  },
+  "leaders_filters_label": {
+    "en": "Statistical Significance Filters",
+    "el": "Φίλτρα Στατιστικής Σημαντικότητας",
+    "de": "Statistische Signifikanzfilter",
+    "es": "Filtros de Significancia Estadística"
+  },
+  "leaders_min_games": {
+    "en": "Min. Games Played",
+    "el": "Ελάχ. Αγώνες",
+    "de": "Min. Spiele",
+    "es": "Mín. Partidos"
+  },
+  "leaders_min_fga2": {
+    "en": "Min. 2PT Attempts",
+    "el": "Ελάχ. Προσπάθειες 2Π",
+    "de": "Min. 2PT Versuche",
+    "es": "Mín. Intentos 2PT"
+  },
+  "leaders_min_fga3": {
+    "en": "Min. 3PT Attempts",
+    "el": "Ελάχ. Προσπάθειες 3Π",
+    "de": "Min. 3PT Versuche",
+    "es": "Mín. Intentos 3PT"
+  },
+  "leaders_min_fta": {
+    "en": "Min. FT Attempts",
+    "el": "Ελάχ. Προσπάθειες ΒΟΛ",
+    "de": "Min. FT Versuche",
+    "es": "Mín. Intentos TL"
+  },
+  "leaders_volume_title": {
+    "en": "Volume Stat Leaders",
+    "el": "Πρωταγωνιστές σε Όγκο Στατιστικών",
+    "de": "Volumen-Statistik Führende",
+    "es": "Líderes en Estadísticas de Volumen"
+  },
+  "leaders_top_scorers": {
+    "en": "Top Scorers",
+    "el": "Κορυφαίοι Σκόρερ",
+    "de": "Top-Scorer",
+    "es": "Máximos Anotadores"
+  },
+  "leaders_top_rebounders": {
+    "en": "Top Rebounders",
+    "el": "Κορυφαίοι Ριμπάουντερ",
+    "de": "Top-Rebounder",
+    "es": "Máximos Reboteadores"
+  },
+  "leaders_top_assists": {
+    "en": "Top Assist Leaders",
+    "el": "Κορυφαίοι Πασέρ",
+    "de": "Top-Assistgeber",
+    "es": "Máximos Asistentes"
+  },
+  "leaders_top_turnovers": {
+    "en": "Most Turnovers",
+    "el": "Περισσότερα Λάθη",
+    "de": "Meiste Ballverluste",
+    "es": "Más Pérdidas"
+  },
+  "leaders_efficiency_title": {
+    "en": "Shooting Efficiency Leaders",
+    "el": "Πρωταγωνιστές Αποτελεσματικότητας Σουτ",
+    "de": "Wurfeffizienz Führende",
+    "es": "Líderes de Eficiencia de Tiro"
+  },
+  "leaders_top_fg2": {
+    "en": "Top 2PT Shooters (%)",
+    "el": "Κορυφαίοι Σκόρερ 2Π (%)",
+    "de": "Top 2PT Schützen (%)",
+    "es": "Mejores Tiradores de 2PT (%)"
+  },
+  "leaders_top_fg3": {
+    "en": "Top 3PT Shooters (%)",
+    "el": "Κορυφαίοι Σκόρερ 3Π (%)",
+    "de": "Top 3PT Schützen (%)",
+    "es": "Mejores Tiradores de 3PT (%)"
+  },
+  "leaders_top_ft": {
+    "en": "Top Free Throw Shooters (%)",
+    "el": "Κορυφαίοι Βολίστες (%)",
+    "de": "Top Freiwurfschützen (%)",
+    "es": "Mejores Lanzadores de TL (%)"
+  },
   "scout_select_player": {
     "en": "Select a target player",
     "el": "Επιλέξτε παίκτη-στόχο",

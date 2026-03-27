@@ -485,6 +485,104 @@ def fetch_scouting_player_pool(
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
+def fetch_league_leaders(
+    season: int,
+    competition: str = COMPETITION,
+) -> dict:
+    """
+    Fetch PerGame and Accumulated traditional player stats for a full season
+    and return both views ready for leaderboard rendering.
+
+    Returns
+    -------
+    dict with keys:
+        "per_game" : pd.DataFrame  — per-game averages, one row per player
+        "totals"   : pd.DataFrame  — accumulated season totals
+    Both DataFrames have unified column names.
+    """
+    from euroleague_api.player_stats import PlayerStats
+    from data_pipeline.extractors import apply_team_aliases
+    from data_pipeline.transformers import format_player_name
+
+    ps = PlayerStats(competition)
+
+    COL_MAP = {
+        "player.code": "player_code",
+        "player.name": "player_name_raw",
+        "player.team.code": "team_code",
+        "player.team.name": "team_name",
+        "player.imageUrl": "image_url",
+    }
+
+    def _fetch_and_clean(statistic_mode: str) -> pd.DataFrame:
+        try:
+            df = ps.get_player_stats_single_season(
+                endpoint="traditional",
+                season=season,
+                phase_type_code="RS",
+                statistic_mode=statistic_mode,
+            )
+        except Exception as e:
+            logger.error(f"Failed to fetch {statistic_mode} player stats: {e}")
+            return pd.DataFrame()
+
+        if df.empty:
+            return df
+
+        df = df.rename(columns=COL_MAP)
+
+        # Parse percentage strings -> float
+        for pct_col in ["twoPointersPercentage", "threePointersPercentage", "freeThrowsPercentage"]:
+            if pct_col in df.columns:
+                df[pct_col] = (
+                    df[pct_col].astype(str)
+                    .str.replace("%", "", regex=False)
+                    .pipe(pd.to_numeric, errors="coerce")
+                )
+
+        df = apply_team_aliases(df, ["team_code"])
+
+        # Normalise column names
+        df = df.rename(columns={
+            "gamesPlayed": "games",
+            "minutesPlayed": "minutes",
+            "pointsScored": "points",
+            "twoPointersMade": "fgm2",
+            "twoPointersAttempted": "fga2",
+            "twoPointersPercentage": "fg2_pct",
+            "threePointersMade": "fgm3",
+            "threePointersAttempted": "fga3",
+            "threePointersPercentage": "fg3_pct",
+            "freeThrowsMade": "ftm",
+            "freeThrowsAttempted": "fta",
+            "freeThrowsPercentage": "ft_pct",
+            "totalRebounds": "rebounds",
+            "assists": "assists",
+            "turnovers": "turnovers",
+            "steals": "steals",
+            "blocks": "blocks",
+        })
+
+        for col in ["games", "minutes", "points", "fgm2", "fga2", "fgm3", "fga3",
+                     "ftm", "fta", "rebounds", "assists", "turnovers", "steals",
+                     "blocks", "fg2_pct", "fg3_pct", "ft_pct"]:
+            if col in df.columns:
+                df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+
+        if "player_name_raw" in df.columns:
+            df["player_name"] = df["player_name_raw"].apply(format_player_name)
+        else:
+            df["player_name"] = df.get("player_code", "")
+
+        return df
+
+    per_game = _fetch_and_clean("PerGame")
+    totals = _fetch_and_clean("Accumulated")
+
+    return {"per_game": per_game, "totals": totals}
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
 def fetch_home_away_splits(
     season: int,
     competition: str = COMPETITION,
