@@ -62,8 +62,32 @@ FEATURE_LABELS = {
     "blocks_pg": "BLK/G",
 }
 
+POSITION_GROUPS = {"Guard": "Guard", "Forward": "Forward", "Center": "Center"}
+
 MIN_GAMES = 5
 MIN_MINUTES_PG = 8.0
+
+
+def infer_position(row: pd.Series) -> str:
+    """
+    Infer a player's position group (Guard / Forward / Center) from their
+    statistical profile.  Uses a simple heuristic based on rebounds, blocks,
+    assists, and 3PA Rate.
+    """
+    orb = row.get("orb_pct", 0) or 0
+    drb = row.get("drb_pct", 0) or 0
+    blk = row.get("blocks_pg", 0) or 0
+    ast = row.get("assist_ratio", 0) or 0
+    thr = row.get("three_pt_rate", 0) or 0
+
+    big_score = (orb + drb) * 50 + blk * 10
+    guard_score = ast * 50 + thr * 50
+
+    if big_score > 18 and big_score > guard_score * 1.3:
+        return "Center"
+    if guard_score > 14 and guard_score > big_score * 1.1:
+        return "Guard"
+    return "Forward"
 
 
 def fetch_league_player_stats(
@@ -195,6 +219,9 @@ def _engineer_features(merged: pd.DataFrame) -> pd.DataFrame:
     df["rebounds_pg"] = pd.to_numeric(merged["totalRebounds"], errors="coerce").fillna(0)
     df["assists_pg"] = ast
 
+    # Infer position group from statistical profile
+    df["position"] = df.apply(infer_position, axis=1)
+
     return df.reset_index(drop=True)
 
 
@@ -218,8 +245,11 @@ def build_similarity_model(
     scaler = StandardScaler()
     scaled = scaler.fit_transform(features)
 
-    index_df = df[["player_code", "player_name", "team_code", "team_name",
-                    "image_url", "games_played", "minutes_pg", "points_pg"]].reset_index(drop=True)
+    keep_cols = ["player_code", "player_name", "team_code", "team_name",
+                 "image_url", "games_played", "minutes_pg", "points_pg"]
+    if "position" in df.columns:
+        keep_cols.append("position")
+    index_df = df[keep_cols].reset_index(drop=True)
 
     return scaled, scaler, index_df
 
@@ -228,6 +258,7 @@ def find_similar_players(
     target_name: str,
     player_df: pd.DataFrame,
     top_n: int = 5,
+    position_filter: Optional[str] = None,
 ) -> pd.DataFrame:
     """
     Find the top N most similar players to the target using cosine similarity.
@@ -240,18 +271,19 @@ def find_similar_players(
         Full league player DataFrame from fetch_league_player_stats.
     top_n : int
         Number of similar players to return.
+    position_filter : str or None
+        If set to a position group ("Guard", "Forward", "Center"), only
+        match within that group. None means all positions.
 
     Returns
     -------
     pd.DataFrame with columns:
-        player_name, team_code, similarity_score, and all feature columns.
+        player_name, team_code, position, similarity, similarity_pct,
+        and all feature columns.
     """
-    scaled, scaler, index_df = build_similarity_model(player_df)
-    if scaled.size == 0:
-        return pd.DataFrame()
-
-    # Find target player index
     clean_df = player_df.dropna(subset=FEATURE_COLUMNS).reset_index(drop=True)
+
+    # Find target player index in clean_df
     name_lower = target_name.lower()
     mask = clean_df["player_name"].str.lower() == name_lower
     if mask.sum() == 0:
@@ -259,25 +291,48 @@ def find_similar_players(
     if mask.sum() == 0:
         logger.warning(f"Player '{target_name}' not found")
         return pd.DataFrame()
-
     target_idx = mask.idxmax()
 
-    sim_matrix = cosine_similarity(scaled[target_idx:target_idx + 1], scaled)
+    # Apply position filter: keep target + players matching the position
+    if position_filter and "position" in clean_df.columns:
+        pos_mask = (clean_df["position"] == position_filter) | (clean_df.index == target_idx)
+        subset_df = clean_df[pos_mask].reset_index(drop=True)
+        # Recompute target index in the filtered subset
+        t_mask = subset_df["player_name"].str.lower() == name_lower
+        if t_mask.sum() == 0:
+            t_mask = subset_df["player_name"].str.lower().str.contains(name_lower, na=False)
+        if t_mask.sum() == 0:
+            return pd.DataFrame()
+        target_idx_sub = t_mask.idxmax()
+    else:
+        subset_df = clean_df
+        target_idx_sub = target_idx
+
+    # Scale features & compute cosine similarity
+    features = subset_df[FEATURE_COLUMNS].values
+    scaler = StandardScaler()
+    scaled = scaler.fit_transform(features)
+
+    sim_matrix = cosine_similarity(scaled[target_idx_sub:target_idx_sub + 1], scaled)
     sim_scores = sim_matrix[0]
 
     # Exclude the target player themselves
-    sim_scores[target_idx] = -1.0
+    sim_scores[target_idx_sub] = -1.0
 
     top_indices = np.argsort(sim_scores)[::-1][:top_n]
 
     results = []
     for idx in top_indices:
-        row = clean_df.iloc[idx]
+        row = subset_df.iloc[idx]
+        raw_sim = float(sim_scores[idx])
         result = {
             "player_name": row["player_name"],
             "team_code": row["team_code"],
             "team_name": row.get("team_name", ""),
-            "similarity": round(sim_scores[idx], 4),
+            "image_url": row.get("image_url", ""),
+            "position": row.get("position", ""),
+            "similarity": round(raw_sim, 4),
+            "similarity_pct": round(raw_sim * 100, 1),
             "games_played": row.get("games_played", 0),
             "minutes_pg": row.get("minutes_pg", 0),
             "points_pg": row.get("points_pg", 0),
@@ -316,18 +371,38 @@ def build_radar_comparison(
 ) -> Optional[Dict]:
     """
     Build normalized radar chart data for two players.
+    Kept for backwards-compat; delegates to build_multi_radar.
+    """
+    result = build_multi_radar(target_name, [similar_name], player_df)
+    if result is None:
+        return None
+    # Flatten to legacy format for any old callers
+    return {
+        "labels": result["labels"],
+        "target_values": result["target_values"],
+        "similar_values": result["players"][similar_name]["norm"],
+        "target_raw": result["target_raw"],
+        "similar_raw": result["players"][similar_name]["raw"],
+    }
+
+
+def build_multi_radar(
+    target_name: str,
+    compare_names: List[str],
+    player_df: pd.DataFrame,
+) -> Optional[Dict]:
+    """
+    Build normalized radar chart data for the target player plus multiple
+    comparison players.
 
     Returns dict with:
       - labels: list of feature display names
-      - target_values: normalized [0-1] values for target player
-      - similar_values: normalized [0-1] values for similar player
-      - target_raw: raw feature values for target
-      - similar_raw: raw feature values for similar player
+      - target_values: normalized [0-1] values for target
+      - target_raw: raw feature dict for target
+      - players: {name: {"norm": [...], "raw": {...}}} for each comparison
     """
     target_feats = get_player_feature_vector(target_name, player_df)
-    similar_feats = get_player_feature_vector(similar_name, player_df)
-
-    if target_feats is None or similar_feats is None:
+    if target_feats is None:
         return None
 
     clean_df = player_df.dropna(subset=FEATURE_COLUMNS)
@@ -340,15 +415,21 @@ def build_radar_comparison(
         float((target_feats[f] - mins[f]) / ranges[f])
         for f in FEATURE_COLUMNS
     ]
-    similar_norm = [
-        float((similar_feats[f] - mins[f]) / ranges[f])
-        for f in FEATURE_COLUMNS
-    ]
+
+    players_data = {}
+    for name in compare_names:
+        feats = get_player_feature_vector(name, player_df)
+        if feats is None:
+            continue
+        norm = [float((feats[f] - mins[f]) / ranges[f]) for f in FEATURE_COLUMNS]
+        players_data[name] = {"norm": norm, "raw": feats}
+
+    if not players_data:
+        return None
 
     return {
         "labels": labels,
         "target_values": target_norm,
-        "similar_values": similar_norm,
         "target_raw": target_feats,
-        "similar_raw": similar_feats,
+        "players": players_data,
     }

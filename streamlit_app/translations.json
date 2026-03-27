@@ -1541,6 +1541,54 @@
     "de": "Min. Minuten/Spiel Filter",
     "es": "Filtro mín. minutos/partido"
   },
+  "scout_position_filter": {
+    "en": "Position filter",
+    "el": "Φίλτρο θέσης",
+    "de": "Positionsfilter",
+    "es": "Filtro de posición"
+  },
+  "scout_position_all": {
+    "en": "All Positions",
+    "el": "Όλες οι Θέσεις",
+    "de": "Alle Positionen",
+    "es": "Todas las Posiciones"
+  },
+  "scout_position_guard": {
+    "en": "Guards",
+    "el": "Γκαρντ",
+    "de": "Guards",
+    "es": "Bases/Escoltas"
+  },
+  "scout_position_forward": {
+    "en": "Forwards",
+    "el": "Φόργουορντ",
+    "de": "Forwards",
+    "es": "Aleros"
+  },
+  "scout_position_center": {
+    "en": "Centers",
+    "el": "Σέντερ",
+    "de": "Center",
+    "es": "Pívots"
+  },
+  "scout_position_label": {
+    "en": "Position",
+    "el": "Θέση",
+    "de": "Position",
+    "es": "Posición"
+  },
+  "scout_comparison_matrix_title": {
+    "en": "Side-by-Side Comparison Matrix",
+    "el": "Πίνακας Σύγκρισης",
+    "de": "Vergleichsmatrix",
+    "es": "Matriz de Comparación"
+  },
+  "scout_select_radar_players": {
+    "en": "Select players to overlay on radar chart",
+    "el": "Επιλέξτε παίκτες για επικάλυψη στο radar chart",
+    "de": "Spieler für Radar-Überlagerung auswählen",
+    "es": "Seleccione jugadores para superponer en el gráfico radar"
+  },
   "nav_chat_label": {
     "en": "Ask the Data",
     "el": "Ρώτα τα Δεδομένα",
