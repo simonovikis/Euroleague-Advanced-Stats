@@ -17,7 +17,11 @@ Launch:  streamlit run streamlit_app/app.py
 
 import json
 import sys
+import os
 from pathlib import Path
+from dotenv import load_dotenv
+
+load_dotenv()
 
 import numpy as np
 import pandas as pd
@@ -165,10 +169,11 @@ NAV_ADVANCED = t("nav_advanced_label")
 NAV_LIVE = t("nav_live_label")
 NAV_SCOUTING = t("nav_scouting_label")
 NAV_REFEREE = t("nav_referee_label")
+NAV_CHAT = t("nav_chat_label")
 NAV_GLOSSARY = t("nav_glossary_label")
 
-NAV_OPTIONS = [NAV_HOME, NAV_SINGLE, NAV_SEASON, NAV_ADVANCED, NAV_LIVE, NAV_SCOUTING, NAV_REFEREE, NAV_GLOSSARY]
-NAV_ICONS = ["house-fill", "trophy-fill", "bar-chart-line-fill", "lightning-charge-fill", "broadcast", "search", "clipboard-check", "book-half"]
+NAV_OPTIONS = [NAV_HOME, NAV_SINGLE, NAV_SEASON, NAV_ADVANCED, NAV_LIVE, NAV_SCOUTING, NAV_REFEREE, NAV_CHAT, NAV_GLOSSARY]
+NAV_ICONS = ["house-fill", "trophy-fill", "bar-chart-line-fill", "lightning-charge-fill", "broadcast", "search", "clipboard-check", "chat-dots-fill", "book-half"]
 
 selected_nav = option_menu(
     menu_title=None,
@@ -384,11 +389,12 @@ if selected_nav == NAV_HOME:
             )
 
     st.markdown("")
-    row2 = st.columns(4)
+    row2 = st.columns(5)
     cards_row2 = [
         ("📡", t("card_live_title"), t("card_live_desc")),
         ("🔍", t("card_scouting_title"), t("card_scouting_desc")),
         ("⚖️", t("card_referee_title"), t("card_referee_desc")),
+        ("💬", t("card_chat_title"), t("card_chat_desc")),
         ("📖", t("card_glossary_title"), t("card_glossary_desc")),
     ]
     for col, (icon, title, desc) in zip(row2, cards_row2):
@@ -2162,6 +2168,95 @@ elif selected_nav == NAV_REFEREE:
 
         styled = display_df.style.apply(highlight_win_pct, axis=1).format(precision=1)
         st.dataframe(styled, use_container_width=True, hide_index=True, height=450)
+
+
+# ========================================================================
+# PAGE: ASK THE DATA (LLM Chat Agent)
+# ========================================================================
+elif selected_nav == NAV_CHAT:
+    st.markdown(f'<p class="section-header">{t("chat_title")}</p>', unsafe_allow_html=True)
+    st.markdown(
+        f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('chat_subtitle')}</p>",
+        unsafe_allow_html=True,
+    )
+
+    # --- Check for API key ---
+    openai_key = os.getenv("OPENAI_API_KEY")
+    if not openai_key:
+        st.error(t("chat_no_api_key"))
+        st.stop()
+
+    # --- Load data for the agent ---
+    season_chat = st.session_state.get("selected_season", 2025)
+
+    @st.cache_data(ttl=3600, show_spinner=False)
+    def _load_chat_dataframes(season: int):
+        from streamlit_app.queries import fetch_scouting_player_pool, fetch_league_efficiency_landscape
+        player_df = fetch_scouting_player_pool(season)
+        team_df = fetch_league_efficiency_landscape(season)
+        return player_df, team_df
+
+    with st.spinner(t("chat_loading_data")):
+        player_df, team_df = _load_chat_dataframes(season_chat)
+
+    if player_df.empty and team_df.empty:
+        st.warning(t("chat_no_data"))
+        st.stop()
+
+    # --- Build agent (cached in session state) ---
+    agent_cache_key = f"chat_agent_{season_chat}"
+    if agent_cache_key not in st.session_state:
+        try:
+            from streamlit_app.chat_agent import build_chat_agent
+            st.session_state[agent_cache_key] = build_chat_agent(player_df, team_df)
+        except Exception as e:
+            st.error(f"{t('chat_agent_error')}: {e}")
+            st.stop()
+
+    agent = st.session_state[agent_cache_key]
+
+    # --- Initialize chat history ---
+    if "chat_messages" not in st.session_state:
+        st.session_state["chat_messages"] = []
+
+    # --- Display existing messages ---
+    for msg in st.session_state["chat_messages"]:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
+    # --- Chat input ---
+    if prompt := st.chat_input(t("chat_placeholder")):
+        st.session_state["chat_messages"].append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        with st.chat_message("assistant"):
+            with st.spinner(t("chat_thinking")):
+                from streamlit_app.chat_agent import ask_agent
+                answer = ask_agent(agent, prompt)
+            st.markdown(answer)
+
+        st.session_state["chat_messages"].append({"role": "assistant", "content": answer})
+
+    # --- Suggested questions ---
+    if not st.session_state["chat_messages"]:
+        st.markdown(f"#### {t('chat_suggestions_title')}")
+        suggestions = [
+            t("chat_suggestion_1"),
+            t("chat_suggestion_2"),
+            t("chat_suggestion_3"),
+            t("chat_suggestion_4"),
+        ]
+        cols = st.columns(2)
+        for i, suggestion in enumerate(suggestions):
+            with cols[i % 2]:
+                st.markdown(
+                    f'<div style="background:linear-gradient(135deg,#1e1e3f,#2a2a5a); '
+                    f'border:1px solid rgba(255,255,255,0.08); border-radius:12px; '
+                    f'padding:16px; margin-bottom:12px; color:#9ca3af; font-size:0.9rem;">'
+                    f'💡 {suggestion}</div>',
+                    unsafe_allow_html=True,
+                )
 
 
 # ========================================================================

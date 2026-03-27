@@ -1540,5 +1540,101 @@
     "el": "Ελάχ. λεπτά/αγώνα",
     "de": "Min. Minuten/Spiel Filter",
     "es": "Filtro mín. minutos/partido"
+  },
+  "nav_chat_label": {
+    "en": "Ask the Data",
+    "el": "Ρώτα τα Δεδομένα",
+    "de": "Daten befragen",
+    "es": "Pregunta a los Datos"
+  },
+  "card_chat_title": {
+    "en": "Ask the Data",
+    "el": "Ρώτα τα Δεδομένα",
+    "de": "Daten befragen",
+    "es": "Pregunta a los Datos"
+  },
+  "card_chat_desc": {
+    "en": "Chat with an AI agent to ask natural language questions about player and team stats.",
+    "el": "Συνομιλήστε με AI agent για ερωτήσεις σε φυσική γλώσσα σχετικά με στατιστικά παικτών και ομάδων.",
+    "de": "Chatten Sie mit einem KI-Agenten, um Fragen zu Spieler- und Teamstatistiken zu stellen.",
+    "es": "Chatee con un agente IA para hacer preguntas en lenguaje natural sobre estadísticas."
+  },
+  "chat_title": {
+    "en": "Ask the Data",
+    "el": "Ρώτα τα Δεδομένα",
+    "de": "Daten befragen",
+    "es": "Pregunta a los Datos"
+  },
+  "chat_subtitle": {
+    "en": "Ask natural language questions about Euroleague player and team statistics. Powered by an LLM agent with access to season-wide advanced stats.",
+    "el": "Κάντε ερωτήσεις σε φυσική γλώσσα σχετικά με στατιστικά Euroleague. Τροφοδοτείται από LLM agent με πρόσβαση σε προχωρημένα στατιστικά σεζόν.",
+    "de": "Stellen Sie Fragen in natürlicher Sprache zu Euroleague-Statistiken. Betrieben von einem LLM-Agenten mit Zugriff auf saisonweite Statistiken.",
+    "es": "Haga preguntas en lenguaje natural sobre estadísticas de la Euroleague. Impulsado por un agente LLM con acceso a estadísticas avanzadas de temporada."
+  },
+  "chat_no_api_key": {
+    "en": "OpenAI API key not found. Please set OPENAI_API_KEY in your Streamlit secrets (.streamlit/secrets.toml).",
+    "el": "Δεν βρέθηκε κλειδί OpenAI API. Ορίστε OPENAI_API_KEY στα Streamlit secrets (.streamlit/secrets.toml).",
+    "de": "OpenAI API-Schlüssel nicht gefunden. Bitte OPENAI_API_KEY in Streamlit Secrets setzen.",
+    "es": "Clave de API de OpenAI no encontrada. Configure OPENAI_API_KEY en los secretos de Streamlit."
+  },
+  "chat_loading_data": {
+    "en": "Loading player and team stats for the AI agent...",
+    "el": "Φόρτωση στατιστικών παικτών και ομάδων για τον AI agent...",
+    "de": "Lade Spieler- und Teamstatistiken für den KI-Agenten...",
+    "es": "Cargando estadísticas de jugadores y equipos para el agente IA..."
+  },
+  "chat_no_data": {
+    "en": "No data available for this season to power the chat agent.",
+    "el": "Δεν υπάρχουν διαθέσιμα δεδομένα σεζόν για τον chat agent.",
+    "de": "Keine Daten für diese Saison für den Chat-Agenten verfügbar.",
+    "es": "No hay datos disponibles de esta temporada para el agente de chat."
+  },
+  "chat_agent_error": {
+    "en": "Failed to initialize the AI agent",
+    "el": "Αποτυχία αρχικοποίησης του AI agent",
+    "de": "KI-Agent konnte nicht initialisiert werden",
+    "es": "Error al inicializar el agente IA"
+  },
+  "chat_placeholder": {
+    "en": "Ask a question about Euroleague stats...",
+    "el": "Κάντε μια ερώτηση για στατιστικά Euroleague...",
+    "de": "Stellen Sie eine Frage zu Euroleague-Statistiken...",
+    "es": "Haga una pregunta sobre estadísticas de la Euroleague..."
+  },
+  "chat_thinking": {
+    "en": "Analyzing data...",
+    "el": "Ανάλυση δεδομένων...",
+    "de": "Daten werden analysiert...",
+    "es": "Analizando datos..."
+  },
+  "chat_suggestions_title": {
+    "en": "Try asking...",
+    "el": "Δοκιμάστε να ρωτήσετε...",
+    "de": "Versuchen Sie zu fragen...",
+    "es": "Intente preguntar..."
+  },
+  "chat_suggestion_1": {
+    "en": "Which player has the highest True Shooting % with at least 15 minutes per game?",
+    "el": "Ποιος παίκτης έχει το υψηλότερο TS% με τουλάχιστον 15 λεπτά ανά αγώνα;",
+    "de": "Welcher Spieler hat die höchste TS% bei mindestens 15 Minuten pro Spiel?",
+    "es": "¿Qué jugador tiene el mayor TS% con al menos 15 minutos por partido?"
+  },
+  "chat_suggestion_2": {
+    "en": "What are the top 5 teams by Net Rating this season?",
+    "el": "Ποιες είναι οι 5 κορυφαίες ομάδες σε Net Rating αυτή τη σεζόν;",
+    "de": "Welche 5 Teams haben das beste Net Rating in dieser Saison?",
+    "es": "¿Cuáles son los 5 mejores equipos por Net Rating esta temporada?"
+  },
+  "chat_suggestion_3": {
+    "en": "Compare the offensive and defensive ratings of all teams.",
+    "el": "Σύγκρινε τα επιθετικά και αμυντικά ratings όλων των ομάδων.",
+    "de": "Vergleichen Sie die Offensiv- und Defensiv-Ratings aller Teams.",
+    "es": "Compara los ratings ofensivos y defensivos de todos los equipos."
+  },
+  "chat_suggestion_4": {
+    "en": "Who are the best playmakers based on assist ratio and low turnover rate?",
+    "el": "Ποιοι είναι οι καλύτεροι playmakers βάσει assist ratio και χαμηλού ποσοστού λαθών;",
+    "de": "Wer sind die besten Spielgestalter basierend auf Assist Ratio und niedriger Turnover Rate?",
+    "es": "¿Quiénes son los mejores creadores según el ratio de asistencias y baja tasa de pérdidas?"
   }
 }
