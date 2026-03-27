@@ -114,6 +114,7 @@ def fetch_game_data_live(
         compute_shot_quality,
         link_assists_to_shots,
         compute_playmaking_metrics,
+        compute_total_points_created,
     )
 
     # 1. Extract raw data
@@ -148,6 +149,9 @@ def fetch_game_data_live(
     # 8. Playmaking metrics (AAQ, AxP, Duos)
     assist_shot_links = link_assists_to_shots(pbp_df, shots_df)
     playmaking = compute_playmaking_metrics(assist_shot_links, min_assists=1)
+
+    # 9. Total Points Created (TPC)
+    advanced_df = compute_total_points_created(advanced_df, assist_shot_links)
 
     return {
         "boxscore": boxscore_df,

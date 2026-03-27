@@ -484,22 +484,70 @@ elif selected_nav == NAV_SINGLE:
 
             display_cols = [
                 "player_name", "team_code", "minutes", "points",
+                "pts_from_assists", "total_pts_created",
                 "possessions", "ts_pct", "off_rating", "def_rating",
             ]
             if "true_usg_pct" in active.columns:
                 display_cols += ["true_usg_pct", "stop_rate"]
             display_cols = [c for c in display_cols if c in active.columns]
 
+            sort_col = "total_pts_created" if "total_pts_created" in active.columns else "points"
             st.dataframe(
-                active[display_cols].round(3).sort_values("points", ascending=False).rename(
+                active[display_cols].round(3).sort_values(sort_col, ascending=False).rename(
                     columns={
                         "player_name": t("col_player"), "team_code": t("col_team"), "minutes": t("col_min"),
-                        "points": t("col_pts"), "possessions": t("col_poss"), "ts_pct": t("col_ts"),
+                        "points": t("col_pts"), "pts_from_assists": "PTS via Assists",
+                        "total_pts_created": "Total PTS Produced",
+                        "possessions": t("col_poss"), "ts_pct": t("col_ts"),
                         "off_rating": t("col_ortg"), "def_rating": t("col_drtg"), "true_usg_pct": t("col_tusg"),
                     }
                 ),
                 use_container_width=True, hide_index=True, height=400,
             )
+
+            # --- Total Points Produced Stacked Bar Chart ---
+            if "total_pts_created" in active.columns:
+                st.markdown("#### Total Points Produced Breakdown")
+                chart_team = sel_team if sel_team != t("filter_all") else None
+                chart_df = active.copy()
+                if chart_team:
+                    chart_df = chart_df[chart_df["team_code"] == chart_team]
+                else:
+                    teams_in_game = sorted(active["team_code"].unique())
+                    if teams_in_game:
+                        chart_team = st.selectbox(
+                            "Select team for TPC chart", teams_in_game, key="tpc_chart_team",
+                        )
+                        chart_df = active[active["team_code"] == chart_team]
+
+                chart_df = chart_df[chart_df["total_pts_created"] > 0].sort_values(
+                    "total_pts_created", ascending=True,
+                )
+                if not chart_df.empty:
+                    fig_tpc = go.Figure()
+                    fig_tpc.add_trace(go.Bar(
+                        y=chart_df["player_name"], x=chart_df["points"],
+                        name="Own Points", orientation="h",
+                        marker_color="#6366f1",
+                        hovertemplate="%{y}: %{x} pts<extra>Own Points</extra>",
+                    ))
+                    fig_tpc.add_trace(go.Bar(
+                        y=chart_df["player_name"], x=chart_df["pts_from_assists"],
+                        name="PTS via Assists", orientation="h",
+                        marker_color="#f59e0b",
+                        hovertemplate="%{y}: %{x} pts<extra>PTS via Assists</extra>",
+                    ))
+                    fig_tpc.update_layout(
+                        barmode="stack",
+                        template="plotly_dark",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(15,15,35,0.8)",
+                        height=max(350, len(chart_df) * 38),
+                        xaxis_title="Total Points Produced",
+                        font=dict(family="Inter"),
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                    )
+                    st.plotly_chart(fig_tpc, use_container_width=True)
 
             st.markdown(f"#### ⚔️ {t('lbl_ortg')} vs {t('lbl_drtg')}")
             scatter_df = active.dropna(subset=["off_rating", "def_rating"])

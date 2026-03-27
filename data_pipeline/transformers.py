@@ -1659,6 +1659,49 @@ def compute_close_game_stats(
     return team_stats.sort_values("close_win_pct", ascending=False, na_position="last").reset_index(drop=True)
 
 
+def compute_total_points_created(
+    advanced_df: pd.DataFrame,
+    assist_shot_links: pd.DataFrame,
+) -> pd.DataFrame:
+    """
+    Compute Total Points Created (TPC) by merging exact assist point values
+    from PBP-linked assist-shot data with standard boxscore stats.
+
+    Steps:
+      1. Group assist_shot_links by passer_id, summing shot_value to get
+         the exact points generated from each player's assists.
+      2. Merge with the advanced stats DataFrame on player_id.
+      3. Calculate: Total_Points_Created = points + pts_from_assists.
+
+    Returns the advanced_df with two new columns:
+      - pts_from_assists: exact points yielded by the player's assists
+      - total_pts_created: points scored + pts_from_assists
+    """
+    df = advanced_df.copy()
+
+    if assist_shot_links.empty or "passer_id" not in assist_shot_links.columns:
+        df["pts_from_assists"] = 0
+        df["total_pts_created"] = df["points"].fillna(0)
+        return df
+
+    pfa = (
+        assist_shot_links
+        .groupby("passer_id")["shot_value"]
+        .sum()
+        .reset_index()
+        .rename(columns={"passer_id": "player_id", "shot_value": "pts_from_assists"})
+    )
+
+    df["player_id"] = df["player_id"].astype(str).str.strip()
+    pfa["player_id"] = pfa["player_id"].astype(str).str.strip()
+
+    df = df.merge(pfa, on="player_id", how="left")
+    df["pts_from_assists"] = df["pts_from_assists"].fillna(0).astype(int)
+    df["total_pts_created"] = df["points"].fillna(0) + df["pts_from_assists"]
+
+    return df
+
+
 def compute_positional_scoring(
     boxscore: pd.DataFrame,
     team_code: Optional[str] = None,
