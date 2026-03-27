@@ -1216,5 +1216,113 @@
     "el": "Οι ομάδες ταξινομούνται από το μεγαλύτερο πλεονέκτημα έδρας προς το μικρότερο.",
     "de": "Teams sind von links nach rechts vom größten Heimvorteil zum kleinsten sortiert.",
     "es": "Los equipos están ordenados de mayor a menor ventaja de campo."
+  },
+  "nav_home_label": {
+    "en": "Home",
+    "el": "Αρχική",
+    "de": "Startseite",
+    "es": "Inicio"
+  },
+  "nav_single_label": {
+    "en": "Single Game",
+    "el": "Μεμονωμένος Αγώνας",
+    "de": "Einzelspiel",
+    "es": "Juego Individual"
+  },
+  "nav_season_label": {
+    "en": "Season Overview",
+    "el": "Επισκόπηση Σεζόν",
+    "de": "Saisonübersicht",
+    "es": "Resumen Temporada"
+  },
+  "nav_advanced_label": {
+    "en": "Advanced Analytics",
+    "el": "Προχωρημένα Analytics",
+    "de": "Erweiterte Analysen",
+    "es": "Analítica Avanzada"
+  },
+  "nav_referee_label": {
+    "en": "Referees",
+    "el": "Διαιτητές",
+    "de": "Schiedsrichter",
+    "es": "Árbitros"
+  },
+  "nav_glossary_label": {
+    "en": "Glossary",
+    "el": "Γλωσσάρι",
+    "de": "Glossar",
+    "es": "Glosario"
+  },
+  "home_welcome_title": {
+    "en": "Welcome to Euroleague Advanced Analytics",
+    "el": "Καλώς ήρθατε στα Euroleague Advanced Analytics",
+    "de": "Willkommen bei Euroleague Advanced Analytics",
+    "es": "Bienvenido a Euroleague Advanced Analytics"
+  },
+  "home_welcome_sub": {
+    "en": "Your one-stop hub for in-depth basketball analysis. Select a tool from the navigation bar above to get started.",
+    "el": "Ο κόμβος σας για εις βάθος ανάλυση μπάσκετ. Επιλέξτε ένα εργαλείο από τη γραμμή πλοήγησης.",
+    "de": "Ihr zentraler Hub für tiefgehende Basketball-Analyse. Wählen Sie ein Tool aus der Navigationsleiste.",
+    "es": "Su centro integral para análisis profundo de baloncesto. Seleccione una herramienta de la barra de navegación."
+  },
+  "card_single_title": {
+    "en": "Single Game Analysis",
+    "el": "Ανάλυση Μεμονωμένου Αγώνα",
+    "de": "Einzelspiel-Analyse",
+    "es": "Análisis de un Solo Juego"
+  },
+  "card_single_desc": {
+    "en": "Dive into a single game's shot chart, player advanced stats, radar comparisons, lineup synergies, and assist networks.",
+    "el": "Εξερευνήστε χάρτη βολών, στατιστικά παικτών, ραντάρ σύγκρισης, πεντάδες και δίκτυα ασίστ ενός αγώνα.",
+    "de": "Analysieren Sie Wurfdiagramm, erweiterte Spielerstatistiken, Radar-Vergleiche, Aufstellungs-Synergien und Assist-Netzwerke.",
+    "es": "Explore el mapa de tiros, estadísticas avanzadas, comparaciones radar, sinergias de alineación y redes de asistencias."
+  },
+  "card_season_title": {
+    "en": "Season Overview",
+    "el": "Επισκόπηση Σεζόν",
+    "de": "Saisonübersicht",
+    "es": "Resumen de la Temporada"
+  },
+  "card_season_desc": {
+    "en": "Explore league efficiency landscape, team usage vs efficiency, home/away splits, and season-long lineup performance.",
+    "el": "Εξερευνήστε αποδοτικότητα λίγκας, χρήση vs αποτελεσματικότητα, εντός/εκτός έδρας, και απόδοση πεντάδων σεζόν.",
+    "de": "Erkunden Sie Liga-Effizienz, Team-Nutzung vs Effizienz, Heim-/Auswärtssplits und Saison-Aufstellungen.",
+    "es": "Explore la eficiencia de la liga, uso vs eficiencia del equipo, divisiones local/visitante y rendimiento de temporada."
+  },
+  "card_advanced_title": {
+    "en": "Advanced Analytics",
+    "el": "Προχωρημένα Analytics",
+    "de": "Erweiterte Analysen",
+    "es": "Analítica Avanzada"
+  },
+  "card_advanced_desc": {
+    "en": "Deep dive into playmaking quality (AAQ), expected points (AxP), clutch DNA, momentum shifts, and foul trouble impact.",
+    "el": "Βαθιά ανάλυση ποιότητας playmaking (AAQ), αναμενόμενων πόντων (AxP), clutch DNA, momentum και επίδρασης φάουλ.",
+    "de": "Vertiefen Sie sich in Spielgestaltungsqualität (AAQ), erwartete Punkte (AxP), Clutch-DNA, Momentum und Foul-Auswirkungen.",
+    "es": "Profundice en calidad de creatividad (AAQ), puntos esperados (AxP), ADN clutch, momentum e impacto de faltas."
+  },
+  "card_referee_title": {
+    "en": "Referee Analytics",
+    "el": "Αναλύσεις Διαιτητών",
+    "de": "Schiedsrichter-Analyse",
+    "es": "Análisis de Árbitros"
+  },
+  "card_referee_desc": {
+    "en": "Discover win/loss records under each official and spot trends that could affect game outcomes.",
+    "el": "Ανακαλύψτε ρεκόρ νικών/ηττών ανά διαιτητή και εντοπίστε τάσεις που επηρεάζουν αποτελέσματα.",
+    "de": "Entdecken Sie Gewinn-/Verlustbilanzen pro Schiedsrichter und erkennen Sie Trends.",
+    "es": "Descubra récords de victorias/derrotas por árbitro y detecte tendencias que afectan los resultados."
+  },
+  "card_glossary_title": {
+    "en": "Metrics Glossary",
+    "el": "Γλωσσάρι Μετρικών",
+    "de": "Metriken-Glossar",
+    "es": "Glosario de Métricas"
+  },
+  "card_glossary_desc": {
+    "en": "Understand every advanced metric used in this dashboard: ORtg, DRtg, TS%, tUSG%, and more.",
+    "el": "Κατανοήστε κάθε μετρική: ORtg, DRtg, TS%, tUSG% και άλλα.",
+    "de": "Verstehen Sie jede erweiterte Metrik: ORtg, DRtg, TS%, tUSG% und mehr.",
+    "es": "Comprenda cada métrica avanzada: ORtg, DRtg, TS%, tUSG% y más."
   }
 }
