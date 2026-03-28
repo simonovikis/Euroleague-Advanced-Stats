@@ -177,7 +177,11 @@ def apply_clutch_filter(data: dict) -> dict:
     shots_df = data.get("shots", pd.DataFrame())
     original_box = data.get("boxscore", pd.DataFrame())
 
-    clutch_pbp = filter_clutch_time(pbp_df)
+    # Track lineups on the FULL PBP first to preserve substitution state.
+    # Filtering to clutch time before tracking loses who subbed in earlier.
+    pbp_with_lineups = track_lineups(pbp_df, original_box)
+
+    clutch_pbp = filter_clutch_time(pbp_with_lineups)
     clutch_shots = filter_clutch_shots(shots_df)
 
     if clutch_pbp.empty:
@@ -189,7 +193,7 @@ def apply_clutch_filter(data: dict) -> dict:
         return data
 
     advanced_df = compute_advanced_stats(clutch_box)
-    pbp_lu = track_lineups(clutch_pbp, clutch_box)
+    pbp_lu = clutch_pbp
     lineup_stats = compute_lineup_stats(pbp_lu, clutch_box)
     duo_synergy = compute_duo_trio_synergy(pbp_lu, clutch_box, combo_size=2)
     trio_synergy = compute_duo_trio_synergy(pbp_lu, clutch_box, combo_size=3)

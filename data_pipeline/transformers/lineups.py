@@ -74,10 +74,10 @@ def track_lineups(
     away_lineups = []
 
     # --- Walk through PBP and track substitutions ---
-    for _, row in df.iterrows():
-        playtype = str(row.get("PLAYTYPE", "")).strip()
-        codeteam = str(row.get("CODETEAM", "")).strip()
-        player_id = str(row.get("PLAYER_ID", "")).strip()
+    for row in df.itertuples(index=False):
+        playtype = str(getattr(row, "PLAYTYPE", "")).strip()
+        codeteam = str(getattr(row, "CODETEAM", "")).strip()
+        player_id = str(getattr(row, "PLAYER_ID", "")).strip()
 
         # Process substitution BEFORE recording the lineup for this event
         if playtype == "IN" and player_id:
@@ -611,69 +611,95 @@ def compute_on_off_splits(
 
     poss_events = {"2FGM", "2FGA", "3FGM", "3FGA", "TO", "D"}
 
+    # Pre-compute indicator columns for vectorized aggregation
+    df["home_pts"] = df["score_pts"].where(df["CODETEAM"] == home_team, 0)
+    df["away_pts"] = df["score_pts"].where(df["CODETEAM"] == away_team, 0)
+    is_poss = df["PLAYTYPE"].isin(poss_events)
+    df["home_poss_ev"] = (is_poss & (df["CODETEAM"] == home_team)).astype(int)
+    df["away_poss_ev"] = (is_poss & (df["CODETEAM"] == away_team)).astype(int)
+
     name_map = {}
     if boxscore_df is not None and "Player_ID" in boxscore_df.columns:
         for _, r in boxscore_df.iterrows():
             pid = str(r["Player_ID"]).strip()
             name_map[pid] = format_player_name(str(r.get("Player", pid)))
 
+    agg_dict = {
+        "home_pts": "sum", "away_pts": "sum",
+        "home_poss_ev": "sum", "away_poss_ev": "sum",
+        "score_pts": "count",
+    }
+
     results = []
 
     for team, lineup_col in [(home_team, "home_lineup"), (away_team, "away_lineup")]:
-        opp_team = away_team if team == home_team else home_team
+        # Single groupby pass per team — O(N) instead of O(N * Players)
+        grp = df.groupby(lineup_col).agg(agg_dict).rename(columns={"score_pts": "events"})
+
+        # Orient pts_for / pts_against relative to the team being analyzed
+        if team == home_team:
+            grp.rename(columns={
+                "home_pts": "pts_for", "away_pts": "pts_against",
+                "home_poss_ev": "team_poss", "away_poss_ev": "opp_poss",
+            }, inplace=True)
+        else:
+            grp.rename(columns={
+                "away_pts": "pts_for", "home_pts": "pts_against",
+                "away_poss_ev": "team_poss", "home_poss_ev": "opp_poss",
+            }, inplace=True)
 
         all_players = set()
-        for lu in df[lineup_col].dropna():
+        for lu in grp.index:
             all_players.update(lu)
 
+        # Iterate over the pre-aggregated lineup table (much smaller than raw events)
         for pid in sorted(all_players):
-            on_mask = df[lineup_col].apply(lambda lu: pid in lu)
+            on_mask = np.array([pid in lu for lu in grp.index])
             off_mask = ~on_mask
 
-            for label, mask in [("on", on_mask), ("off", off_mask)]:
-                subset = df[mask]
-                pts_for = subset.loc[subset["CODETEAM"] == team, "score_pts"].sum()
-                pts_against = subset.loc[subset["CODETEAM"] == opp_team, "score_pts"].sum()
+            on_grp = grp.iloc[on_mask]
+            off_grp = grp.iloc[off_mask]
 
-                team_poss = len(subset[
-                    (subset["CODETEAM"] == team) & (subset["PLAYTYPE"].isin(poss_events))
-                ])
-                opp_poss = len(subset[
-                    (subset["CODETEAM"] == opp_team) & (subset["PLAYTYPE"].isin(poss_events))
-                ])
-                total_poss = max((team_poss + opp_poss) / 2, 1)
+            on_pts_for = int(on_grp["pts_for"].sum())
+            on_pts_against = int(on_grp["pts_against"].sum())
+            on_team_poss = int(on_grp["team_poss"].sum())
+            on_opp_poss = int(on_grp["opp_poss"].sum())
+            on_total_poss = max((on_team_poss + on_opp_poss) / 2, 1)
+            on_events = int(on_grp["events"].sum())
+            on_ortg = (on_pts_for / on_total_poss) * 100
+            on_drtg = (on_pts_against / on_total_poss) * 100
 
-                ortg = (pts_for / total_poss) * 100
-                drtg = (pts_against / total_poss) * 100
+            off_pts_for = int(off_grp["pts_for"].sum())
+            off_pts_against = int(off_grp["pts_against"].sum())
+            off_team_poss = int(off_grp["team_poss"].sum())
+            off_opp_poss = int(off_grp["opp_poss"].sum())
+            off_total_poss = max((off_team_poss + off_opp_poss) / 2, 1)
+            off_events = int(off_grp["events"].sum())
+            off_ortg = (off_pts_for / off_total_poss) * 100
+            off_drtg = (off_pts_against / off_total_poss) * 100
 
-                if label == "on":
-                    on_data = {
-                        "on_events": len(subset),
-                        "on_pts_for": pts_for,
-                        "on_pts_against": pts_against,
-                        "on_poss": round(total_poss, 1),
-                        "on_ortg": round(ortg, 1),
-                        "on_drtg": round(drtg, 1),
-                        "on_net_rtg": round(ortg - drtg, 1),
-                    }
-                else:
-                    off_data = {
-                        "off_events": len(subset),
-                        "off_pts_for": pts_for,
-                        "off_pts_against": pts_against,
-                        "off_poss": round(total_poss, 1),
-                        "off_ortg": round(ortg, 1),
-                        "off_drtg": round(drtg, 1),
-                        "off_net_rtg": round(ortg - drtg, 1),
-                    }
+            on_net = round(on_ortg - on_drtg, 1)
+            off_net = round(off_ortg - off_drtg, 1)
 
             results.append({
                 "player_id": pid,
                 "player_name": name_map.get(pid, pid),
                 "team": team,
-                **on_data,
-                **off_data,
-                "on_off_diff": round(on_data["on_net_rtg"] - off_data["off_net_rtg"], 1),
+                "on_events": on_events,
+                "on_pts_for": on_pts_for,
+                "on_pts_against": on_pts_against,
+                "on_poss": round(on_total_poss, 1),
+                "on_ortg": round(on_ortg, 1),
+                "on_drtg": round(on_drtg, 1),
+                "on_net_rtg": on_net,
+                "off_events": off_events,
+                "off_pts_for": off_pts_for,
+                "off_pts_against": off_pts_against,
+                "off_poss": round(off_total_poss, 1),
+                "off_ortg": round(off_ortg, 1),
+                "off_drtg": round(off_drtg, 1),
+                "off_net_rtg": off_net,
+                "on_off_diff": round(on_net - off_net, 1),
             })
 
     result_df = pd.DataFrame(results)
