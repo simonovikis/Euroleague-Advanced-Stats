@@ -87,6 +87,8 @@ def build_clutch_boxscore(
                 "Season": r.get("Season", ""),
                 "Gamecode": r.get("Gamecode", ""),
                 "Player": r.get("Player", pid),
+                "IsStarter": r.get("IsStarter", 0),
+                "IsPlaying": r.get("IsPlaying", 0),
             }
 
     rows = []
@@ -126,6 +128,8 @@ def build_clutch_boxscore(
             "Player_ID": pid,
             "Team": team,
             "Home": meta.get("Home", 0),
+            "IsStarter": meta.get("IsStarter", 0),
+            "IsPlaying": meta.get("IsPlaying", 0),
             "Season": meta.get("Season", ""),
             "Gamecode": meta.get("Gamecode", ""),
             "Minutes": mins_str,
