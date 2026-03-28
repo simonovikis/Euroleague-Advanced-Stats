@@ -10,7 +10,7 @@ Uses:
 """
 
 import logging
-from typing import Dict, List
+from typing import Dict, List, Optional
 import os
 import pandas as pd
 import streamlit as st
@@ -52,7 +52,7 @@ When answering:
 def build_chat_agent(
     player_df: pd.DataFrame,
     team_df: pd.DataFrame,
-    api_key: str | None = None,
+    api_key: Optional[str] = None,
     model_name: str = "gpt-4o-mini",
     temperature: float = 0.0,
 ):

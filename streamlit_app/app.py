@@ -469,7 +469,12 @@ with st.sidebar:
 
         # --- Team selector (Season Overview or Referees) ---
         if needs_team_filter:
-            team_options = sorted(list(set(schedule["home_code"].unique()) | set(schedule["away_code"].unique())))
+            euroleague_games = schedule[schedule["played"] == True] if "played" in schedule.columns else schedule
+            if not euroleague_games.empty:
+                team_options = sorted(list(set(euroleague_games["home_code"].unique()) | set(euroleague_games["away_code"].unique())))
+            else:
+                team_options = sorted(list(set(schedule["home_code"].unique()) | set(schedule["away_code"].unique())))
+            st.session_state["season_team_codes"] = set(team_options)
             st.session_state["selected_team"] = st.selectbox(
                 t("team_dropdown"), team_options, key="team_picker"
             )
@@ -682,34 +687,34 @@ elif selected_nav == NAV_SINGLE:
                 c1, c2, c3, c4, c5 = st.columns(5)
                 c1.metric(
                     t("metric_players", default="Players"), len(active),
-                    help="Number of players who logged at least 1 minute of playing time.",
+                    help=t("tooltip_players_count"),
                 )
                 c2.metric(
                     f"{t('metric_avg', default='Avg')} {t('lbl_ts', default='TS%')}",
                     f"{active['ts_pct'].mean():.1%}",
-                    help="True Shooting %: Measures scoring efficiency accounting for 2-pointers, 3-pointers, and free throws. Formula: PTS / (2 * (FGA + 0.44 * FTA)).",
+                    help=t("tooltip_avg_ts"),
                 )
                 c3.metric(
                     f"{t('metric_avg', default='Avg')} {t('lbl_ortg', default='ORtg')}",
                     f"{active['off_rating'].mean():.1f}",
-                    help="Offensive Rating: Estimated points produced per 100 possessions while this player is on court. Higher is better.",
+                    help=t("tooltip_avg_ortg"),
                 )
                 c4.metric(
                     f"{t('metric_avg', default='Avg')} {t('lbl_drtg', default='DRtg')}",
                     f"{active['def_rating'].mean():.1f}",
-                    help="Defensive Rating: Estimated points allowed per 100 possessions while this player is on court. Lower is better.",
+                    help=t("tooltip_avg_drtg"),
                 )
                 if "true_usg_pct" in active.columns:
                     c5.metric(
                         f"{t('metric_avg', default='Avg')} {t('lbl_tusg', default='tUSG%')}",
                         f"{active['true_usg_pct'].mean():.1%}",
-                        help="True Usage Rate: Percentage of team possessions used by this player (shots, free throws, turnovers) while on court.",
+                        help=t("tooltip_tusg"),
                     )
                 else:
                     c5.metric(
                         f"{t('metric_avg', default='Avg')} {t('col_poss', default='Poss')}",
                         f"{active['possessions'].mean():.1f}",
-                        help="Possessions: Estimated individual possessions used (FGA + 0.44 * FTA + TOV).",
+                        help=t("tooltip_poss"),
                     )
 
             display_cols = [
@@ -727,12 +732,12 @@ elif selected_nav == NAV_SINGLE:
                 grid_df["net_rating"] = (grid_df["off_rating"] - grid_df["def_rating"]).round(1)
             grid_df = grid_df.rename(columns={
                 "player_name": t("col_player"), "team_code": t("col_team"), "minutes": t("col_min"),
-                "points": t("col_pts"), "pts_from_assists": "PTS via Assists",
-                "total_pts_created": "Total PTS Produced",
+                "points": t("col_pts"), "pts_from_assists": t("col_pts_from_assists"),
+                "total_pts_created": t("col_total_pts_created"),
                 "possessions": t("col_poss"), "ts_pct": t("col_ts"),
                 "off_rating": t("col_ortg"), "def_rating": t("col_drtg"),
-                "true_usg_pct": t("col_tusg"), "stop_rate": "Stop Rate",
-                "net_rating": "Net Rtg",
+                "true_usg_pct": t("col_tusg"), "stop_rate": t("col_stop_rate"),
+                "net_rating": t("col_net_rtg_short"),
             })
             render_aggrid(
                 grid_df,
@@ -744,7 +749,7 @@ elif selected_nav == NAV_SINGLE:
 
             # --- Total Points Produced Stacked Bar Chart ---
             if "total_pts_created" in active.columns:
-                st.markdown("#### Total Points Produced Breakdown")
+                st.markdown(f"#### {t('hdr_tpc_breakdown')}")
                 chart_team = sel_team if sel_team != t("filter_all") else None
                 chart_df = active.copy()
                 if chart_team:
@@ -753,7 +758,7 @@ elif selected_nav == NAV_SINGLE:
                     teams_in_game = sorted(active["team_code"].unique())
                     if teams_in_game:
                         chart_team = st.selectbox(
-                            "Select team for TPC chart", teams_in_game, key="tpc_chart_team",
+                            t("lbl_select_team_chart"), teams_in_game, key="tpc_chart_team",
                         )
                         chart_df = active[active["team_code"] == chart_team]
 
@@ -764,15 +769,15 @@ elif selected_nav == NAV_SINGLE:
                     fig_tpc = go.Figure()
                     fig_tpc.add_trace(go.Bar(
                         y=chart_df["player_name"], x=chart_df["points"],
-                        name="Own Points", orientation="h",
+                        name=t("lbl_own_points"), orientation="h",
                         marker_color="#6366f1",
-                        hovertemplate="%{y}: %{x} pts<extra>Own Points</extra>",
+                        hovertemplate="%{y}: %{x} pts<extra>" + t("lbl_own_points") + "</extra>",
                     ))
                     fig_tpc.add_trace(go.Bar(
                         y=chart_df["player_name"], x=chart_df["pts_from_assists"],
-                        name="PTS via Assists", orientation="h",
+                        name=t("lbl_pts_via_ast"), orientation="h",
                         marker_color="#f59e0b",
-                        hovertemplate="%{y}: %{x} pts<extra>PTS via Assists</extra>",
+                        hovertemplate="%{y}: %{x} pts<extra>" + t("lbl_pts_via_ast") + "</extra>",
                     ))
                     fig_tpc.update_layout(
                         barmode="stack",
@@ -780,7 +785,7 @@ elif selected_nav == NAV_SINGLE:
                         paper_bgcolor="rgba(0,0,0,0)",
                         plot_bgcolor="rgba(15,15,35,0.8)",
                         height=max(350, len(chart_df) * 38),
-                        xaxis_title="Total Points Produced",
+                        xaxis_title=t("lbl_total_pts_produced"),
                         font=dict(family="Inter"),
                         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                     )
@@ -793,7 +798,7 @@ elif selected_nav == NAV_SINGLE:
                     scatter_df, x="def_rating", y="off_rating", color="team_code",
                     text="player_name", size="minutes", size_max=20,
                     hover_data=["points", "ts_pct", "possessions"],
-                    labels={"off_rating": "Offensive Rating", "def_rating": "Defensive Rating"},
+                    labels={"off_rating": t("lbl_offensive_rating"), "def_rating": t("lbl_defensive_rating")},
                     color_discrete_sequence=["#6366f1", "#f59e0b", "#10b981", "#ef4444"],
                 )
                 fig.update_traces(textposition="top center", textfont_size=9)
@@ -904,7 +909,7 @@ elif selected_nav == NAV_SINGLE:
                         marker=dict(color="#10b981", size=10, symbol="circle",
                                     line=dict(width=1, color="white"), opacity=0.85),
                         name=t("lbl_made", default="Made"), text=made["ACTION"],
-                        hovertemplate="%{text}<br>Zone: %{customdata}<extra></extra>",
+                        hovertemplate="%{text}<br>" + t("hover_zone") + ": %{customdata}<extra></extra>",
                         customdata=made["ZONE"],
                     ))
                     fig.add_trace(go.Scatter(
@@ -912,7 +917,7 @@ elif selected_nav == NAV_SINGLE:
                         marker=dict(color="#ef4444", size=8, symbol="x",
                                     line=dict(width=1, color="white"), opacity=0.65),
                         name=t("lbl_missed", default="Missed"), text=missed["ACTION"],
-                        hovertemplate="%{text}<br>Zone: %{customdata}<extra></extra>",
+                        hovertemplate="%{text}<br>" + t("hover_zone") + ": %{customdata}<extra></extra>",
                         customdata=missed["ZONE"],
                     ))
 
@@ -928,7 +933,7 @@ elif selected_nav == NAV_SINGLE:
                     st.plotly_chart(fig, use_container_width=True)
 
                     if not shot_quality.empty:
-                        st.markdown("#### 📊 Shot Quality Analysis")
+                        st.markdown(f"#### {t('hdr_shot_quality')}")
                         sq = shot_quality.copy()
                         if sel_shooter != t("filter_all"):
                             sq = sq[sq["PLAYER"] == sel_shooter]
@@ -943,7 +948,7 @@ elif selected_nav == NAV_SINGLE:
                             })
                             st.dataframe(sq_display.round(2), use_container_width=True, hide_index=True)
                 else:
-                    st.info("No X/Y coordinates available — showing zone breakdown instead.")
+                    st.info(t("lbl_no_coords"))
                     zone_summary = (
                         shot_df.groupby("ZONE")
                         .agg(shots=("POINTS", "size"), made=("POINTS", lambda x: (x > 0).sum()))
@@ -1022,9 +1027,9 @@ elif selected_nav == NAV_SINGLE:
             )
             st.plotly_chart(fig, use_container_width=True)
 
-            st.markdown("#### 📋 Raw Values Comparison")
+            st.markdown(f"#### {t('hdr_raw_comparison')}")
             comparison = pd.DataFrame({
-                "Metric": radar_labels,
+                t("col_metric"): radar_labels,
                 p1: [round(p1_data.iloc[i], 3) for i in range(len(radar_labels))],
                 p2: [round(p2_data.iloc[i], 3) for i in range(len(radar_labels))],
             })
@@ -1076,7 +1081,7 @@ elif selected_nav == NAV_SINGLE:
                     fig = px.bar(
                         lu_filtered.head(15), x="net_rtg", y="lineup_str", orientation="h",
                         color="net_rtg", color_continuous_scale=["#ef4444", "#6b7280", "#10b981"],
-                        color_continuous_midpoint=0, labels={"net_rtg": "Net Rating", "lineup_str": "Lineup"},
+                        color_continuous_midpoint=0, labels={"net_rtg": t("lbl_net_rtg"), "lineup_str": t("col_lineup")},
                     )
                     fig.update_layout(
                         template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)",
@@ -1088,38 +1093,47 @@ elif selected_nav == NAV_SINGLE:
         with sub_duo:
             duo = data.get("duo_synergy", pd.DataFrame())
             if duo.empty:
-                st.info("No duo synergy data.")
+                st.info(t("no_duo_data"))
             else:
                 duo_teams = sorted(duo["team"].unique())
-                sel_duo_team = st.selectbox("Team", ["All"] + duo_teams, key="duo_team")
-                duo_f = duo if sel_duo_team == "All" else duo[duo["team"] == sel_duo_team]
+                sel_duo_team = st.selectbox(t("col_team"), [t("filter_all")] + duo_teams, key="duo_team")
+                duo_f = duo if sel_duo_team == t("filter_all") else duo[duo["team"] == sel_duo_team]
                 duo_f = duo_f[duo_f["events_together"] >= 10]
 
-                st.markdown("##### 🔝 Best Duos (by Synergy)")
+                st.markdown(f"##### {t('hdr_best_duos')}")
                 st.dataframe(
-                    duo_f.head(10)[["team", "combo_names", "events_together", "net_rtg_together", "net_rtg_apart", "synergy"]],
+                    duo_f.head(10)[["team", "combo_names", "events_together", "net_rtg_together", "net_rtg_apart", "synergy"]].rename(
+                        columns={"team": t("col_team"), "combo_names": t("col_lineup"), "events_together": t("col_poss"),
+                                 "net_rtg_together": t("col_netrtg"), "net_rtg_apart": f"{t('col_netrtg')} ({t('lbl_away')})", "synergy": "Synergy"}
+                    ),
                     use_container_width=True, hide_index=True,
                 )
 
-                st.markdown("##### ⬇️ Worst Duos (by Synergy)")
+                st.markdown(f"##### {t('hdr_worst_duos')}")
                 st.dataframe(
-                    duo_f.tail(5).sort_values("synergy")[["team", "combo_names", "events_together", "net_rtg_together", "net_rtg_apart", "synergy"]],
+                    duo_f.tail(5).sort_values("synergy")[["team", "combo_names", "events_together", "net_rtg_together", "net_rtg_apart", "synergy"]].rename(
+                        columns={"team": t("col_team"), "combo_names": t("col_lineup"), "events_together": t("col_poss"),
+                                 "net_rtg_together": t("col_netrtg"), "net_rtg_apart": f"{t('col_netrtg')} ({t('lbl_away')})", "synergy": "Synergy"}
+                    ),
                     use_container_width=True, hide_index=True,
                 )
 
         with sub_trio:
             trio = data.get("trio_synergy", pd.DataFrame())
             if trio.empty:
-                st.info("No trio synergy data.")
+                st.info(t("no_trio_data"))
             else:
                 trio_teams = sorted(trio["team"].unique())
-                sel_trio_team = st.selectbox("Team", ["All"] + trio_teams, key="trio_team")
-                trio_f = trio if sel_trio_team == "All" else trio[trio["team"] == sel_trio_team]
+                sel_trio_team = st.selectbox(t("col_team"), [t("filter_all")] + trio_teams, key="trio_team")
+                trio_f = trio if sel_trio_team == t("filter_all") else trio[trio["team"] == sel_trio_team]
                 trio_f = trio_f[trio_f["events_together"] >= 10]
 
-                st.markdown("##### 🔝 Best Trios (by Synergy)")
+                st.markdown(f"##### {t('hdr_best_trios')}")
                 st.dataframe(
-                    trio_f.head(10)[["team", "combo_names", "events_together", "net_rtg_together", "net_rtg_apart", "synergy"]],
+                    trio_f.head(10)[["team", "combo_names", "events_together", "net_rtg_together", "net_rtg_apart", "synergy"]].rename(
+                        columns={"team": t("col_team"), "combo_names": t("col_lineup"), "events_together": t("col_poss"),
+                                 "net_rtg_together": t("col_netrtg"), "net_rtg_apart": f"{t('col_netrtg')} ({t('lbl_away')})", "synergy": "Synergy"}
+                    ),
                     use_container_width=True, hide_index=True,
                 )
 
@@ -1154,7 +1168,7 @@ elif selected_nav == NAV_SINGLE:
                         [0, "rgba(15,15,35,0.9)"], [0.25, "#312e81"],
                         [0.5, "#6366f1"], [0.75, "#a78bfa"], [1.0, "#f59e0b"],
                     ],
-                    hovertemplate="Passer: %{y}<br>Scorer: %{x}<br>Assists: %{z}<extra></extra>",
+                    hovertemplate=t("col_passer", default="Passer") + ": %{y}<br>" + t("col_shooter", default="Scorer") + ": %{x}<br>" + t("col_ast", default="Assists") + ": %{z}<extra></extra>",
                     showscale=True, colorbar=dict(title=t("col_ast", default="Assists")),
                 ))
                 fig.update_layout(
@@ -1166,11 +1180,11 @@ elif selected_nav == NAV_SINGLE:
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
-                st.markdown("#### 🏅 Top Assist Connections")
+                st.markdown(f"#### {t('hdr_top_ast_connections')}")
                 st.dataframe(
                     team_assists[["assister_name", "scorer_name", "count", "play_types"]].rename(
-                        columns={"assister_name": "Passer", "scorer_name": "Scorer",
-                                 "count": "Assists", "play_types": "Shot Types"}
+                        columns={"assister_name": t("lbl_passer_col"), "scorer_name": t("lbl_scorer_col"),
+                                 "count": t("col_ast"), "play_types": t("col_shot_types")}
                     ),
                     use_container_width=True, hide_index=True,
                 )
@@ -1378,6 +1392,9 @@ elif selected_nav == NAV_SEASON:
     if eff_df.empty:
         st.warning(t("err_league_eff"))
     else:
+        valid_teams = st.session_state.get("season_team_codes", set())
+        if valid_teams:
+            eff_df = eff_df[eff_df["team_code"].isin(valid_teams)].copy()
         eff_df["color"] = np.where(eff_df["team_code"] == team_code, _tc_primary, "#4b5563")
         eff_df["size"] = np.where(eff_df["team_code"] == team_code, 15, 10)
 
@@ -1460,6 +1477,8 @@ elif selected_nav == NAV_SEASON:
     if sit_df.empty:
         st.info(t("no_sit_scoring"))
     else:
+        if valid_teams:
+            sit_df = sit_df[sit_df["team_code"].isin(valid_teams)].copy()
         team_row = sit_df[sit_df["team_code"] == team_code]
         if team_row.empty:
             st.info(t("no_sit_scoring"))
@@ -1492,23 +1511,23 @@ elif selected_nav == NAV_SEASON:
             c1.metric(
                 t("lbl_steals_pg"), f"{team_row['steals_pg']:.1f}",
                 f"{team_row['steals_pg'] - league_avg['steals_pg']:+.1f} vs avg",
-                help="Steals per game. Delta shows difference from league average.",
+                help=t("tooltip_steals_pg"),
             )
             c2.metric(
                 t("lbl_turnovers_pg"), f"{team_row['turnovers_pg']:.1f}",
                 f"{team_row['turnovers_pg'] - league_avg['turnovers_pg']:+.1f} vs avg",
                 delta_color="inverse",
-                help="Turnovers per game. Fewer is better — delta is inverted (green = below avg).",
+                help=t("tooltip_turnovers_pg"),
             )
             c3.metric(
                 t("lbl_off_reb_pg"), f"{team_row['off_reb_pg']:.1f}",
                 f"{team_row['off_reb_pg'] - league_avg['off_reb_pg']:+.1f} vs avg",
-                help="Offensive rebounds per game. Indicates second-chance opportunity creation.",
+                help=t("tooltip_off_reb_pg"),
             )
             c4.metric(
                 t("lbl_assists_pg"), f"{team_row['assists_pg']:.1f}",
                 f"{team_row['assists_pg'] - league_avg['assists_pg']:+.1f} vs avg",
-                help="Assists per game. Measures team ball movement and playmaking.",
+                help=t("tooltip_assists_pg"),
             )
 
     st.markdown("---")
@@ -1528,6 +1547,8 @@ elif selected_nav == NAV_SEASON:
     if ha_df.empty:
         st.info(t("no_home_away", default="No Home/Away data available yet."))
     else:
+        if valid_teams:
+            ha_df = ha_df[ha_df["team_code"].isin(valid_teams)].copy()
         ha_df = ha_df.sort_values("home_adv_diff", ascending=False)
 
         tab_net, tab_ortg, tab_drtg = st.tabs([
@@ -1581,6 +1602,8 @@ elif selected_nav == NAV_SEASON:
     if close_df.empty:
         st.info(t("no_clutch_close"))
     else:
+        if valid_teams:
+            close_df = close_df[close_df["team_code"].isin(valid_teams)].copy()
         team_row = close_df[close_df["team_code"] == team_code]
         if not team_row.empty:
             tr = team_row.iloc[0]
@@ -1590,17 +1613,17 @@ elif selected_nav == NAV_SEASON:
                 t("lbl_close_win_pct"),
                 f"{tr['close_win_pct']:.1f}%" if not pd.isna(tr["close_win_pct"]) else "N/A",
                 f"{tr['close_win_pct'] - league_avg_val:+.1f} vs avg" if not pd.isna(tr["close_win_pct"]) else None,
-                help=f"Win percentage in games decided by {close_threshold} points or fewer.",
+                help=t("tooltip_close_win_pct", threshold=close_threshold),
             )
             c2.metric(
                 t("lbl_league_avg_close"), f"{league_avg_val:.1f}%",
-                help="League-wide average close-game win percentage for comparison.",
+                help=t("tooltip_league_avg_close"),
             )
             c3.metric(
                 t("lbl_close_record"),
                 f"{int(tr['close_wins'])}-{int(tr['close_losses'])}",
                 f"{int(tr['close_games_played'])} close games",
-                help=f"Win-Loss record in games decided by {close_threshold} points or fewer.",
+                help=t("tooltip_close_record", threshold=close_threshold),
             )
 
         plot_df = close_df[close_df["close_games_played"] > 0].copy()
@@ -1615,13 +1638,14 @@ elif selected_nav == NAV_SEASON:
 
             fig_dom = go.Figure()
             others = plot_df[~plot_df["is_selected"]]
+            _hover_dom = "%{customdata[0]}<br>" + t("hover_pt_diff") + ": %{x:.1f}<br>" + t("hover_close_win_pct") + ": %{y:.1f}%%<br>" + t("hover_close_gp") + ": %{customdata[1]}<extra></extra>"
             fig_dom.add_trace(go.Scatter(
                 x=others["avg_point_diff"], y=others["close_win_pct"],
                 mode="markers+text", text=others["team_code"],
                 textposition="top center", textfont=dict(size=9, color="#9ca3af"),
                 marker=dict(size=others["close_games_played"] * 3 + 8, color="#4b5563", opacity=0.7,
                             line=dict(width=1, color="rgba(255,255,255,0.2)")),
-                hovertemplate="%{customdata[0]}<br>Pt Diff: %{x:.1f}<br>Close W%%: %{y:.1f}%%<br>Close GP: %{customdata[1]}<extra></extra>",
+                hovertemplate=_hover_dom,
                 customdata=list(zip(others["team_name"], others["close_games_played"])),
                 showlegend=False,
             ))
@@ -1633,7 +1657,7 @@ elif selected_nav == NAV_SEASON:
                     textposition="top center", textfont=dict(size=11, color="#f0f0ff"),
                     marker=dict(size=sel["close_games_played"].iloc[0] * 3 + 8, color=_tc_primary, opacity=1.0,
                                 line=dict(width=2, color="#f0f0ff")),
-                    hovertemplate="%{customdata[0]}<br>Pt Diff: %{x:.1f}<br>Close W%%: %{y:.1f}%%<br>Close GP: %{customdata[1]}<extra></extra>",
+                    hovertemplate=_hover_dom,
                     customdata=list(zip(sel["team_name"], sel["close_games_played"])),
                     showlegend=False,
                 ))
@@ -1664,13 +1688,14 @@ elif selected_nav == NAV_SEASON:
 
             fig_ov = go.Figure()
             others2 = plot_df[~plot_df["is_selected"]]
+            _hover_ov = "%{customdata}<br>" + t("lbl_overall_win_pct") + ": %{x:.1f}%%<br>" + t("hover_close_win_pct") + ": %{y:.1f}%%<extra></extra>"
             fig_ov.add_trace(go.Scatter(
                 x=others2["overall_win_pct"], y=others2["close_win_pct"],
                 mode="markers+text", text=others2["team_code"],
                 textposition="top center", textfont=dict(size=9, color="#9ca3af"),
                 marker=dict(size=10, color="#4b5563", opacity=0.7,
                             line=dict(width=1, color="rgba(255,255,255,0.2)")),
-                hovertemplate="%{customdata}<br>Win%%: %{x:.1f}%%<br>Close W%%: %{y:.1f}%%<extra></extra>",
+                hovertemplate=_hover_ov,
                 customdata=others2["team_name"], showlegend=False,
             ))
             sel2 = plot_df[plot_df["is_selected"]]
@@ -1681,7 +1706,7 @@ elif selected_nav == NAV_SEASON:
                     textposition="top center", textfont=dict(size=11, color="#f0f0ff"),
                     marker=dict(size=14, color=_tc_primary, opacity=1.0,
                                 line=dict(width=2, color="#f0f0ff")),
-                    hovertemplate="%{customdata}<br>Win%%: %{x:.1f}%%<br>Close W%%: %{y:.1f}%%<extra></extra>",
+                    hovertemplate=_hover_ov,
                     customdata=sel2["team_name"], showlegend=False,
                 ))
 
@@ -1716,6 +1741,8 @@ elif selected_nav == NAV_SEASON:
 
     player_stats = season_data["player_season_stats"]
     lineup_stats = season_data["lineup_season_stats"]
+    if not lineup_stats.empty and "team" in lineup_stats.columns:
+        lineup_stats = lineup_stats[lineup_stats["team"] == team_code]
 
     st.markdown(t("hdr_player_usage", team_code=team_code))
     st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_player_usage')}</p>", unsafe_allow_html=True)
@@ -1913,23 +1940,23 @@ elif selected_nav == NAV_SEASON:
                         mc1.metric(
                             t("form_season_avg", default="Season Avg"),
                             fmt_func(season_avg),
-                            help=f"Average {metric_label} across all games played this season.",
+                            help=t("tooltip_season_avg", metric=metric_label),
                         )
                         mc2.metric(
                             t("form_last_n_avg", n=window),
                             fmt_func(last_5_avg),
                             f"{trend_pct:+.1f}%",
-                            help=f"Rolling {window}-game average vs. the full-season average. Positive delta = trending up.",
+                            help=t("tooltip_rolling_avg", n=window),
                         )
                         mc3.metric(
                             t("form_best_game", default="Best Game"),
                             fmt_func(pdf[metric_col].max()),
-                            help=f"Highest single-game {metric_label} this season.",
+                            help=t("tooltip_best_game", metric=metric_label),
                         )
                         mc4.metric(
                             t("form_games_played", default="Games Played"),
                             str(len(pdf)),
-                            help="Total games played with at least 1 minute of floor time.",
+                            help=t("tooltip_games_played"),
                         )
                     else:
                         st.info(t("form_insufficient_games"))
@@ -2102,7 +2129,7 @@ elif selected_nav == NAV_ADVANCED:
                             [0, "rgba(15,15,35,0.9)"], [0.25, "#312e81"],
                             [0.5, "#6366f1"], [0.75, "#a78bfa"], [1.0, "#f59e0b"],
                         ],
-                        hovertemplate="Passer: %{y}<br>Scorer: %{x}<br>Total xP: %{z:.2f}<extra></extra>",
+                        hovertemplate=t("col_passer") + ": %{y}<br>" + t("col_shooter") + ": %{x}<br>xP: %{z:.2f}<extra></extra>",
                         showscale=True, colorbar=dict(title="xP"),
                     ))
                     fig_hm.update_layout(
@@ -2172,21 +2199,21 @@ elif selected_nav == NAV_ADVANCED:
                     c1, c2, c3, c4 = st.columns(4)
                     c1.metric(
                         f"{t('lbl_ortg')} {t('lbl_before', default='Before')}", f"{ft['ortg_before']:.1f}",
-                        help="Team Offensive Rating before the star player picked up foul trouble.",
+                        help=t("tooltip_ortg_before_foul"),
                     )
                     c2.metric(
                         f"{t('lbl_ortg')} {t('lbl_after', default='After')}", f"{ft['ortg_after']:.1f}",
                         delta=f"{ft['ortg_impact']:+.1f}",
-                        help="Team Offensive Rating after foul trouble. Delta shows the impact (positive = improvement).",
+                        help=t("tooltip_ortg_after_foul"),
                     )
                     c3.metric(
                         f"{t('lbl_drtg')} {t('lbl_before', default='Before')}", f"{ft['drtg_before']:.1f}",
-                        help="Team Defensive Rating before the star player picked up foul trouble.",
+                        help=t("tooltip_drtg_before_foul"),
                     )
                     c4.metric(
                         f"{t('lbl_drtg')} {t('lbl_after', default='After')}", f"{ft['drtg_after']:.1f}",
                         delta=f"{ft['drtg_impact']:+.1f}", delta_color="inverse",
-                        help="Team Defensive Rating after foul trouble. For defense, lower is better — delta is inverted.",
+                        help=t("tooltip_drtg_after_foul"),
                     )
                     st.markdown("---")
 
@@ -2895,12 +2922,12 @@ elif selected_nav == NAV_SCOUTING:
 
     prof_cols = st.columns(7)
     prof_cols[0].metric(t("col_team"), tr["team_code"])
-    prof_cols[1].metric(t("scout_position_label"), target_pos, help="Positional classification: Guard, Forward, or Center.")
-    prof_cols[2].metric("GP", f"{int(tr['games_played'])}", help="Games Played this season.")
-    prof_cols[3].metric("MPG", f"{tr['minutes_pg']:.1f}", help="Minutes Per Game: average minutes played per game.")
-    prof_cols[4].metric("PPG", f"{tr['points_pg']:.1f}", help="Points Per Game: average scoring output.")
-    prof_cols[5].metric("TS%", f"{tr['ts_pct']:.1%}", help="True Shooting %: Efficiency metric accounting for all shot types. Formula: PTS / (2 * (FGA + 0.44 * FTA)).")
-    prof_cols[6].metric("tUSG%", f"{tr['true_usg_pct']:.1%}", help="True Usage Rate: % of team possessions used (shots, FTs, turnovers) while on court.")
+    prof_cols[1].metric(t("scout_position_label"), target_pos, help=t("tooltip_position"))
+    prof_cols[2].metric("GP", f"{int(tr['games_played'])}", help=t("tooltip_gp"))
+    prof_cols[3].metric("MPG", f"{tr['minutes_pg']:.1f}", help=t("tooltip_mpg"))
+    prof_cols[4].metric("PPG", f"{tr['points_pg']:.1f}", help=t("tooltip_ppg"))
+    prof_cols[5].metric("TS%", f"{tr['ts_pct']:.1%}", help=t("tooltip_ts_scout"))
+    prof_cols[6].metric("tUSG%", f"{tr['true_usg_pct']:.1%}", help=t("tooltip_tusg_scout"))
 
     st.markdown("---")
 
@@ -2968,7 +2995,7 @@ elif selected_nav == NAV_SCOUTING:
         ),
         text=sim_bar["similarity_pct"].apply(lambda x: f"{x:.1f}%"),
         textposition="outside",
-        hovertemplate="%{y}: %{x:.1f}% similarity<extra></extra>",
+        hovertemplate="%{y}: %{x:.1f}% " + t("hover_similarity") + "<extra></extra>",
     ))
     fig_sim.update_layout(
         template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)",
@@ -3145,15 +3172,15 @@ elif selected_nav == NAV_REFEREE:
         c1, c2, c3 = st.columns(3)
         c1.metric(
             t("metric_total_refs"), len(ref_stats),
-            help=f"Number of referees who have officiated at least {min_ref_games} game(s) for this team.",
+            help=t("tooltip_total_refs", n=min_ref_games),
         )
         c2.metric(
             t("metric_best_ref"), f"{best_pct:.1f}%",
-            help="Highest team win percentage under a single referee.",
+            help=t("tooltip_best_ref"),
         )
         c3.metric(
             t("metric_worst_ref"), f"{worst_pct:.1f}%",
-            help="Lowest team win percentage under a single referee.",
+            help=t("tooltip_worst_ref"),
         )
 
         st.markdown("---")
@@ -3315,7 +3342,7 @@ elif selected_nav == NAV_CHAT:
 # PAGE: METRICS GLOSSARY
 # ========================================================================
 elif selected_nav == NAV_GLOSSARY:
-    st.markdown('<p class="section-header">Advanced Metrics Glossary</p>', unsafe_allow_html=True)
+    st.markdown(f'<p class="section-header">{t("hdr_glossary")}</p>', unsafe_allow_html=True)
     st.markdown("---")
 
     st.markdown(f"""

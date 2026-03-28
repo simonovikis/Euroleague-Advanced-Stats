@@ -61,6 +61,7 @@ def fetch_season_schedule(
         engine = _get_db_engine()
         if engine:
             import pandas as pd
+            comp_filter = f"AND competition_code = '{competition}'" if competition else ""
             query = f"""
                 SELECT 
                     season, gamecode, 
@@ -69,7 +70,7 @@ def fetch_season_schedule(
                     game_date, round, played, 
                     referee1, referee2, referee3 
                 FROM games 
-                WHERE season = {season}
+                WHERE season = {season} {comp_filter}
                 ORDER BY round ASC, game_date ASC
             """
             with engine.connect() as conn:

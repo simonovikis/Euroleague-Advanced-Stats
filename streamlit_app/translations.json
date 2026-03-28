@@ -1984,5 +1984,377 @@
     "el": "Συνολικό +/−",
     "de": "Gesamt +/−",
     "es": "Total +/−"
+  },
+  "no_duo_data": {
+    "en": "No duo synergy data.",
+    "el": "Δεν υπάρχουν δεδομένα συνέργειας δίδυμων.",
+    "de": "Keine Duo-Synergiedaten verfügbar.",
+    "es": "No hay datos de sinergia de dúos."
+  },
+  "no_trio_data": {
+    "en": "No trio synergy data.",
+    "el": "Δεν υπάρχουν δεδομένα συνέργειας τριών.",
+    "de": "Keine Trio-Synergiedaten verfügbar.",
+    "es": "No hay datos de sinergia de tríos."
+  },
+  "hdr_best_duos": {
+    "en": "🔝 Best Duos (by Synergy)",
+    "el": "🔝 Καλύτερα Ντουέτα (κατά Συνέργεια)",
+    "de": "🔝 Beste Duos (nach Synergie)",
+    "es": "🔝 Mejores Dúos (por Sinergia)"
+  },
+  "hdr_worst_duos": {
+    "en": "⬇️ Worst Duos (by Synergy)",
+    "el": "⬇️ Χειρότερα Ντουέτα (κατά Συνέργεια)",
+    "de": "⬇️ Schlechteste Duos (nach Synergie)",
+    "es": "⬇️ Peores Dúos (por Sinergia)"
+  },
+  "hdr_best_trios": {
+    "en": "🔝 Best Trios (by Synergy)",
+    "el": "🔝 Καλύτερα Τρίο (κατά Συνέργεια)",
+    "de": "🔝 Beste Trios (nach Synergie)",
+    "es": "🔝 Mejores Tríos (por Sinergia)"
+  },
+  "hdr_tpc_breakdown": {
+    "en": "Total Points Produced Breakdown",
+    "el": "Ανάλυση Συνολικών Πόντων Δημιουργίας",
+    "de": "Aufschlüsselung der erzeugten Gesamtpunkte",
+    "es": "Desglose de Puntos Totales Producidos"
+  },
+  "lbl_select_team_chart": {
+    "en": "Select team for chart",
+    "el": "Επιλογή ομάδας για γράφημα",
+    "de": "Team für Diagramm auswählen",
+    "es": "Seleccionar equipo para gráfico"
+  },
+  "lbl_own_points": {
+    "en": "Own Points",
+    "el": "Ίδιοι Πόντοι",
+    "de": "Eigene Punkte",
+    "es": "Puntos Propios"
+  },
+  "lbl_pts_via_ast": {
+    "en": "PTS via Assists",
+    "el": "Πόντοι μέσω Ασίστ",
+    "de": "Punkte durch Assists",
+    "es": "PTS vía Asistencias"
+  },
+  "lbl_total_pts_produced": {
+    "en": "Total Points Produced",
+    "el": "Συνολικοί Παραγόμενοι Πόντοι",
+    "de": "Erzeugte Gesamtpunkte",
+    "es": "Puntos Totales Producidos"
+  },
+  "col_stop_rate": {
+    "en": "Stop Rate",
+    "el": "Ποσοστό Στοπ",
+    "de": "Stop-Rate",
+    "es": "Tasa de Paradas"
+  },
+  "col_net_rtg_short": {
+    "en": "Net Rtg",
+    "el": "Καθαρή Αξ.",
+    "de": "Net Rtg",
+    "es": "Rtg Neto"
+  },
+  "hdr_raw_comparison": {
+    "en": "📋 Raw Values Comparison",
+    "el": "📋 Σύγκριση Πραγματικών Τιμών",
+    "de": "📋 Rohwerte-Vergleich",
+    "es": "📋 Comparación de Valores Brutos"
+  },
+  "col_metric": {
+    "en": "Metric",
+    "el": "Μετρική",
+    "de": "Metrik",
+    "es": "Métrica"
+  },
+  "hdr_top_ast_connections": {
+    "en": "🏅 Top Assist Connections",
+    "el": "🏅 Κορυφαίες Συνδέσεις Ασίστ",
+    "de": "🏅 Top-Assist-Verbindungen",
+    "es": "🏅 Mejores Conexiones de Asistencias"
+  },
+  "col_shot_types": {
+    "en": "Shot Types",
+    "el": "Τύποι Σουτ",
+    "de": "Wurfarten",
+    "es": "Tipos de Tiro"
+  },
+  "lbl_no_coords": {
+    "en": "No X/Y coordinates available — showing zone breakdown instead.",
+    "el": "Δεν υπάρχουν συντεταγμένες X/Y — εμφάνιση ανάλυσης ζωνών.",
+    "de": "Keine X/Y-Koordinaten verfügbar — Zonenaufschlüsselung wird angezeigt.",
+    "es": "No hay coordenadas X/Y disponibles — se muestra el desglose por zonas."
+  },
+  "hdr_shot_quality": {
+    "en": "📊 Shot Quality Analysis",
+    "el": "📊 Ανάλυση Ποιότητας Σουτ",
+    "de": "📊 Wurfqualitätsanalyse",
+    "es": "📊 Análisis de Calidad de Tiro"
+  },
+  "leaders_full_table": {
+    "en": "Full Stats Table",
+    "el": "Πλήρης Πίνακας Στατιστικών",
+    "de": "Vollständige Statistiktabelle",
+    "es": "Tabla Completa de Estadísticas"
+  },
+  "col_total_pts_created": {
+    "en": "Total PTS Produced",
+    "el": "Σύνολο Πόντων Δημιουργίας",
+    "de": "Erzeugte Gesamtpunkte",
+    "es": "PTS Totales Producidos"
+  },
+  "col_pts_from_assists": {
+    "en": "PTS via Assists",
+    "el": "Πόντοι μέσω Ασίστ",
+    "de": "Punkte durch Assists",
+    "es": "PTS vía Asistencias"
+  },
+  "lbl_net_rating": {
+    "en": "Net Rating",
+    "el": "Καθαρή Αξιολόγηση",
+    "de": "Net Rating",
+    "es": "Rating Neto"
+  },
+  "lbl_offensive_rating": {
+    "en": "Offensive Rating",
+    "el": "Επιθετική Αξιολόγηση",
+    "de": "Offensive Rating",
+    "es": "Rating Ofensivo"
+  },
+  "lbl_defensive_rating": {
+    "en": "Defensive Rating",
+    "el": "Αμυντική Αξιολόγηση",
+    "de": "Defensive Rating",
+    "es": "Rating Defensivo"
+  },
+  "lbl_lineup": {
+    "en": "Lineup",
+    "el": "Πεντάδα",
+    "de": "Aufstellung",
+    "es": "Alineación"
+  },
+  "lbl_scorer_col": {
+    "en": "Scorer",
+    "el": "Σκόρερ",
+    "de": "Werfer",
+    "es": "Anotador"
+  },
+  "lbl_passer_col": {
+    "en": "Passer",
+    "el": "Πασέρ",
+    "de": "Passgeber",
+    "es": "Pasador"
+  },
+  "tooltip_players_count": {
+    "en": "Number of players who logged at least 1 minute of playing time.",
+    "el": "Αριθμός παικτών με τουλάχιστον 1 λεπτό αγωνιστικού χρόνου.",
+    "de": "Anzahl der Spieler mit mindestens 1 Minute Spielzeit.",
+    "es": "Número de jugadores con al menos 1 minuto de tiempo de juego."
+  },
+  "tooltip_avg_ts": {
+    "en": "True Shooting %: Measures scoring efficiency accounting for 2-pointers, 3-pointers, and free throws. Formula: PTS / (2 * (FGA + 0.44 * FTA)).",
+    "el": "True Shooting %: Μέτρηση αποδοτικότητας σκοραρίσματος λαμβάνοντας υπόψη δίποντα, τρίποντα και βολές. Τύπος: PTS / (2 * (FGA + 0.44 * FTA)).",
+    "de": "True Shooting %: Misst die Wurfeffizienz unter Berücksichtigung von 2-Punkt-, 3-Punkt- und Freiwürfen. Formel: PTS / (2 * (FGA + 0,44 * FTA)).",
+    "es": "True Shooting %: Mide la eficiencia de tiro considerando tiros de 2, de 3 y tiros libres. Fórmula: PTS / (2 * (FGA + 0.44 * FTA))."
+  },
+  "tooltip_avg_ortg": {
+    "en": "Offensive Rating: Estimated points produced per 100 possessions while this player is on court. Higher is better.",
+    "el": "Επιθετικό Rating: Εκτιμώμενοι πόντοι ανά 100 κατοχές ενώ ο παίκτης είναι στο παρκέ. Υψηλότερο = καλύτερο.",
+    "de": "Offensiv-Rating: Geschätzte Punkte pro 100 Ballbesitze, während der Spieler auf dem Feld ist. Höher ist besser.",
+    "es": "Rating Ofensivo: Puntos estimados producidos por 100 posesiones mientras el jugador está en cancha. Mayor es mejor."
+  },
+  "tooltip_avg_drtg": {
+    "en": "Defensive Rating: Estimated points allowed per 100 possessions while this player is on court. Lower is better.",
+    "el": "Αμυντικό Rating: Εκτιμώμενοι πόντοι που δέχεται ανά 100 κατοχές ενώ ο παίκτης είναι στο παρκέ. Χαμηλότερο = καλύτερο.",
+    "de": "Defensiv-Rating: Geschätzte zugelassene Punkte pro 100 Ballbesitze, während der Spieler auf dem Feld ist. Niedriger ist besser.",
+    "es": "Rating Defensivo: Puntos estimados permitidos por 100 posesiones mientras el jugador está en cancha. Menor es mejor."
+  },
+  "tooltip_tusg": {
+    "en": "True Usage Rate: Percentage of team possessions used by this player (shots, free throws, turnovers) while on court.",
+    "el": "True Usage Rate: Ποσοστό κατοχών ομάδας που χρησιμοποιεί ο παίκτης (σουτ, βολές, λάθη) ενώ είναι στο παρκέ.",
+    "de": "True Usage Rate: Prozentsatz der Ballbesitze des Teams, die dieser Spieler nutzt (Würfe, Freiwürfe, Ballverluste) auf dem Feld.",
+    "es": "True Usage Rate: Porcentaje de posesiones del equipo usadas por este jugador (tiros, tiros libres, pérdidas) en cancha."
+  },
+  "tooltip_poss": {
+    "en": "Possessions: Estimated individual possessions used (FGA + 0.44 * FTA + TOV).",
+    "el": "Κατοχές: Εκτιμώμενες ατομικές κατοχές (FGA + 0.44 * FTA + TOV).",
+    "de": "Ballbesitze: Geschätzte individuelle Ballbesitze (FGA + 0,44 * FTA + TOV).",
+    "es": "Posesiones: Posesiones individuales estimadas (FGA + 0.44 * FTA + TOV)."
+  },
+  "tooltip_steals_pg": {
+    "en": "Steals per game. Delta shows difference from league average.",
+    "el": "Κλεψίματα ανά αγώνα. Η διαφορά δείχνει απόκλιση από τον μέσο όρο λίγκας.",
+    "de": "Steals pro Spiel. Delta zeigt Abweichung vom Liga-Durchschnitt.",
+    "es": "Robos por partido. Delta muestra la diferencia con el promedio de la liga."
+  },
+  "tooltip_turnovers_pg": {
+    "en": "Turnovers per game. Fewer is better — delta is inverted (green = below avg).",
+    "el": "Λάθη ανά αγώνα. Λιγότερα = καλύτερα — η διαφορά αντιστρέφεται (πράσινο = κάτω από Μ.Ο.).",
+    "de": "Turnovers pro Spiel. Weniger ist besser — Delta ist invertiert (grün = unter Durchschnitt).",
+    "es": "Pérdidas por partido. Menos es mejor — delta invertido (verde = bajo promedio)."
+  },
+  "tooltip_off_reb_pg": {
+    "en": "Offensive rebounds per game. Indicates second-chance opportunity creation.",
+    "el": "Επιθετικά ριμπάουντ ανά αγώνα. Δείχνει δημιουργία ευκαιριών δεύτερης προσπάθειας.",
+    "de": "Offensive Rebounds pro Spiel. Zeigt Erstellung von Zweite-Chance-Möglichkeiten.",
+    "es": "Rebotes ofensivos por partido. Indica creación de oportunidades de segunda oportunidad."
+  },
+  "tooltip_assists_pg": {
+    "en": "Assists per game. Measures team ball movement and playmaking.",
+    "el": "Ασίστ ανά αγώνα. Μετρά τη κίνηση μπάλας και το playmaking.",
+    "de": "Assists pro Spiel. Misst Ballbewegung und Spielgestaltung des Teams.",
+    "es": "Asistencias por partido. Mide el movimiento de balón y la creatividad del equipo."
+  },
+  "tooltip_close_win_pct": {
+    "en": "Win percentage in games decided by {threshold} points or fewer.",
+    "el": "Ποσοστό νικών σε αγώνες που κρίθηκαν με {threshold} πόντους ή λιγότερους.",
+    "de": "Siegprozentsatz in Spielen mit {threshold} oder weniger Punkten Differenz.",
+    "es": "Porcentaje de victorias en partidos decididos por {threshold} puntos o menos."
+  },
+  "tooltip_league_avg_close": {
+    "en": "League-wide average close-game win percentage for comparison.",
+    "el": "Μέσος όρος λίγκας σε νίκες κοντινών αγώνων για σύγκριση.",
+    "de": "Ligaweiter Durchschnitt der Siegquote in knappen Spielen zum Vergleich.",
+    "es": "Promedio de la liga en porcentaje de victorias en partidos cerrados para comparación."
+  },
+  "tooltip_close_record": {
+    "en": "Win-Loss record in games decided by {threshold} points or fewer.",
+    "el": "Ρεκόρ Ν-Η σε αγώνες που κρίθηκαν με {threshold} πόντους ή λιγότερους.",
+    "de": "Sieg-Niederlage-Bilanz in Spielen mit {threshold} oder weniger Punkten Differenz.",
+    "es": "Récord de Victorias-Derrotas en partidos decididos por {threshold} puntos o menos."
+  },
+  "tooltip_ortg_before_foul": {
+    "en": "Team Offensive Rating before the star player picked up foul trouble.",
+    "el": "Επιθετικό Rating ομάδας πριν ο σταρ μπει σε πρόβλημα φάουλ.",
+    "de": "Offensiv-Rating des Teams vor den Foul-Problemen des Starspielers.",
+    "es": "Rating Ofensivo del equipo antes de que la estrella tuviera problemas de faltas."
+  },
+  "tooltip_ortg_after_foul": {
+    "en": "Team Offensive Rating after foul trouble. Delta shows the impact (positive = improvement).",
+    "el": "Επιθετικό Rating ομάδας μετά το πρόβλημα φάουλ. Η διαφορά δείχνει τον αντίκτυπο (θετικό = βελτίωση).",
+    "de": "Offensiv-Rating des Teams nach Foul-Problemen. Delta zeigt die Auswirkung (positiv = Verbesserung).",
+    "es": "Rating Ofensivo del equipo después de problemas de faltas. Delta muestra el impacto (positivo = mejora)."
+  },
+  "tooltip_drtg_before_foul": {
+    "en": "Team Defensive Rating before the star player picked up foul trouble.",
+    "el": "Αμυντικό Rating ομάδας πριν ο σταρ μπει σε πρόβλημα φάουλ.",
+    "de": "Defensiv-Rating des Teams vor den Foul-Problemen des Starspielers.",
+    "es": "Rating Defensivo del equipo antes de que la estrella tuviera problemas de faltas."
+  },
+  "tooltip_drtg_after_foul": {
+    "en": "Team Defensive Rating after foul trouble. For defense, lower is better — delta is inverted.",
+    "el": "Αμυντικό Rating ομάδας μετά το πρόβλημα φάουλ. Στην άμυνα, χαμηλότερο = καλύτερο — η διαφορά αντιστρέφεται.",
+    "de": "Defensiv-Rating des Teams nach Foul-Problemen. In der Defensive ist niedriger besser — Delta invertiert.",
+    "es": "Rating Defensivo del equipo después de problemas de faltas. En defensa, menor es mejor — delta invertido."
+  },
+  "tooltip_season_avg": {
+    "en": "Average {metric} across all games played this season.",
+    "el": "Μέσος όρος {metric} σε όλους τους αγώνες αυτής της σεζόν.",
+    "de": "Durchschnittliche {metric} über alle Spiele dieser Saison.",
+    "es": "Promedio de {metric} en todos los partidos de esta temporada."
+  },
+  "tooltip_rolling_avg": {
+    "en": "Rolling {n}-game average vs. the full-season average. Positive delta = trending up.",
+    "el": "Κυλιόμενος μ.ο. {n} αγώνων vs. μ.ο. σεζόν. Θετικό delta = ανοδική τάση.",
+    "de": "Gleitender {n}-Spiele-Durchschnitt vs. Saisondurchschnitt. Positives Delta = Aufwärtstrend.",
+    "es": "Promedio móvil de {n} partidos vs. promedio de temporada. Delta positivo = tendencia al alza."
+  },
+  "tooltip_best_game": {
+    "en": "Highest single-game {metric} this season.",
+    "el": "Υψηλότερο {metric} σε έναν αγώνα αυτή τη σεζόν.",
+    "de": "Höchster {metric} in einem einzelnen Spiel dieser Saison.",
+    "es": "Mayor {metric} en un solo partido esta temporada."
+  },
+  "tooltip_games_played": {
+    "en": "Total games played with at least 1 minute of floor time.",
+    "el": "Σύνολο αγώνων με τουλάχιστον 1 λεπτό αγωνιστικού χρόνου.",
+    "de": "Gesamte Spiele mit mindestens 1 Minute Spielzeit.",
+    "es": "Total de partidos jugados con al menos 1 minuto de tiempo en cancha."
+  },
+  "tooltip_position": {
+    "en": "Positional classification: Guard, Forward, or Center.",
+    "el": "Κατηγοριοποίηση θέσης: Guard, Forward ή Center.",
+    "de": "Positionsklassifizierung: Guard, Forward oder Center.",
+    "es": "Clasificación posicional: Base, Alero o Pívot."
+  },
+  "tooltip_gp": {
+    "en": "Games Played this season.",
+    "el": "Αγώνες που παίχτηκαν αυτή τη σεζόν.",
+    "de": "Gespielte Spiele in dieser Saison.",
+    "es": "Partidos jugados esta temporada."
+  },
+  "tooltip_mpg": {
+    "en": "Minutes Per Game: average minutes played per game.",
+    "el": "Λεπτά ανά αγώνα: μέσος χρόνος συμμετοχής ανά αγώνα.",
+    "de": "Minuten pro Spiel: durchschnittliche Spielminuten pro Spiel.",
+    "es": "Minutos por partido: promedio de minutos jugados por partido."
+  },
+  "tooltip_ppg": {
+    "en": "Points Per Game: average scoring output.",
+    "el": "Πόντοι ανά αγώνα: μέσος αριθμός πόντων.",
+    "de": "Punkte pro Spiel: durchschnittliche Punkteausbeute.",
+    "es": "Puntos por partido: promedio de anotación."
+  },
+  "tooltip_ts_scout": {
+    "en": "True Shooting %: Efficiency metric accounting for all shot types. Formula: PTS / (2 * (FGA + 0.44 * FTA)).",
+    "el": "True Shooting %: Μετρική αποτελεσματικότητας για όλους τους τύπους σουτ. Τύπος: PTS / (2 * (FGA + 0.44 * FTA)).",
+    "de": "True Shooting %: Effizienzmetrik für alle Wurfarten. Formel: PTS / (2 * (FGA + 0,44 * FTA)).",
+    "es": "True Shooting %: Métrica de eficiencia para todos los tipos de tiro. Fórmula: PTS / (2 * (FGA + 0.44 * FTA))."
+  },
+  "tooltip_tusg_scout": {
+    "en": "True Usage Rate: % of team possessions used (shots, FTs, turnovers) while on court.",
+    "el": "True Usage Rate: % κατοχών ομάδας που χρησιμοποιεί (σουτ, βολές, λάθη) ενώ είναι στο παρκέ.",
+    "de": "True Usage Rate: % der Ballbesitze des Teams (Würfe, FTs, Ballverluste) auf dem Feld.",
+    "es": "True Usage Rate: % de posesiones del equipo usadas (tiros, TL, pérdidas) en cancha."
+  },
+  "tooltip_total_refs": {
+    "en": "Number of referees who have officiated at least {n} game(s) for this team.",
+    "el": "Αριθμός διαιτητών που διηύθυναν τουλάχιστον {n} αγώνα/ες αυτής της ομάδας.",
+    "de": "Anzahl der Schiedsrichter, die mindestens {n} Spiel(e) dieses Teams gepfiffen haben.",
+    "es": "Número de árbitros que han dirigido al menos {n} partido(s) de este equipo."
+  },
+  "tooltip_best_ref": {
+    "en": "Highest team win percentage under a single referee.",
+    "el": "Υψηλότερο ποσοστό νικών ομάδας υπό ένα μεμονωμένο διαιτητή.",
+    "de": "Höchster Siegprozentsatz des Teams unter einem einzelnen Schiedsrichter.",
+    "es": "Mayor porcentaje de victorias del equipo bajo un solo árbitro."
+  },
+  "tooltip_worst_ref": {
+    "en": "Lowest team win percentage under a single referee.",
+    "el": "Χαμηλότερο ποσοστό νικών ομάδας υπό ένα μεμονωμένο διαιτητή.",
+    "de": "Niedrigster Siegprozentsatz des Teams unter einem einzelnen Schiedsrichter.",
+    "es": "Menor porcentaje de victorias del equipo bajo un solo árbitro."
+  },
+  "hover_zone": {
+    "en": "Zone",
+    "el": "Ζώνη",
+    "de": "Zone",
+    "es": "Zona"
+  },
+  "hover_pt_diff": {
+    "en": "Pt Diff",
+    "el": "Διαφ. Πόντων",
+    "de": "Pkt Diff",
+    "es": "Dif. Pts"
+  },
+  "hover_close_gp": {
+    "en": "Close GP",
+    "el": "Κοντινοί Αγ.",
+    "de": "Knappe Sp.",
+    "es": "PJ Cerrados"
+  },
+  "hover_close_win_pct": {
+    "en": "Close W%",
+    "el": "Κοντινές Ν%",
+    "de": "Knappes S%",
+    "es": "Vic. Cerr.%"
+  },
+  "hover_similarity": {
+    "en": "similarity",
+    "el": "ομοιότητα",
+    "de": "Ähnlichkeit",
+    "es": "similitud"
   }
 }
