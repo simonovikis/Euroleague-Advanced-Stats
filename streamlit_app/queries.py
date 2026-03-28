@@ -227,6 +227,7 @@ def fetch_team_season_data(season: int, team_code: str, competition: str = COMPE
     """
     Fetch all boxscores/PBPs for a team's season, and aggregate into mathematically
     accurate season-level player stats and lineup stats.
+    Also returns per-game advanced stats with TPC for the Form Tracker.
     """
     from data_pipeline.extractors import extract_team_season_data
     from data_pipeline.transformers import (
@@ -234,6 +235,8 @@ def fetch_team_season_data(season: int, team_code: str, competition: str = COMPE
         track_lineups,
         compute_lineup_stats,
         compute_season_player_stats,
+        link_assists_to_shots,
+        compute_total_points_created,
     )
     import pandas as pd
     
@@ -243,6 +246,24 @@ def fetch_team_season_data(season: int, team_code: str, competition: str = COMPE
 
     adv_df = compute_advanced_stats(raw["boxscore"])
     season_player_stats = compute_season_player_stats(adv_df, team_code)
+
+    # Per-game TPC: link assists to shots per game, then compute TPC
+    per_game_adv_frames = []
+    pbp_df = raw.get("pbp", pd.DataFrame())
+    shots_df = raw.get("shots", pd.DataFrame())
+    if not adv_df.empty and "Gamecode" in adv_df.columns:
+        for gc in adv_df["Gamecode"].unique():
+            g_adv = adv_df[adv_df["Gamecode"] == gc].copy()
+            g_pbp = pbp_df[pbp_df["Gamecode"] == gc] if not pbp_df.empty and "Gamecode" in pbp_df.columns else pd.DataFrame()
+            g_shots = shots_df[shots_df["Gamecode"] == gc] if not shots_df.empty and "Gamecode" in shots_df.columns else pd.DataFrame()
+            if not g_pbp.empty and not g_shots.empty:
+                assist_links = link_assists_to_shots(g_pbp, g_shots)
+                g_adv = compute_total_points_created(g_adv, assist_links)
+            else:
+                g_adv["pts_from_assists"] = 0
+                g_adv["total_pts_created"] = g_adv["points"].fillna(0)
+            per_game_adv_frames.append(g_adv)
+    per_game_stats = pd.concat(per_game_adv_frames, ignore_index=True) if per_game_adv_frames else pd.DataFrame()
     
     # Track lineups per game, then concat
     pbp_lu_list = []
@@ -259,6 +280,7 @@ def fetch_team_season_data(season: int, team_code: str, competition: str = COMPE
     return {
         "player_season_stats": season_player_stats,
         "lineup_season_stats": season_lineup_stats,
+        "per_game_stats": per_game_stats,
     }
 
 

@@ -1828,5 +1828,95 @@
     "el": "Ποιοι είναι οι καλύτεροι playmakers βάσει assist ratio και χαμηλού ποσοστού λαθών;",
     "de": "Wer sind die besten Spielgestalter basierend auf Assist Ratio und niedriger Turnover Rate?",
     "es": "¿Quiénes son los mejores creadores según el ratio de asistencias y baja tasa de pérdidas?"
+  },
+  "hdr_form_tracker": {
+    "en": "Current Form / Trends",
+    "el": "Τρέχουσα Φόρμα / Τάσεις",
+    "de": "Aktuelle Form / Trends",
+    "es": "Forma Actual / Tendencias"
+  },
+  "sub_form_tracker": {
+    "en": "Track a player's recent performance trends with rolling averages. Green bars and shaded zones highlight hot streaks.",
+    "el": "Παρακολουθήστε τις τάσεις πρόσφατης απόδοσης ενός παίκτη με κυλιόμενους μέσους όρους. Πράσινες μπάρες και σκιασμένες ζώνες επισημαίνουν τις καλές σερί.",
+    "de": "Verfolgen Sie die jüngsten Leistungstrends eines Spielers mit gleitenden Durchschnitten. Grüne Balken und schattierte Zonen markieren Hochphasen.",
+    "es": "Rastrea las tendencias de rendimiento reciente de un jugador con promedios móviles. Las barras verdes y zonas sombreadas destacan las rachas positivas."
+  },
+  "form_select_player": {
+    "en": "Select Player",
+    "el": "Επιλογή Παίκτη",
+    "de": "Spieler auswählen",
+    "es": "Seleccionar Jugador"
+  },
+  "form_select_metric": {
+    "en": "Metric",
+    "el": "Μετρική",
+    "de": "Metrik",
+    "es": "Métrica"
+  },
+  "form_game_value": {
+    "en": "Game Value",
+    "el": "Τιμή Αγώνα",
+    "de": "Spielwert",
+    "es": "Valor del Partido"
+  },
+  "form_rolling_avg": {
+    "en": "5-Game Rolling Avg",
+    "el": "Κυλιόμενος Μ.Ο. 5 Αγώνων",
+    "de": "5-Spiele Gleitender Durchschnitt",
+    "es": "Promedio Móvil 5 Partidos"
+  },
+  "form_season_avg": {
+    "en": "Season Avg",
+    "el": "Μ.Ο. Σεζόν",
+    "de": "Saisondurchschnitt",
+    "es": "Promedio Temporada"
+  },
+  "form_last_n_avg": {
+    "en": "Last {n}-Game Avg",
+    "el": "Μ.Ο. Τελευταίων {n} Αγώνων",
+    "de": "Letzte {n}-Spiele Durchschnitt",
+    "es": "Promedio Últimos {n} Partidos"
+  },
+  "form_best_game": {
+    "en": "Best Game",
+    "el": "Καλύτερος Αγώνας",
+    "de": "Bestes Spiel",
+    "es": "Mejor Partido"
+  },
+  "form_games_played": {
+    "en": "Games Played",
+    "el": "Αγώνες",
+    "de": "Gespielte Spiele",
+    "es": "Partidos Jugados"
+  },
+  "form_hot_streak": {
+    "en": "Hot",
+    "el": "Φόρμα",
+    "de": "Heiss",
+    "es": "Racha"
+  },
+  "form_game_number": {
+    "en": "Game #",
+    "el": "Αγώνας #",
+    "de": "Spiel #",
+    "es": "Partido #"
+  },
+  "form_no_data": {
+    "en": "No per-game data available for the form tracker.",
+    "el": "Δεν υπάρχουν δεδομένα ανά αγώνα για τον tracker φόρμας.",
+    "de": "Keine Spieldaten für den Form-Tracker verfügbar.",
+    "es": "No hay datos por partido disponibles para el rastreador de forma."
+  },
+  "form_insufficient_games": {
+    "en": "Not enough games played to display trends (minimum 2 required).",
+    "el": "Δεν υπάρχουν αρκετοί αγώνες για εμφάνιση τάσεων (απαιτούνται τουλάχιστον 2).",
+    "de": "Nicht genügend Spiele für Trendanzeige (mindestens 2 erforderlich).",
+    "es": "No hay suficientes partidos para mostrar tendencias (se requieren al menos 2)."
+  },
+  "lbl_tpc": {
+    "en": "Total Points Created",
+    "el": "Συνολικοί Πόντοι Δημιουργίας",
+    "de": "Erzeugte Gesamtpunkte",
+    "es": "Puntos Totales Creados"
   }
 }

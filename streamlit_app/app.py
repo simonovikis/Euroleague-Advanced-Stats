@@ -1313,6 +1313,177 @@ elif selected_nav == NAV_SEASON:
 
     st.markdown("---")
 
+    # --- Player Form Tracker / Trends ---
+    st.markdown(f"### {t('hdr_form_tracker')}")
+    st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_form_tracker')}</p>", unsafe_allow_html=True)
+
+    per_game_stats = season_data.get("per_game_stats", pd.DataFrame())
+    if not per_game_stats.empty and "player_name" in per_game_stats.columns:
+        team_per_game = per_game_stats[per_game_stats["team_code"] == team_code].copy()
+        form_players = sorted(team_per_game["player_name"].dropna().unique())
+
+        if form_players:
+            form_player = st.selectbox(
+                t("form_select_player"), form_players, key="form_tracker_player",
+            )
+
+            form_metric = st.radio(
+                t("form_select_metric"),
+                ["TPC", "TS%"],
+                horizontal=True,
+                key="form_tracker_metric",
+            )
+
+            pdf = team_per_game[team_per_game["player_name"] == form_player].copy()
+            pdf = pdf[pdf["minutes"] > 0].sort_values("Gamecode").reset_index(drop=True)
+
+            if len(pdf) >= 2:
+                pdf["game_num"] = range(1, len(pdf) + 1)
+                game_label = [f"G{i}" for i in pdf["game_num"]]
+
+                if form_metric == "TPC":
+                    metric_col = "total_pts_created"
+                    metric_label = t("lbl_tpc", default="Total Points Created")
+                    fmt_func = lambda v: f"{v:.1f}"
+                    is_pct = False
+                else:
+                    metric_col = "ts_pct"
+                    metric_label = t("lbl_ts", default="TS%")
+                    fmt_func = lambda v: f"{v:.1%}"
+                    is_pct = True
+
+                if metric_col not in pdf.columns:
+                    st.info(t("form_no_data"))
+                else:
+                    pdf[metric_col] = pd.to_numeric(pdf[metric_col], errors="coerce")
+                    pdf = pdf.dropna(subset=[metric_col])
+
+                    if len(pdf) >= 2:
+                        window = min(5, len(pdf))
+                        pdf["rolling_avg"] = pdf[metric_col].rolling(window=window, min_periods=1).mean()
+                        season_avg = pdf[metric_col].mean()
+
+                        hot_threshold = season_avg * 1.10
+                        pdf["is_hot"] = pdf["rolling_avg"] > hot_threshold
+
+                        fig_form = go.Figure()
+
+                        # Bar chart: game-by-game values
+                        bar_colors = [
+                            "#10b981" if h else "#6366f1" for h in pdf["is_hot"]
+                        ]
+                        hover_vals = [fmt_func(v) for v in pdf[metric_col]]
+                        fig_form.add_trace(go.Bar(
+                            x=pdf["game_num"],
+                            y=pdf[metric_col],
+                            name=t("form_game_value", default="Game Value"),
+                            marker_color=bar_colors,
+                            opacity=0.6,
+                            hovertemplate="%{x}: %{customdata}<extra>" + metric_label + "</extra>",
+                            customdata=hover_vals,
+                        ))
+
+                        # Rolling average line
+                        fig_form.add_trace(go.Scatter(
+                            x=pdf["game_num"],
+                            y=pdf["rolling_avg"],
+                            mode="lines+markers",
+                            name=t("form_rolling_avg", default="5-Game Rolling Avg"),
+                            line=dict(color="#f59e0b", width=3),
+                            marker=dict(size=6),
+                            hovertemplate="%{x}: " + ("%{y:.1%}" if is_pct else "%{y:.1f}") + "<extra>Rolling Avg</extra>",
+                        ))
+
+                        # Season average dashed line
+                        fig_form.add_hline(
+                            y=season_avg,
+                            line_dash="dash",
+                            line_color="#ef4444",
+                            annotation_text=f"{t('form_season_avg', default='Season Avg')}: {fmt_func(season_avg)}",
+                            annotation_font_color="#ef4444",
+                            annotation_position="top left",
+                        )
+
+                        # Highlight hot streak zones
+                        hot_starts = []
+                        in_streak = False
+                        for i, row in pdf.iterrows():
+                            if row["is_hot"] and not in_streak:
+                                hot_starts.append({"start": row["game_num"]})
+                                in_streak = True
+                            elif not row["is_hot"] and in_streak:
+                                hot_starts[-1]["end"] = row["game_num"] - 1
+                                in_streak = False
+                        if in_streak and hot_starts:
+                            hot_starts[-1]["end"] = pdf["game_num"].iloc[-1]
+
+                        for streak in hot_starts:
+                            fig_form.add_vrect(
+                                x0=streak["start"] - 0.5,
+                                x1=streak["end"] + 0.5,
+                                fillcolor="rgba(16, 185, 129, 0.1)",
+                                layer="below",
+                                line_width=0,
+                                annotation_text=t("form_hot_streak", default="Hot"),
+                                annotation_position="top left",
+                                annotation_font_color="#10b981",
+                                annotation_font_size=10,
+                            )
+
+                        y_format = ".0%" if is_pct else None
+                        fig_form.update_layout(
+                            template="plotly_dark",
+                            paper_bgcolor="rgba(0,0,0,0)",
+                            plot_bgcolor="rgba(15,15,35,0.8)",
+                            height=450,
+                            font=dict(family="Inter"),
+                            xaxis_title=t("form_game_number", default="Game #"),
+                            yaxis_title=metric_label,
+                            yaxis_tickformat=y_format,
+                            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                            xaxis=dict(
+                                tickmode="array",
+                                tickvals=pdf["game_num"].tolist(),
+                                ticktext=game_label,
+                            ),
+                        )
+                        st.plotly_chart(fig_form, use_container_width=True)
+
+                        # Summary metrics
+                        last_5 = pdf.tail(window)
+                        last_5_avg = last_5[metric_col].mean()
+                        trend = last_5_avg - season_avg
+                        trend_pct = (trend / season_avg * 100) if season_avg != 0 else 0
+
+                        mc1, mc2, mc3, mc4 = st.columns(4)
+                        mc1.metric(
+                            t("form_season_avg", default="Season Avg"),
+                            fmt_func(season_avg),
+                        )
+                        mc2.metric(
+                            t("form_last_n_avg", default="Last {n}-Game Avg").format(n=window),
+                            fmt_func(last_5_avg),
+                            f"{trend_pct:+.1f}%",
+                        )
+                        mc3.metric(
+                            t("form_best_game", default="Best Game"),
+                            fmt_func(pdf[metric_col].max()),
+                        )
+                        mc4.metric(
+                            t("form_games_played", default="Games Played"),
+                            str(len(pdf)),
+                        )
+                    else:
+                        st.info(t("form_insufficient_games"))
+            else:
+                st.info(t("form_insufficient_games"))
+        else:
+            st.info(t("form_no_data"))
+    else:
+        st.info(t("form_no_data"))
+
+    st.markdown("---")
+
     st.markdown(t("hdr_most_used", team_code=team_code))
     st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_most_used')}</p>", unsafe_allow_html=True)
 
