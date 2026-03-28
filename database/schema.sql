@@ -121,3 +121,80 @@ CREATE INDEX IF NOT EXISTS idx_adv_stats_player
     ON player_advanced_stats (player_id);
 CREATE INDEX IF NOT EXISTS idx_adv_stats_team
     ON player_advanced_stats (team_code);
+
+
+-- -----------------------------------------------------------
+-- 6. BOXSCORES — Raw player boxscore data (API format)
+-- -----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS boxscores (
+    season          INT          NOT NULL,
+    gamecode        INT          NOT NULL,
+    player_id       VARCHAR(20)  NOT NULL,
+    player          VARCHAR(150),
+    team            VARCHAR(10),
+    home            INT,
+    is_starter      INT,
+    is_playing      INT,
+    dorsal          VARCHAR(10),
+    minutes         VARCHAR(10),
+    points          INT,
+    fgm2            INT,
+    fga2            INT,
+    fgm3            INT,
+    fga3            INT,
+    ftm             INT,
+    fta             INT,
+    off_rebounds     INT,
+    def_rebounds     INT,
+    total_rebounds   INT,
+    assists         INT,
+    steals          INT,
+    turnovers       INT,
+    blocks_favour   INT,
+    blocks_against  INT,
+    fouls_committed INT,
+    fouls_received  INT,
+    valuation       INT,
+    plus_minus      REAL,
+
+    FOREIGN KEY (season, gamecode) REFERENCES games(season, gamecode)
+        ON UPDATE CASCADE ON DELETE CASCADE,
+
+    PRIMARY KEY (season, gamecode, player_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_boxscores_game
+    ON boxscores (season, gamecode);
+
+
+-- -----------------------------------------------------------
+-- 7. SHOTS — Shot data with X/Y coordinates
+-- -----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS shots (
+    id              SERIAL PRIMARY KEY,
+    season          INT          NOT NULL,
+    gamecode        INT          NOT NULL,
+    num_anot        INT,
+    team            VARCHAR(10),
+    id_player       VARCHAR(20),
+    player          VARCHAR(150),
+    id_action       VARCHAR(10),
+    action          VARCHAR(80),
+    points          INT,
+    coord_x         REAL,
+    coord_y         REAL,
+    zone            VARCHAR(5),
+    fastbreak       INT,
+    second_chance   INT,
+    pts_off_turnover INT,
+    minute          INT,
+    console         VARCHAR(10),
+    points_a        INT,
+    points_b        INT,
+
+    FOREIGN KEY (season, gamecode) REFERENCES games(season, gamecode)
+        ON UPDATE CASCADE ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_shots_game
+    ON shots (season, gamecode);

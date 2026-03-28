@@ -38,6 +38,14 @@ def _use_db() -> bool:
     return os.getenv("USE_DB", "false").lower() == "true"
 
 
+def _get_repository():
+    """Return the shared DataRepository singleton (lazy-initialised)."""
+    if "data_repository" not in st.session_state:
+        from data_pipeline.data_repository import DataRepository
+        st.session_state["data_repository"] = DataRepository()
+    return st.session_state["data_repository"]
+
+
 @st.cache_data(ttl=3600, show_spinner=False)
 def fetch_season_schedule(
     season: int,
@@ -83,24 +91,25 @@ def fetch_game_data_live(
     competition: str = "E",
 ) -> Dict[str, pd.DataFrame]:
     """
-    Fetch and process all data for a single game directly from the API.
+    Fetch and process all data for a single game.
+
+    Uses the DB-first cache-aside pattern via DataRepository:
+      1. If the game exists in PostgreSQL, load raw data instantly.
+      2. On cache miss, fetch from the Euroleague API, persist to DB,
+         then return — so the user is only delayed once per game.
+      3. If the database is unreachable, falls back to pure API mode.
 
     Returns a dict with:
-      - boxscore: raw boxscore DataFrame
-      - pbp: raw play-by-play DataFrame
-      - shots: raw shot data with COORD_X/COORD_Y
-      - game_info: game metadata
-      - advanced_stats: computed player-level advanced stats
-      - pbp_with_lineups: PBP enriched with lineup tracking
-      - lineup_stats: per-lineup net rating
-      - assist_network: passer→scorer relationships
-      - clutch_stats: clutch situation player stats
-      - run_stoppers: run-breaking events
-      - foul_trouble: foul trouble impact analysis
-      - duo_synergy: 2-player combo performance
-      - trio_synergy: 3-player combo performance
-      - shot_quality: per-player shot quality vs. expected
+      - boxscore, pbp, shots, game_info (raw)
+      - advanced_stats, lineup_stats, assist_network, clutch_stats,
+        run_stoppers, foul_trouble, duo_synergy, trio_synergy,
+        shot_quality, playmaking_aaq, playmaking_axp, playmaking_duos
     """
+    repo = _get_repository()
+    if repo.db_available():
+        return repo.get_game_data(season, gamecode, competition)
+
+    # Fallback: pure API mode (original path, no DB)
     from data_pipeline.extractors import extract_game_data
     from data_pipeline.transformers import (
         compute_advanced_stats,
@@ -117,40 +126,24 @@ def fetch_game_data_live(
         compute_total_points_created,
     )
 
-    # 1. Extract raw data
     raw = extract_game_data(season, gamecode, competition)
     boxscore_df = raw["boxscore"]
     pbp_df = raw["pbp"]
     shots_df = raw["shots"]
     game_info_df = raw["game_info"]
 
-    # 2. Compute base + custom advanced stats
     advanced_df = compute_advanced_stats(boxscore_df)
-
-    # 3. PBP analytics — lineup tracking
     pbp_lu = track_lineups(pbp_df, boxscore_df)
-
-    # 4. Lineup stats & synergy
     lineup_stats = compute_lineup_stats(pbp_lu, boxscore_df)
     duo_synergy = compute_duo_trio_synergy(pbp_lu, boxscore_df, combo_size=2)
     trio_synergy = compute_duo_trio_synergy(pbp_lu, boxscore_df, combo_size=3)
-
-    # 5. Clutch, runs, foul trouble
     clutch = compute_clutch_stats(pbp_df, boxscore_df)
     stoppers = detect_runs_and_stoppers(pbp_lu)
     foul_impact = foul_trouble_impact(pbp_df, boxscore_df)
-
-    # 6. Assist network
     assists = build_assist_network(pbp_df)
-
-    # 7. Shot quality
     shot_quality = compute_shot_quality(shots_df)
-
-    # 8. Playmaking metrics (AAQ, AxP, Duos)
     assist_shot_links = link_assists_to_shots(pbp_df, shots_df)
     playmaking = compute_playmaking_metrics(assist_shot_links, min_assists=1)
-
-    # 9. Total Points Created (TPC)
     advanced_df = compute_total_points_created(advanced_df, assist_shot_links)
 
     return {

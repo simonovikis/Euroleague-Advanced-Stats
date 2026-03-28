@@ -6,7 +6,15 @@ are importable. This catches missing functions, circular imports, and syntax
 errors early — before Streamlit's runtime hits them.
 """
 
+import sys
+from pathlib import Path
+
 import pytest
+
+# Add project root to path for direct script execution
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 
 class TestExtractorImports:
@@ -115,3 +123,50 @@ class TestQueryImports:
 
     def test_import_fetch_situational_scoring(self):
         from streamlit_app.queries import fetch_situational_scoring
+
+
+class TestLoaderImports:
+    """Verify every public loader function is importable."""
+
+    def test_import_get_engine(self):
+        from data_pipeline.load_to_db import get_engine
+
+    def test_import_teardown_database(self):
+        from data_pipeline.load_to_db import teardown_database
+
+    def test_import_ensure_schema(self):
+        from data_pipeline.load_to_db import ensure_schema
+
+    def test_import_load_teams(self):
+        from data_pipeline.load_to_db import load_teams
+
+    def test_import_load_players(self):
+        from data_pipeline.load_to_db import load_players
+
+    def test_import_load_game(self):
+        from data_pipeline.load_to_db import load_game
+
+    def test_import_load_boxscores(self):
+        from data_pipeline.load_to_db import load_boxscores
+
+    def test_import_load_play_by_play(self):
+        from data_pipeline.load_to_db import load_play_by_play
+
+    def test_import_load_shots(self):
+        from data_pipeline.load_to_db import load_shots
+
+    def test_import_load_player_advanced_stats(self):
+        from data_pipeline.load_to_db import load_player_advanced_stats
+
+    def test_import_run_pipeline(self):
+        from data_pipeline.load_to_db import run_pipeline
+
+    def test_import_load_season(self):
+        from data_pipeline.load_to_db import load_season
+
+
+class TestDataRepositoryImports:
+    """Verify DataRepository is importable."""
+
+    def test_import_data_repository(self):
+        from data_pipeline.data_repository import DataRepository

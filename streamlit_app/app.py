@@ -3345,3 +3345,51 @@ elif selected_nav == NAV_GLOSSARY:
 """)
 
     st.info(f"{t('gloss_tip_title')} {t('gloss_tip_desc')}")
+
+
+# ========================================================================
+# SIDEBAR — Admin: Database Sync Manager
+# ========================================================================
+with st.sidebar:
+    with st.expander("🔧 Database Sync Manager", expanded=False):
+        from streamlit_app.queries import _get_repository
+
+        _repo = _get_repository()
+
+        if _repo.db_available():
+            st.markdown(
+                "<span style='color:#10b981;'>● Database connected</span>",
+                unsafe_allow_html=True,
+            )
+
+            _sync_season = st.session_state.get("selected_season", 2025)
+            cached_codes = _repo.get_cached_gamecodes(_sync_season)
+            st.caption(f"Season {_sync_season}: **{len(cached_codes)}** games cached")
+
+            if st.button(f"Sync missing games for {_sync_season}", key="btn_sync"):
+                missing = _repo.get_missing_gamecodes(_sync_season)
+                if not missing:
+                    st.success("Database is already up to date!")
+                else:
+                    progress_bar = st.progress(0, text=f"Syncing {len(missing)} games...")
+
+                    def _update_progress(current, total):
+                        progress_bar.progress(
+                            current / total,
+                            text=f"Syncing game {current}/{total}...",
+                        )
+
+                    result = _repo.sync_missing_games(
+                        _sync_season, progress_callback=_update_progress,
+                    )
+                    progress_bar.empty()
+                    st.success(
+                        f"Done! Synced **{result['synced']}** / {result['total']} games."
+                        + (f" ({result['failed']} failed)" if result["failed"] else "")
+                    )
+        else:
+            st.markdown(
+                "<span style='color:#ef4444;'>● Database offline</span>",
+                unsafe_allow_html=True,
+            )
+            st.caption("Running in API-only mode. Start PostgreSQL to enable caching.")
