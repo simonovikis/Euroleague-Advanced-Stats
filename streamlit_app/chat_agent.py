@@ -52,6 +52,7 @@ When answering:
 def build_chat_agent(
     player_df: pd.DataFrame,
     team_df: pd.DataFrame,
+    api_key: str | None = None,
     model_name: str = "gpt-4o-mini",
     temperature: float = 0.0,
 ):
@@ -62,6 +63,7 @@ def build_chat_agent(
     ----------
     player_df : Player Season Advanced Stats DataFrame
     team_df   : Team Season Advanced Stats DataFrame
+    api_key   : OpenAI API key (falls back to session_state / env if not provided)
     model_name : OpenAI model to use
     temperature : LLM temperature (0 = deterministic)
 
@@ -72,11 +74,10 @@ def build_chat_agent(
     from langchain_openai import ChatOpenAI
     from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe_agent
 
-    from dotenv import load_dotenv
-    load_dotenv()
-    api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        raise ValueError("OPENAI_API_KEY not found in st.secrets")
+        api_key = st.session_state.get("openai_api_key") or os.getenv("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        raise ValueError("No OpenAI API key available. Provide one via the UI or environment.")
 
     llm = ChatOpenAI(
         model=model_name,

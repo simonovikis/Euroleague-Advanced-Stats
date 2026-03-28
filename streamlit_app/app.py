@@ -3188,10 +3188,46 @@ elif selected_nav == NAV_CHAT:
         unsafe_allow_html=True,
     )
 
-    # --- Check for API key ---
-    openai_key = os.getenv("OPENAI_API_KEY")
-    if not openai_key:
-        st.error(t("chat_no_api_key"))
+    # --- API Key Validation ---
+    def _validate_openai_key(api_key: str) -> bool:
+        """Validate an OpenAI API key by making a lightweight models.list() call."""
+        try:
+            from openai import OpenAI, AuthenticationError
+            client = OpenAI(api_key=api_key)
+            client.models.list()
+            return True
+        except AuthenticationError:
+            return False
+        except Exception:
+            return False
+
+    # --- Key Retrieval Priority: .env → st.secrets → user input ---
+    if "openai_api_key" not in st.session_state:
+        env_key = os.getenv("OPENAI_API_KEY", "").strip()
+        if not env_key:
+            try:
+                env_key = st.secrets.get("OPENAI_API_KEY", "").strip()
+            except Exception:
+                env_key = ""
+        if env_key:
+            st.session_state["openai_api_key"] = env_key
+
+    # --- BYOK Fallback ---
+    if not st.session_state.get("openai_api_key"):
+        st.info("🔑 No OpenAI API key found in the environment. Please provide your own key to enable the chatbot.")
+        user_key = st.text_input(
+            "Enter your OpenAI API Key to enable the Chatbot.",
+            type="password",
+            key="byok_input",
+        )
+        if user_key:
+            with st.spinner("Validating API key..."):
+                if _validate_openai_key(user_key):
+                    st.session_state["openai_api_key"] = user_key
+                    st.success("API Key verified! You can now start asking questions.")
+                    st.rerun()
+                else:
+                    st.error("Invalid API Key. Please check your key and try again.")
         st.stop()
 
     # --- Load data for the agent ---
@@ -3215,12 +3251,16 @@ elif selected_nav == NAV_CHAT:
         st.warning(t("chat_no_data"))
         st.stop()
 
-    # --- Build agent (cached in session state) ---
-    agent_cache_key = f"chat_agent_{season_chat}"
+    # --- Build agent (cached in session state, keyed by season + key hash) ---
+    import hashlib
+    _key_hash = hashlib.sha256(st.session_state["openai_api_key"].encode()).hexdigest()[:8]
+    agent_cache_key = f"chat_agent_{season_chat}_{_key_hash}"
     if agent_cache_key not in st.session_state:
         try:
             from streamlit_app.chat_agent import build_chat_agent
-            st.session_state[agent_cache_key] = build_chat_agent(player_df, team_df)
+            st.session_state[agent_cache_key] = build_chat_agent(
+                player_df, team_df, api_key=st.session_state["openai_api_key"],
+            )
         except Exception as e:
             st.error(f"{t('chat_agent_error')}: {e}")
             st.stop()
