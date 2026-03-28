@@ -1,0 +1,125 @@
+# ============================================================
+# Euroleague Advanced Analytics — Application Configuration
+# ============================================================
+# Edit this file to change seasons, team branding, defaults,
+# and cache behaviour without touching any Python code.
+# ============================================================
+
+app:
+  page_title: "Euroleague Advanced Analytics"
+  page_icon: "🏀"
+  layout: "wide"
+  default_language: "en"
+  default_competition: "E"
+
+  languages:
+    "🇬🇧 English": "en"
+    "🇬🇷 Ελληνικά": "el"
+    "🇩🇪 Deutsch": "de"
+    "🇪🇸 Español": "es"
+
+data:
+  supported_seasons: [2025, 2024, 2023, 2022, 2021, 2020, 2019, 2018, 2017, 2016, 2015, 2014, 2013, 2012, 2011]
+  default_season: 2025
+  cache_ttl_seconds: 3600
+
+  leaders_defaults:
+    min_games: 10
+    min_fga2: 40
+    min_fga3: 30
+    min_fta: 30
+
+ui:
+  default_accent:
+    primary: "#6366f1"
+    secondary: "#8b5cf6"
+
+  team_colors:
+    OLY:
+      primary: "#D31145"
+      secondary: "#FFFFFF"
+      name: "Olympiacos"
+    PAO:
+      primary: "#007A33"
+      secondary: "#FFFFFF"
+      name: "Panathinaikos"
+    RMB:
+      primary: "#00529F"
+      secondary: "#FEBE10"
+      name: "Real Madrid"
+    FCB:
+      primary: "#A50044"
+      secondary: "#004D98"
+      name: "FC Barcelona"
+    FEN:
+      primary: "#FFED00"
+      secondary: "#09235A"
+      name: "Fenerbahce"
+    EFS:
+      primary: "#003DA5"
+      secondary: "#FFFFFF"
+      name: "Anadolu Efes"
+    MTA:
+      primary: "#FFD130"
+      secondary: "#0057B8"
+      name: "Maccabi Tel Aviv"
+    ASM:
+      primary: "#CC0000"
+      secondary: "#FFFFFF"
+      name: "AS Monaco"
+    BKN:
+      primary: "#003DA5"
+      secondary: "#E30613"
+      name: "Baskonia"
+    CZV:
+      primary: "#CC0000"
+      secondary: "#FFFFFF"
+      name: "Crvena Zvezda"
+    MIL:
+      primary: "#C8102E"
+      secondary: "#FFFFFF"
+      name: "Olimpia Milano"
+    BER:
+      primary: "#003DA5"
+      secondary: "#FFED00"
+      name: "Alba Berlin"
+    ZAL:
+      primary: "#006633"
+      secondary: "#FFFFFF"
+      name: "Zalgiris Kaunas"
+    VIR:
+      primary: "#000000"
+      secondary: "#E2001A"
+      name: "Virtus Bologna"
+    PRS:
+      primary: "#0055A4"
+      secondary: "#FFFFFF"
+      name: "Paris Basketball"
+    BAY:
+      primary: "#E30613"
+      secondary: "#FFFFFF"
+      name: "Bayern Munich"
+    PAR:
+      primary: "#9B2335"
+      secondary: "#FFFFFF"
+      name: "Partizan"
+    VAL:
+      primary: "#FF6600"
+      secondary: "#000000"
+      name: "Valencia"
+    ALB:
+      primary: "#003DA5"
+      secondary: "#FFED00"
+      name: "Alba Berlin"
+    MON:
+      primary: "#CC0000"
+      secondary: "#FFFFFF"
+      name: "Monaco"
+    PER:
+      primary: "#00A651"
+      secondary: "#FFFFFF"
+      name: "Peristeri"
+    LDP:
+      primary: "#0055A4"
+      secondary: "#FFFFFF"
+      name: "LDLC ASVEL"

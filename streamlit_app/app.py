@@ -36,14 +36,27 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 from streamlit_app.queries import fetch_game_data_live, fetch_season_schedule
+from streamlit_app.utils.config_loader import (
+    get_config,
+    get_supported_seasons,
+    get_default_season,
+    get_default_language,
+    get_language_map,
+    get_team_colors,
+    get_default_accent,
+    get_leaders_defaults,
+)
+from streamlit_app.utils.feature_flags import is_feature_enabled, show_disabled_message
+
+CFG = get_config()
 
 # ========================================================================
 # PAGE CONFIG
 # ========================================================================
 st.set_page_config(
-    page_title="Euroleague Advanced Analytics",
-    page_icon="🏀",
-    layout="wide",
+    page_title=CFG["app"]["page_title"],
+    page_icon=CFG["app"]["page_icon"],
+    layout=CFG["app"]["layout"],
     initial_sidebar_state="expanded",
 )
 
@@ -56,9 +69,12 @@ def load_translations():
 TRANSLATIONS = load_translations()
 
 
+_FALLBACK_LANG = CFG["app"]["default_language"]
+
+
 def t(key: str, **kwargs) -> str:
-    lang = st.session_state.get("lang", "en")
-    text = TRANSLATIONS.get(key, {}).get(lang, TRANSLATIONS.get(key, {}).get("en", key))
+    lang = st.session_state.get("lang", _FALLBACK_LANG)
+    text = TRANSLATIONS.get(key, {}).get(lang, TRANSLATIONS.get(key, {}).get(_FALLBACK_LANG, key))
     return text.format(**kwargs) if kwargs else text
 
 
@@ -207,35 +223,10 @@ st.markdown(
 
 
 # ========================================================================
-# DYNAMIC TEAM BRANDING
+# DYNAMIC TEAM BRANDING  (loaded from config/config.yaml)
 # ========================================================================
-# (primary, secondary) — primary is the dominant accent; secondary is contrast/text
-TEAM_COLORS = {
-    "OLY": ("#D31145", "#FFFFFF"),   # Olympiacos
-    "PAO": ("#007A33", "#FFFFFF"),   # Panathinaikos
-    "RMB": ("#00529F", "#FEBE10"),   # Real Madrid
-    "FCB": ("#A50044", "#004D98"),   # FC Barcelona
-    "FEN": ("#FFED00", "#09235A"),   # Fenerbahce
-    "EFS": ("#003DA5", "#FFFFFF"),   # Anadolu Efes
-    "MTA": ("#FFD130", "#0057B8"),   # Maccabi Tel Aviv
-    "ASM": ("#CC0000", "#FFFFFF"),   # AS Monaco
-    "BKN": ("#003DA5", "#E30613"),   # Baskonia
-    "CZV": ("#CC0000", "#FFFFFF"),   # Crvena Zvezda (Red Star)
-    "MIL": ("#C8102E", "#FFFFFF"),   # Olimpia Milano
-    "BER": ("#003DA5", "#FFED00"),   # Alba Berlin
-    "ZAL": ("#006633", "#FFFFFF"),   # Zalgiris Kaunas
-    "VIR": ("#000000", "#E2001A"),   # Virtus Bologna
-    "PRS": ("#0055A4", "#FFFFFF"),   # Paris Basketball
-    "BAY": ("#E30613", "#FFFFFF"),   # Bayern Munich
-    "PAR": ("#9B2335", "#FFFFFF"),   # Partizan
-    "VAL": ("#FF6600", "#000000"),   # Valencia
-    "ALB": ("#003DA5", "#FFED00"),   # Alba Berlin alias
-    "MON": ("#CC0000", "#FFFFFF"),   # Monaco alias
-    "PER": ("#00A651", "#FFFFFF"),   # Peristeri
-    "LDP": ("#0055A4", "#FFFFFF"),   # LDLC ASVEL / Paris alias
-}
-
-DEFAULT_ACCENT = ("#6366f1", "#8b5cf6")  # Indigo fallback
+TEAM_COLORS = get_team_colors()
+DEFAULT_ACCENT = get_default_accent()
 
 
 def _get_team_accent() -> tuple:
@@ -331,8 +322,9 @@ def _inject_team_css(primary: str, secondary: str):
 # SIDEBAR — Language Selector (always first)
 # ========================================================================
 with st.sidebar:
-    lang_map = {"🇬🇧 English": "en", "🇬🇷 Ελληνικά": "el", "🇩🇪 Deutsch": "de", "🇪🇸 Español": "es"}
-    default_lang_idx = list(lang_map.values()).index(st.session_state.get("lang", "en"))
+    lang_map = get_language_map()
+    _default_lang = get_default_language()
+    default_lang_idx = list(lang_map.values()).index(st.session_state.get("lang", _default_lang))
 
     selected_lang_label = st.selectbox(
         t("lang_selection"),
@@ -361,8 +353,21 @@ NAV_REFEREE = t("nav_referee_label")
 NAV_CHAT = t("nav_chat_label")
 NAV_GLOSSARY = t("nav_glossary_label")
 
-NAV_OPTIONS = [NAV_HOME, NAV_SINGLE, NAV_SEASON, NAV_ADVANCED, NAV_LIVE, NAV_LEADERS, NAV_SCOUTING, NAV_REFEREE, NAV_CHAT, NAV_GLOSSARY]
-NAV_ICONS = ["house-fill", "trophy-fill", "bar-chart-line-fill", "lightning-charge-fill", "broadcast", "award-fill", "search", "clipboard-check", "chat-dots-fill", "book-half"]
+_ALL_NAV = [
+    (NAV_HOME,     "house-fill",              None),
+    (NAV_SINGLE,   "trophy-fill",             None),
+    (NAV_SEASON,   "bar-chart-line-fill",     None),
+    (NAV_ADVANCED, "lightning-charge-fill",    None),
+    (NAV_LIVE,     "broadcast",               "ENABLE_LIVE_MATCH"),
+    (NAV_LEADERS,  "award-fill",              None),
+    (NAV_SCOUTING, "search",                  "ENABLE_SCOUTING"),
+    (NAV_REFEREE,  "clipboard-check",         None),
+    (NAV_CHAT,     "chat-dots-fill",          "ENABLE_LLM_CHAT"),
+    (NAV_GLOSSARY, "book-half",               None),
+]
+
+NAV_OPTIONS = [label for label, _, flag in _ALL_NAV if flag is None or is_feature_enabled(flag)]
+NAV_ICONS = [icon for _, icon, flag in _ALL_NAV if flag is None or is_feature_enabled(flag)]
 
 selected_nav = option_menu(
     menu_title=None,
@@ -395,22 +400,25 @@ is_live_page = selected_nav == NAV_LIVE
 # ========================================================================
 gamecode = None
 
+_cfg_seasons = get_supported_seasons()
+_cfg_default = get_default_season()
+
 with st.sidebar:
     st.markdown(f"### 📅 {t('selection_header')}")
 
     if "selected_season" not in st.session_state:
-        st.session_state.selected_season = 2025
+        st.session_state.selected_season = _cfg_default
     if "selected_round" not in st.session_state:
         st.session_state.selected_round = 1
 
     def on_season_change():
         st.session_state.selected_round = 1
 
-    seasons = list(range(2025, 2010, -1))
+    seasons = _cfg_seasons
     selected_season_input = st.selectbox(
         t("season_dropdown"),
         seasons,
-        index=seasons.index(st.session_state.selected_season),
+        index=seasons.index(st.session_state.selected_season) if st.session_state.selected_season in seasons else 0,
         key="season_picker",
         on_change=on_season_change,
     )
@@ -498,11 +506,11 @@ def _ensure_game_data(gc: int) -> dict:
     """Load game data into session_state if stale, return the data dict."""
     data_needs_update = (
         "game_data" not in st.session_state
-        or st.session_state.get("season") != st.session_state.get("selected_season", 2025)
+        or st.session_state.get("season") != st.session_state.get("selected_season", _cfg_default)
         or st.session_state.get("gamecode") != gc
     )
     if data_needs_update:
-        season_to_fetch = st.session_state.get("selected_season", 2025)
+        season_to_fetch = st.session_state.get("selected_season", _cfg_default)
         with st.status(t("loading_data"), expanded=True) as status:
             try:
                 status.update(label="Downloading boxscore & play-by-play from API...")
@@ -1368,7 +1376,7 @@ elif selected_nav == NAV_SINGLE:
 elif selected_nav == NAV_SEASON:
     st.markdown(f'<p class="section-header">{t("hdr_season_overview")}</p>', unsafe_allow_html=True)
 
-    season_to_fetch = st.session_state.get("selected_season", 2025)
+    season_to_fetch = st.session_state.get("selected_season", _cfg_default)
     team_code = st.session_state.get("selected_team")
 
     if not team_code:
@@ -2222,12 +2230,16 @@ elif selected_nav == NAV_ADVANCED:
 # PAGE: LIVE MATCH CENTER
 # ========================================================================
 elif selected_nav == NAV_LIVE:
+    if not is_feature_enabled("ENABLE_LIVE_MATCH"):
+        show_disabled_message("ENABLE_LIVE_MATCH")
+        st.stop()
+
     import time as _time
 
     st.markdown(f'<p class="section-header">{t("card_live_title")}</p>', unsafe_allow_html=True)
     st.caption(f"🔄 {t('live_autorefresh')}")
 
-    season_live = st.session_state.get("selected_season", 2025)
+    season_live = st.session_state.get("selected_season", _cfg_default)
 
     # --- Auto-refresh: rerun every 30 seconds ---
     if "live_last_refresh" not in st.session_state:
@@ -2532,6 +2544,10 @@ elif selected_nav == NAV_LIVE:
         with tab_wp:
             st.markdown(f"### {t('live_win_prob')}")
 
+            if not is_feature_enabled("ENABLE_ML_PREDICTIONS"):
+                show_disabled_message("ENABLE_ML_PREDICTIONS")
+                st.stop()
+
             from data_pipeline.live_metrics import (
                 compute_live_win_probability,
                 compute_win_probability_timeline,
@@ -2658,7 +2674,7 @@ elif selected_nav == NAV_LEADERS:
         unsafe_allow_html=True,
     )
 
-    season_leaders = st.session_state.get("selected_season", 2025)
+    season_leaders = st.session_state.get("selected_season", _cfg_default)
 
     from streamlit_app.queries import fetch_league_leaders
 
@@ -2693,11 +2709,12 @@ elif selected_nav == NAV_LEADERS:
         st.warning(t("leaders_no_data"))
         st.stop()
 
-    # --- Configurable filters ---
-    MIN_GAMES_DEFAULT = 10
-    MIN_FGA2_DEFAULT = 40
-    MIN_FGA3_DEFAULT = 30
-    MIN_FTA_DEFAULT = 30
+    # --- Configurable filters (from config.yaml) ---
+    _leaders_cfg = get_leaders_defaults()
+    MIN_GAMES_DEFAULT = _leaders_cfg["min_games"]
+    MIN_FGA2_DEFAULT = _leaders_cfg["min_fga2"]
+    MIN_FGA3_DEFAULT = _leaders_cfg["min_fga3"]
+    MIN_FTA_DEFAULT = _leaders_cfg["min_fta"]
 
     with st.expander(t("leaders_filters_label"), expanded=False):
         fc1, fc2, fc3, fc4 = st.columns(4)
@@ -2837,13 +2854,17 @@ elif selected_nav == NAV_LEADERS:
 # PAGE: AI SCOUTING ENGINE
 # ========================================================================
 elif selected_nav == NAV_SCOUTING:
+    if not is_feature_enabled("ENABLE_SCOUTING"):
+        show_disabled_message("ENABLE_SCOUTING")
+        st.stop()
+
     st.markdown(f'<p class="section-header">{t("card_scouting_title")}</p>', unsafe_allow_html=True)
     st.markdown(
         f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('scout_method_note')}</p>",
         unsafe_allow_html=True,
     )
 
-    season_scout = st.session_state.get("selected_season", 2025)
+    season_scout = st.session_state.get("selected_season", _cfg_default)
 
     from streamlit_app.queries import fetch_scouting_player_pool
     from data_pipeline.scouting_engine import (
@@ -3144,7 +3165,7 @@ elif selected_nav == NAV_REFEREE:
     st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_referee_stats')}</p>", unsafe_allow_html=True)
     st.markdown("---")
 
-    season_to_fetch = st.session_state.get("selected_season", 2025)
+    season_to_fetch = st.session_state.get("selected_season", _cfg_default)
     selected_team = st.session_state.get("selected_team")
 
     if not selected_team:
@@ -3209,6 +3230,10 @@ elif selected_nav == NAV_REFEREE:
 # PAGE: ASK THE DATA (LLM Chat Agent)
 # ========================================================================
 elif selected_nav == NAV_CHAT:
+    if not is_feature_enabled("ENABLE_LLM_CHAT"):
+        show_disabled_message("ENABLE_LLM_CHAT")
+        st.stop()
+
     st.markdown(f'<p class="section-header">{t("chat_title")}</p>', unsafe_allow_html=True)
     st.markdown(
         f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('chat_subtitle')}</p>",
@@ -3258,9 +3283,9 @@ elif selected_nav == NAV_CHAT:
         st.stop()
 
     # --- Load data for the agent ---
-    season_chat = st.session_state.get("selected_season", 2025)
+    season_chat = st.session_state.get("selected_season", _cfg_default)
 
-    @st.cache_data(ttl=3600, show_spinner=False)
+    @st.cache_data(ttl=CFG["data"]["cache_ttl_seconds"], show_spinner=False)
     def _load_chat_dataframes(season: int):
         from streamlit_app.queries import fetch_scouting_player_pool, fetch_league_efficiency_landscape
         player_df = fetch_scouting_player_pool(season)
@@ -3389,7 +3414,7 @@ with st.sidebar:
                 unsafe_allow_html=True,
             )
 
-            _sync_season = st.session_state.get("selected_season", 2025)
+            _sync_season = st.session_state.get("selected_season", _cfg_default)
             cached_codes = _repo.get_cached_gamecodes(_sync_season)
             st.caption(f"Season {_sync_season}: **{len(cached_codes)}** games cached")
 

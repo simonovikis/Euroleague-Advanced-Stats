@@ -25,12 +25,13 @@ from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 
-COMPETITION = "E"
-
-logger = logging.getLogger(__name__)
-
 _project_root = Path(__file__).resolve().parent.parent
 load_dotenv(_project_root / ".env")
+
+from streamlit_app.utils.config_loader import get_default_competition, get_cache_ttl
+
+COMPETITION = get_default_competition()
+_CACHE_TTL = get_cache_ttl()
 
 
 def _use_db() -> bool:
@@ -46,7 +47,7 @@ def _get_repository():
     return st.session_state["data_repository"]
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=_CACHE_TTL, show_spinner=False)
 def fetch_season_schedule(
     season: int,
     competition: str = "E",
@@ -169,7 +170,7 @@ def fetch_game_data_live(
     }
 
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=_CACHE_TTL)
 def fetch_league_efficiency_landscape(season: int, competition: str = COMPETITION) -> pd.DataFrame:
     """Fetch and calculate all 18 teams' ORtg and DRtg for the given season."""
     if _use_db():
@@ -216,7 +217,7 @@ def fetch_league_efficiency_landscape(season: int, competition: str = COMPETITIO
     return get_league_efficiency_landscape(season, competition)
 
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=_CACHE_TTL)
 def fetch_team_season_data(season: int, team_code: str, competition: str = COMPETITION) -> Dict[str, pd.DataFrame]:
     """
     Fetch all boxscores/PBPs for a team's season, and aggregate into mathematically
@@ -363,7 +364,7 @@ def query_team_stats_db() -> pd.DataFrame:
         return pd.read_sql(SQL_TEAM_STATS, conn)
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=_CACHE_TTL, show_spinner=False)
 def fetch_season_game_metadata(
     season: int,
     competition: str = COMPETITION,
@@ -375,7 +376,7 @@ def fetch_season_game_metadata(
     return get_season_game_metadata(season, competition)
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=_CACHE_TTL, show_spinner=False)
 def fetch_referee_stats(
     season: int,
     team_code: str,
@@ -418,7 +419,7 @@ def fetch_referee_stats(
     return compute_referee_stats(metadata_df, team_code, min_games)
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=_CACHE_TTL, show_spinner=False)
 def fetch_close_game_stats(
     season: int,
     close_threshold: int = 5,
@@ -432,7 +433,7 @@ def fetch_close_game_stats(
     return compute_close_game_stats(schedule, close_threshold)
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=_CACHE_TTL, show_spinner=False)
 def fetch_situational_scoring(
     season: int,
     competition: str = COMPETITION,
@@ -495,7 +496,7 @@ def fetch_live_game_data_fresh(
 # SCOUTING ENGINE QUERIES
 # ========================================================================
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=_CACHE_TTL, show_spinner=False)
 def fetch_scouting_player_pool(
     season: int, competition: str = COMPETITION
 ) -> pd.DataFrame:
@@ -504,7 +505,7 @@ def fetch_scouting_player_pool(
     return fetch_league_player_stats(season, competition)
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=_CACHE_TTL, show_spinner=False)
 def fetch_league_leaders(
     season: int,
     competition: str = COMPETITION,
@@ -602,7 +603,7 @@ def fetch_league_leaders(
     return {"per_game": per_game, "totals": totals}
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=_CACHE_TTL, show_spinner=False)
 def fetch_home_away_splits(
     season: int,
     competition: str = COMPETITION,
