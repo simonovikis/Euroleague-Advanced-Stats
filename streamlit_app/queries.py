@@ -647,3 +647,87 @@ def fetch_home_away_splits(
     import data_pipeline.extractors as _ext_mod
     importlib.reload(_ext_mod)
     return _ext_mod.get_home_away_splits(season, competition)
+
+
+# ========================================================================
+# SPATIAL ANALYTICS — Season-wide shot data with coordinates
+# ========================================================================
+
+@st.cache_data(ttl=_CACHE_TTL, show_spinner=False)
+def fetch_season_shot_data(
+    season: int,
+    team_code: str,
+    competition: str = COMPETITION,
+) -> pd.DataFrame:
+    """Fetch all shot data with X/Y coordinates for a team's full season.
+
+    Returns a DataFrame with lowercase column names:
+        gamecode, team, player, id_action, action, points,
+        coord_x, coord_y, zone, minute
+    """
+    from data_pipeline.extractors import TEAM_ALIASES
+
+    reverse_alias = {v: k for k, v in TEAM_ALIASES.items()}
+    alt_code = reverse_alias.get(
+        team_code, TEAM_ALIASES.get(team_code, team_code),
+    )
+
+    if _use_db():
+        engine = _get_db_engine()
+        if engine:
+            from sqlalchemy import text
+
+            query = text("""
+                SELECT gamecode, team, player, id_action, action,
+                       points, coord_x, coord_y, zone, minute
+                FROM shots
+                WHERE season = :season
+                  AND (team = :code1 OR team = :code2)
+                ORDER BY gamecode, minute
+            """)
+            with engine.connect() as conn:
+                df = pd.read_sql(
+                    query, conn,
+                    params={"season": season, "code1": team_code, "code2": alt_code},
+                )
+            if not df.empty:
+                return df
+
+    # API fallback — fetch only shot data per game (lighter than full extract)
+    from data_pipeline.extractors import (
+        get_season_schedule,
+        get_shot_data,
+        apply_team_aliases,
+    )
+
+    sched = get_season_schedule(season, competition)
+    if sched.empty:
+        return pd.DataFrame()
+
+    team_games = sched[
+        ((sched["home_code"] == team_code) | (sched["away_code"] == team_code))
+        & (sched["played"] == True)
+    ]
+
+    frames = []
+    for _, game in team_games.iterrows():
+        sdf = get_shot_data(season, game["gamecode"], competition)
+        if not sdf.empty:
+            frames.append(sdf)
+
+    if not frames:
+        return pd.DataFrame()
+
+    result = pd.concat(frames, ignore_index=True)
+    result = apply_team_aliases(result, ["TEAM"])
+    result = result[result["TEAM"] == team_code]
+
+    col_map = {
+        "Gamecode": "gamecode", "TEAM": "team", "PLAYER": "player",
+        "ID_ACTION": "id_action", "ACTION": "action", "POINTS": "points",
+        "COORD_X": "coord_x", "COORD_Y": "coord_y", "ZONE": "zone",
+        "MINUTE": "minute",
+    }
+    return result.rename(
+        columns={k: v for k, v in col_map.items() if k in result.columns},
+    )

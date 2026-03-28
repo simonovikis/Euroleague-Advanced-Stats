@@ -362,11 +362,13 @@ NAV_SCOUTING = t("nav_scouting_label")
 NAV_REFEREE = t("nav_referee_label")
 NAV_CHAT = t("nav_chat_label")
 NAV_GLOSSARY = t("nav_glossary_label")
+NAV_SPATIAL = "Spatial Analytics"
 
 _ALL_NAV = [
     (NAV_HOME,     "house-fill",              None),
     (NAV_SINGLE,   "trophy-fill",             None),
     (NAV_SEASON,   "bar-chart-line-fill",     None),
+    (NAV_SPATIAL,  "bullseye",                None),
     (NAV_ADVANCED, "lightning-charge-fill",    None),
     (NAV_LIVE,     "broadcast",               "ENABLE_LIVE_MATCH"),
     (NAV_LEADERS,  "award-fill",              None),
@@ -402,7 +404,7 @@ selected_nav = option_menu(
 )
 
 needs_game_data = selected_nav in (NAV_SINGLE, NAV_ADVANCED)
-needs_team_filter = selected_nav in (NAV_SEASON, NAV_REFEREE)
+needs_team_filter = selected_nav in (NAV_SEASON, NAV_SPATIAL, NAV_REFEREE)
 is_live_page = selected_nav == NAV_LIVE
 
 # ========================================================================
@@ -2015,6 +2017,171 @@ elif selected_nav == NAV_SEASON:
 
 
 # ========================================================================
+# PAGE: SPATIAL ANALYTICS — Season-wide Shot Charts
+# ========================================================================
+elif selected_nav == NAV_SPATIAL:
+    st.markdown('<p class="section-header">Spatial Analytics</p>', unsafe_allow_html=True)
+    st.markdown(
+        "<p style='color:#9ca3af; font-size:0.9rem;'>"
+        "Season-wide shot charts with player filtering and density heatmaps."
+        "</p>",
+        unsafe_allow_html=True,
+    )
+
+    _spatial_season = st.session_state.get("selected_season", _cfg_default)
+    _spatial_team = st.session_state.get("selected_team")
+
+    if not _spatial_team:
+        st.warning("Please select a team from the sidebar.")
+        st.stop()
+
+    from streamlit_app.queries import fetch_season_shot_data
+    from streamlit_app.utils.court import draw_euroleague_court
+
+    with st.status("Loading shot data...", expanded=True) as _shot_status:
+        try:
+            _shot_status.update(label=f"Fetching shot data for {_spatial_team}...")
+            _spatial_shots = fetch_season_shot_data(_spatial_season, _spatial_team)
+            _shot_status.update(label="Shot data loaded.", state="complete", expanded=False)
+        except Exception as e:
+            _shot_status.update(label="Failed to load shot data", state="error")
+            st.error(f"Could not load shot data. Error: {type(e).__name__}")
+            st.stop()
+
+    if _spatial_shots.empty:
+        st.warning("No shot data available for this team and season.")
+        st.stop()
+
+    # Keep only field-goal events with valid coordinates
+    _FG_ACTIONS = {"2FGA", "2FGM", "3FGA", "3FGM"}
+    _spatial_shots = _spatial_shots[_spatial_shots["id_action"].isin(_FG_ACTIONS)].copy()
+    _spatial_shots = _spatial_shots.dropna(subset=["coord_x", "coord_y"])
+
+    if _spatial_shots.empty:
+        st.warning("No shot coordinate data available.")
+        st.stop()
+
+    _spatial_shots["outcome"] = _spatial_shots["points"].apply(
+        lambda p: "Made" if p > 0 else "Missed"
+    )
+
+    # --- Filters ---
+    _sp_players = sorted(_spatial_shots["player"].dropna().unique())
+    _sp_col1, _sp_col2 = st.columns([3, 1])
+    with _sp_col1:
+        _sp_sel_player = st.selectbox(
+            "Player", ["All Players"] + _sp_players, key="spatial_player",
+        )
+    with _sp_col2:
+        _sp_heatmap = st.toggle("Density Heatmap", value=False, key="spatial_heatmap")
+
+    _sp_df = _spatial_shots.copy()
+    if _sp_sel_player != "All Players":
+        _sp_df = _sp_df[_sp_df["player"] == _sp_sel_player]
+
+    if _sp_df.empty:
+        st.info("No shots for this selection.")
+        st.stop()
+
+    # --- Summary metrics ---
+    _sp_total = len(_sp_df)
+    _sp_made = (_sp_df["outcome"] == "Made").sum()
+    _sp_fg_pct = _sp_made / _sp_total if _sp_total > 0 else 0
+    _sp_twos = _sp_df[_sp_df["id_action"].isin({"2FGA", "2FGM"})]
+    _sp_threes = _sp_df[_sp_df["id_action"].isin({"3FGA", "3FGM"})]
+    _sp_fg2_pct = _sp_twos["points"].gt(0).sum() / len(_sp_twos) if len(_sp_twos) > 0 else 0
+    _sp_fg3_pct = _sp_threes["points"].gt(0).sum() / len(_sp_threes) if len(_sp_threes) > 0 else 0
+
+    _mc1, _mc2, _mc3, _mc4 = st.columns(4)
+    _mc1.metric("Total Shots", _sp_total)
+    _mc2.metric("FG%", f"{_sp_fg_pct:.1%}")
+    _mc3.metric("2P%", f"{_sp_fg2_pct:.1%}")
+    _mc4.metric("3P%", f"{_sp_fg3_pct:.1%}")
+
+    # --- Court + Shot Visualization ---
+    _sp_fig = draw_euroleague_court()
+
+    if not _sp_heatmap:
+        # Scatter plot — Made vs Missed
+        _sp_made_df = _sp_df[_sp_df["outcome"] == "Made"]
+        _sp_miss_df = _sp_df[_sp_df["outcome"] == "Missed"]
+
+        _sp_fig.add_trace(go.Scatter(
+            x=_sp_made_df["coord_x"], y=_sp_made_df["coord_y"],
+            mode="markers",
+            marker=dict(
+                color="#10b981", size=9, symbol="circle",
+                line=dict(width=1, color="white"), opacity=0.85,
+            ),
+            name="Made",
+            text=_sp_made_df["player"],
+            hovertemplate="%{text}<br>%{customdata}<extra>Made</extra>",
+            customdata=_sp_made_df["action"],
+        ))
+        _sp_fig.add_trace(go.Scatter(
+            x=_sp_miss_df["coord_x"], y=_sp_miss_df["coord_y"],
+            mode="markers",
+            marker=dict(
+                color="#ef4444", size=7, symbol="x",
+                line=dict(width=1, color="white"), opacity=0.6,
+            ),
+            name="Missed",
+            text=_sp_miss_df["player"],
+            hovertemplate="%{text}<br>%{customdata}<extra>Missed</extra>",
+            customdata=_sp_miss_df["action"],
+        ))
+    else:
+        # Density heatmap
+        _sp_fig.add_trace(go.Histogram2dContour(
+            x=_sp_df["coord_x"], y=_sp_df["coord_y"],
+            colorscale=[
+                [0, "rgba(15,15,35,0)"], [0.2, "#312e81"],
+                [0.4, "#6366f1"], [0.6, "#a78bfa"],
+                [0.8, "#f59e0b"], [1.0, "#ef4444"],
+            ],
+            showscale=True,
+            colorbar=dict(title="Density"),
+            contours=dict(coloring="heatmap"),
+            ncontours=20,
+            hoverinfo="skip",
+        ))
+
+    _sp_fig.update_layout(
+        template="plotly_dark",
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(15,15,35,0.9)",
+        height=700,
+        xaxis=dict(
+            range=[-800, 800], showgrid=False, zeroline=False,
+            showticklabels=False, scaleanchor="y",
+        ),
+        yaxis=dict(
+            range=[-50, 1050], showgrid=False, zeroline=False,
+            showticklabels=False,
+        ),
+        legend=dict(x=0.02, y=0.98, font=dict(size=12)),
+        font=dict(family="Inter"),
+        margin=dict(l=20, r=20, t=30, b=20),
+    )
+    st.plotly_chart(_sp_fig, use_container_width=True)
+
+    # --- Zone Breakdown Table ---
+    st.markdown("---")
+    st.markdown("#### Zone Breakdown")
+    _sp_zone = (
+        _sp_df.groupby("zone")
+        .agg(shots=("points", "size"), made=("points", lambda x: (x > 0).sum()))
+        .reset_index()
+    )
+    _sp_zone["fg_pct"] = (_sp_zone["made"] / _sp_zone["shots"]).round(3)
+    _sp_zone = _sp_zone.sort_values("shots", ascending=False)
+    _sp_zone = _sp_zone.rename(columns={
+        "zone": "Zone", "shots": "Shots", "made": "Made", "fg_pct": "FG%",
+    })
+    st.dataframe(_sp_zone, use_container_width=True, hide_index=True)
+
+
+# ========================================================================
 # PAGE: ADVANCED ANALYTICS (Playmaking + Clutch)
 # ========================================================================
 elif selected_nav == NAV_ADVANCED:
@@ -2968,6 +3135,43 @@ elif selected_nav == NAV_SCOUTING:
         target_player, filtered_pool, top_n=top_n,
         position_filter=active_pos_filter,
     )
+
+    # --- PDF Scouting Report Download ---
+    from streamlit_app.utils.pdf_report import generate_player_report
+    from streamlit_app.queries import fetch_team_season_data
+
+    recent_form_df = None
+    try:
+        team_code_for_report = tr["team_code"]
+        season_data = fetch_team_season_data(season_scout, team_code_for_report)
+        per_game = season_data.get("per_game_stats", pd.DataFrame())
+        if not per_game.empty and "player_name" in per_game.columns:
+            player_games = per_game[
+                (per_game["player_name"] == target_player) & (per_game["minutes"] > 0)
+            ].sort_values("Gamecode")
+            if not player_games.empty:
+                recent_form_df = player_games.tail(5)
+    except Exception:
+        pass
+
+    try:
+        pdf_buf = generate_player_report(
+            player_name=target_player,
+            season=season_scout,
+            player_pool=filtered_pool,
+            similar_df=similar_df,
+            recent_form_df=recent_form_df,
+        )
+        safe_name = target_player.replace(" ", "_").replace(",", "")
+        st.download_button(
+            label="\U0001F4C4 Download PDF Scouting Report",
+            data=pdf_buf,
+            file_name=f"scouting_report_{safe_name}_{season_scout}.pdf",
+            mime="application/pdf",
+            key="scout_pdf_download",
+        )
+    except Exception as e:
+        st.warning(f"Could not generate PDF report: {type(e).__name__}")
 
     if similar_df.empty:
         st.warning(t("scout_no_player"))
