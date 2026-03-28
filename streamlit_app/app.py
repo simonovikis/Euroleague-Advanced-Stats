@@ -376,47 +376,47 @@ _inject_team_css(_team_primary, _team_secondary)
 # PAGE ROUTING
 # ========================================================================
 if selected_nav == NAV_HOME:
-    from streamlit_app.pages.home import render
+    from streamlit_app.views.home import render
     render()
 
 elif selected_nav == NAV_SINGLE:
-    from streamlit_app.pages.single_game import render
+    from streamlit_app.views.single_game import render
     render(gamecode)
 
 elif selected_nav == NAV_SEASON:
-    from streamlit_app.pages.season_overview import render
+    from streamlit_app.views.season_overview import render
     render(schedule)
 
 elif selected_nav == NAV_ADVANCED:
-    from streamlit_app.pages.advanced_analytics import render
+    from streamlit_app.views.advanced_analytics import render
     render(gamecode)
 
 elif selected_nav == NAV_LIVE:
-    from streamlit_app.pages.live_match import render
+    from streamlit_app.views.live_match import render
     render()
 
 elif selected_nav == NAV_LEADERS:
-    from streamlit_app.pages.leaders import render
+    from streamlit_app.views.leaders import render
     render()
 
 elif selected_nav == NAV_SCOUTING:
-    from streamlit_app.pages.scouting import render
+    from streamlit_app.views.scouting import render
     render()
 
 elif selected_nav == NAV_ORACLE:
-    from streamlit_app.pages.oracle import render
+    from streamlit_app.views.oracle import render
     render()
 
 elif selected_nav == NAV_REFEREE:
-    from streamlit_app.pages.referee import render
+    from streamlit_app.views.referee import render
     render()
 
 elif selected_nav == NAV_CHAT:
-    from streamlit_app.pages.chat import render
+    from streamlit_app.views.chat import render
     render()
 
 elif selected_nav == NAV_GLOSSARY:
-    from streamlit_app.pages.glossary import render
+    from streamlit_app.views.glossary import render
     render()
 
 
