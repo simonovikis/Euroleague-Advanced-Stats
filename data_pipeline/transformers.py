@@ -94,6 +94,155 @@ def _markertime_to_seconds(mt: str) -> float:
         return 0.0
 
 
+# ========================================================================
+# CLUTCH TIME ISOLATOR
+# ========================================================================
+
+def filter_clutch_time(pbp_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Filter play-by-play data to only clutch-time rows.
+
+    Clutch time = Period >= 4 (Q4 or OT), last 5 minutes of the period
+    (MARKERTIME <= 05:00), and score differential within 5 points.
+    """
+    if pbp_df.empty:
+        return pbp_df
+
+    df = pbp_df.copy()
+    df["_marker_secs"] = df["MARKERTIME"].apply(_markertime_to_seconds)
+    df["POINTS_A"] = pd.to_numeric(df["POINTS_A"], errors="coerce").fillna(0)
+    df["POINTS_B"] = pd.to_numeric(df["POINTS_B"], errors="coerce").fillna(0)
+
+    clutch_mask = (
+        (df["PERIOD"] >= 4)
+        & (df["_marker_secs"] <= 300)
+        & (abs(df["POINTS_A"] - df["POINTS_B"]) <= 5)
+    )
+
+    result = df[clutch_mask].drop(columns=["_marker_secs"], errors="ignore")
+    return result.reset_index(drop=True)
+
+
+def filter_clutch_shots(shots_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Filter shot data to only clutch-time shots.
+
+    Shot data uses MINUTE (game minute, 1-based ascending) and running
+    scores POINTS_A / POINTS_B.  Clutch = last 5 min of Q4 (minute 36-40)
+    or any OT (minute > 40), with score differential <= 5.
+    """
+    if shots_df.empty:
+        return shots_df
+
+    df = shots_df.copy()
+    df["POINTS_A"] = pd.to_numeric(df.get("POINTS_A", 0), errors="coerce").fillna(0)
+    df["POINTS_B"] = pd.to_numeric(df.get("POINTS_B", 0), errors="coerce").fillna(0)
+    minute_col = "MINUTE" if "MINUTE" in df.columns else "minute"
+    df["_minute"] = pd.to_numeric(df[minute_col], errors="coerce").fillna(0)
+
+    clutch_mask = (
+        (df["_minute"] >= 36)
+        & (abs(df["POINTS_A"] - df["POINTS_B"]) <= 5)
+    )
+
+    result = df[clutch_mask].drop(columns=["_minute"], errors="ignore")
+    return result.reset_index(drop=True)
+
+
+def build_clutch_boxscore(
+    clutch_pbp: pd.DataFrame,
+    original_boxscore: pd.DataFrame,
+) -> pd.DataFrame:
+    """
+    Synthesize a boxscore DataFrame from clutch-filtered PBP events.
+
+    Aggregates PLAYTYPE counts per player into the same column format
+    that compute_advanced_stats expects (PascalCase boxscore columns).
+    Player metadata (Team, Home, Season, Gamecode) is carried over from
+    the original boxscore.
+    """
+    if clutch_pbp.empty or original_boxscore.empty:
+        return pd.DataFrame()
+
+    SCORE_MAP = {"2FGM": 2, "3FGM": 3, "FTM": 1}
+    meta_cols = {}
+    if "Player_ID" in original_boxscore.columns:
+        for _, r in original_boxscore.iterrows():
+            pid = str(r["Player_ID"]).strip()
+            meta_cols[pid] = {
+                "Team": r.get("Team", ""),
+                "Home": r.get("Home", 0),
+                "Season": r.get("Season", ""),
+                "Gamecode": r.get("Gamecode", ""),
+                "Player": r.get("Player", pid),
+            }
+
+    rows = []
+    for player_id, grp in clutch_pbp.groupby("PLAYER_ID"):
+        pid = str(player_id).strip()
+        if not pid:
+            continue
+        pt_counts = grp["PLAYTYPE"].value_counts()
+
+        fgm2 = pt_counts.get("2FGM", 0)
+        fga2 = fgm2 + pt_counts.get("2FGA", 0)
+        fgm3 = pt_counts.get("3FGM", 0)
+        fga3 = fgm3 + pt_counts.get("3FGA", 0)
+        ftm = pt_counts.get("FTM", 0)
+        fta = ftm + pt_counts.get("FTA", 0)
+        off_reb = pt_counts.get("O", 0)
+        def_reb = pt_counts.get("D", 0)
+        ast = pt_counts.get("AS", 0)
+        stl = pt_counts.get("ST", 0)
+        tov = pt_counts.get("TO", 0)
+        blk = pt_counts.get("FV", 0)
+        fouls = sum(pt_counts.get(f, 0) for f in ("CM", "CMU", "CMT"))
+        fouls_drawn = pt_counts.get("RV", 0)
+        pts = fgm2 * 2 + fgm3 * 3 + ftm
+
+        meta = meta_cols.get(pid, {})
+        team = meta.get("Team", grp["CODETEAM"].mode().iloc[0] if not grp["CODETEAM"].mode().empty else "")
+        player_name = meta.get("Player", grp["PLAYER"].mode().iloc[0] if "PLAYER" in grp.columns and not grp["PLAYER"].mode().empty else pid)
+
+        # Estimate clutch minutes from MARKERTIME span
+        secs = grp["MARKERTIME"].apply(_markertime_to_seconds)
+        clutch_mins = max((secs.max() - secs.min()) / 60.0, 0.5) if len(secs) > 1 else 0.5
+        mins_str = f"{int(clutch_mins)}:{int((clutch_mins % 1) * 60):02d}"
+
+        rows.append({
+            "Player": player_name,
+            "Player_ID": pid,
+            "Team": team,
+            "Home": meta.get("Home", 0),
+            "Season": meta.get("Season", ""),
+            "Gamecode": meta.get("Gamecode", ""),
+            "Minutes": mins_str,
+            "Points": pts,
+            "FieldGoalsMade2": fgm2,
+            "FieldGoalsAttempted2": fga2,
+            "FieldGoalsMade3": fgm3,
+            "FieldGoalsAttempted3": fga3,
+            "FreeThrowsMade": ftm,
+            "FreeThrowsAttempted": fta,
+            "OffensiveRebounds": off_reb,
+            "DefensiveRebounds": def_reb,
+            "TotalRebounds": off_reb + def_reb,
+            "Assistances": ast,
+            "Steals": stl,
+            "Turnovers": tov,
+            "BlocksFavour": blk,
+            "BlocksAgainst": 0,
+            "FoulsCommited": fouls,
+            "FoulsReceived": fouls_drawn,
+            "Plusminus": 0,
+        })
+
+    if not rows:
+        return pd.DataFrame()
+
+    return pd.DataFrame(rows)
+
+
 def format_player_name(raw_name: str) -> str:
     """
     Format raw API name ('LESSORT, MATHIAS') to 'Surname F.' format ('Lessort M.').

@@ -487,6 +487,18 @@ with st.sidebar:
                 st.session_state["game_info_cache"] = None
                 st.session_state["_active_home_team"] = None
 
+            # --- Clutch Time Isolator toggle ---
+            st.markdown("---")
+            clutch_mode = st.toggle(
+                "🧊 Isolate Clutch Time Only",
+                value=st.session_state.get("clutch_mode", False),
+                key="clutch_toggle",
+                help="Recalculate all stats for Clutch Time only: last 5 min of Q4/OT, score within 5 pts.",
+            )
+            st.session_state["clutch_mode"] = clutch_mode
+            if clutch_mode:
+                st.caption("Showing clutch-time stats only (Q4/OT, ≤5 min, ≤5 pt diff)")
+
         # --- Team selector (Season Overview or Referees) ---
         if needs_team_filter:
             euroleague_games = schedule[schedule["played"] == True] if "played" in schedule.columns else schedule
@@ -541,6 +553,77 @@ def _ensure_game_data(gc: int) -> dict:
                 st.error(f"Failed to load game data for Game {gc}. The API may be temporarily unavailable. Error: {type(e).__name__}")
                 st.stop()
     return st.session_state["game_data"]
+
+
+def _apply_clutch_filter(data: dict) -> dict:
+    """Recompute all game analytics using only clutch-time PBP/shots."""
+    from data_pipeline.transformers import (
+        filter_clutch_time,
+        filter_clutch_shots,
+        build_clutch_boxscore,
+        compute_advanced_stats,
+        track_lineups,
+        compute_lineup_stats,
+        compute_duo_trio_synergy,
+        compute_clutch_stats,
+        detect_runs_and_stoppers,
+        foul_trouble_impact,
+        build_assist_network,
+        compute_shot_quality,
+        link_assists_to_shots,
+        compute_playmaking_metrics,
+        compute_total_points_created,
+    )
+
+    pbp_df = data.get("pbp", pd.DataFrame())
+    shots_df = data.get("shots", pd.DataFrame())
+    original_box = data.get("boxscore", pd.DataFrame())
+
+    clutch_pbp = filter_clutch_time(pbp_df)
+    clutch_shots = filter_clutch_shots(shots_df)
+
+    if clutch_pbp.empty:
+        st.warning("No clutch-time plays found in this game (Q4/OT, ≤5 min left, ≤5 pt differential).")
+        return data
+
+    clutch_box = build_clutch_boxscore(clutch_pbp, original_box)
+    if clutch_box.empty:
+        return data
+
+    advanced_df = compute_advanced_stats(clutch_box)
+    pbp_lu = track_lineups(clutch_pbp, clutch_box)
+    lineup_stats = compute_lineup_stats(pbp_lu, clutch_box)
+    duo_synergy = compute_duo_trio_synergy(pbp_lu, clutch_box, combo_size=2)
+    trio_synergy = compute_duo_trio_synergy(pbp_lu, clutch_box, combo_size=3)
+    clutch_stats = compute_clutch_stats(clutch_pbp, clutch_box)
+    stoppers = detect_runs_and_stoppers(pbp_lu)
+    foul_impact = foul_trouble_impact(clutch_pbp, clutch_box)
+    assists = build_assist_network(clutch_pbp)
+    shot_quality = compute_shot_quality(clutch_shots)
+    assist_shot_links = link_assists_to_shots(clutch_pbp, clutch_shots)
+    playmaking = compute_playmaking_metrics(assist_shot_links, min_assists=1)
+    advanced_df = compute_total_points_created(advanced_df, assist_shot_links)
+
+    return {
+        "boxscore": clutch_box,
+        "pbp": clutch_pbp,
+        "shots": clutch_shots,
+        "game_info": data.get("game_info", pd.DataFrame()),
+        "advanced_stats": advanced_df,
+        "pbp_with_lineups": pbp_lu,
+        "lineup_stats": lineup_stats,
+        "assist_network": assists,
+        "clutch_stats": clutch_stats,
+        "run_stoppers": stoppers,
+        "foul_trouble": foul_impact,
+        "duo_synergy": duo_synergy,
+        "trio_synergy": trio_synergy,
+        "shot_quality": shot_quality,
+        "assist_shot_links": assist_shot_links,
+        "playmaking_aaq": playmaking.get("aaq", pd.DataFrame()),
+        "playmaking_axp": playmaking.get("axp", pd.DataFrame()),
+        "playmaking_duos": playmaking.get("duos", pd.DataFrame()),
+    }
 
 
 def _render_game_header():
@@ -666,6 +749,8 @@ elif selected_nav == NAV_SINGLE:
         st.stop()
 
     data = _ensure_game_data(gamecode)
+    if st.session_state.get("clutch_mode"):
+        data = _apply_clutch_filter(data)
     _render_game_header()
 
     tab_stats, tab_shots, tab_radar, tab_lineups, tab_assist, tab_rotations = st.tabs([
@@ -2064,6 +2149,8 @@ elif selected_nav == NAV_ADVANCED:
         st.stop()
 
     data = _ensure_game_data(gamecode)
+    if st.session_state.get("clutch_mode"):
+        data = _apply_clutch_filter(data)
     _render_game_header()
 
     tab_playmaking, tab_clutch_mom = st.tabs([
