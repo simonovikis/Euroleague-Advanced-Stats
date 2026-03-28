@@ -58,8 +58,8 @@ def fetch_season_schedule(
         engine = _get_db_engine()
         if engine:
             import pandas as pd
-            comp_filter = f"AND competition_code = '{competition}'" if competition else ""
-            query = f"""
+            from sqlalchemy import text
+            query = text("""
                 SELECT 
                     season, gamecode, 
                     home_team AS home_code, away_team AS away_code, 
@@ -67,11 +67,11 @@ def fetch_season_schedule(
                     game_date, round, played, 
                     referee1, referee2, referee3 
                 FROM games 
-                WHERE season = {season} {comp_filter}
+                WHERE season = :season
                 ORDER BY round ASC, game_date ASC
-            """
+            """)
             with engine.connect() as conn:
-                schedule = pd.read_sql(query, conn)
+                schedule = pd.read_sql(query, conn, params={"season": season})
             if not schedule.empty:
                 return apply_team_aliases(schedule, ["home_code", "away_code"])
 

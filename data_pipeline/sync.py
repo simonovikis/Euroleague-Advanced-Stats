@@ -17,6 +17,7 @@ _project_root = Path(__file__).resolve().parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
+from sqlalchemy import text
 from data_pipeline.load_to_db import run_pipeline, get_engine
 from data_pipeline.extractors import get_season_schedule
 
@@ -41,8 +42,9 @@ def sync_recent_games(season: int, competition: str = "E") -> None:
     engine = get_engine()
     with engine.connect() as conn:
         db_games = pd.read_sql(
-            f"SELECT gamecode FROM games WHERE season = {season} AND played = TRUE", 
-            conn
+            text("SELECT gamecode FROM games WHERE season = :season AND played = TRUE"),
+            conn,
+            params={"season": season},
         )
     
     played_db = db_games["gamecode"].tolist() if not db_games.empty else []
