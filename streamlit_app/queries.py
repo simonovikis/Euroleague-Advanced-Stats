@@ -731,3 +731,29 @@ def fetch_season_shot_data(
     return result.rename(
         columns={k: v for k, v in col_map.items() if k in result.columns},
     )
+
+
+# ========================================================================
+# ML PREDICTIONS — Win Probability Model
+# ========================================================================
+
+@st.cache_resource(show_spinner=False)
+def fetch_prediction_model(
+    training_seasons: tuple,
+    competition: str = COMPETITION,
+):
+    """Train and cache the win probability model across seasons."""
+    from data_pipeline.ml_pipeline import get_or_train_model
+    return get_or_train_model(list(training_seasons), competition)
+
+
+def predict_game_outcome(
+    model,
+    home_team: str,
+    away_team: str,
+    season: int,
+    competition: str = COMPETITION,
+) -> float:
+    """Predict the home team's win probability for a matchup."""
+    from data_pipeline.ml_pipeline import predict_matchup
+    return predict_matchup(model, home_team, away_team, season, competition)

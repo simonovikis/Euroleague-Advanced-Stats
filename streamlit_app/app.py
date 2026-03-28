@@ -32,7 +32,7 @@ _project_root = str(Path(__file__).resolve().parent.parent)
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
-from streamlit_app.queries import fetch_game_data_live, fetch_season_schedule
+from streamlit_app.queries import fetch_game_data_live, fetch_season_schedule, fetch_prediction_model, predict_game_outcome
 from streamlit_app.utils.config_loader import (
     get_config,
     get_supported_seasons,
@@ -362,17 +362,17 @@ NAV_SCOUTING = t("nav_scouting_label")
 NAV_REFEREE = t("nav_referee_label")
 NAV_CHAT = t("nav_chat_label")
 NAV_GLOSSARY = t("nav_glossary_label")
-NAV_SPATIAL = "Spatial Analytics"
+NAV_ORACLE = "Oracle"
 
 _ALL_NAV = [
     (NAV_HOME,     "house-fill",              None),
     (NAV_SINGLE,   "trophy-fill",             None),
     (NAV_SEASON,   "bar-chart-line-fill",     None),
-    (NAV_SPATIAL,  "bullseye",                None),
     (NAV_ADVANCED, "lightning-charge-fill",    None),
     (NAV_LIVE,     "broadcast",               "ENABLE_LIVE_MATCH"),
     (NAV_LEADERS,  "award-fill",              None),
     (NAV_SCOUTING, "search",                  "ENABLE_SCOUTING"),
+    (NAV_ORACLE,   "eye",                     "ENABLE_ML_PREDICTIONS"),
     (NAV_REFEREE,  "clipboard-check",         None),
     (NAV_CHAT,     "chat-dots-fill",          "ENABLE_LLM_CHAT"),
     (NAV_GLOSSARY, "book-half",               None),
@@ -404,7 +404,7 @@ selected_nav = option_menu(
 )
 
 needs_game_data = selected_nav in (NAV_SINGLE, NAV_ADVANCED)
-needs_team_filter = selected_nav in (NAV_SEASON, NAV_SPATIAL, NAV_REFEREE)
+needs_team_filter = selected_nav in (NAV_SEASON, NAV_REFEREE)
 is_live_page = selected_nav == NAV_LIVE
 
 # ========================================================================
@@ -865,19 +865,38 @@ elif selected_nav == NAV_SINGLE:
                 st.info(t("no_pos_scoring"))
 
     # ------------------------------------------------------------------
-    # TAB: Shot Chart
+    # TAB: Player Shot Charts (contextual, per-game)
     # ------------------------------------------------------------------
     with tab_shots:
+        from streamlit_app.utils.court import draw_euroleague_court
+
         st.markdown(f'<p class="section-header">{t("nav_shot_chart")}</p>', unsafe_allow_html=True)
 
         shots = data.get("shots", pd.DataFrame())
         shot_quality = data.get("shot_quality", pd.DataFrame())
+        boxscore_raw = data.get("boxscore", pd.DataFrame())
 
         if shots.empty:
             st.warning(t("no_shot_data", default="No shot data available for this game."))
         else:
-            all_shooters = sorted(shots["PLAYER"].dropna().unique())
-            sel_shooter = st.selectbox(t("filter_player"), [t("filter_all")] + all_shooters, key="shot_player")
+            _FG_ACTIONS_GAME = {"2FGA", "2FGM", "3FGA", "3FGM"}
+            if "ID_ACTION" in shots.columns:
+                shots = shots[shots["ID_ACTION"].isin(_FG_ACTIONS_GAME)].copy()
+
+            # Build roster from both teams using boxscore
+            roster_options = []
+            if not boxscore_raw.empty and "Player" in boxscore_raw.columns:
+                roster_options = sorted(boxscore_raw["Player"].dropna().unique())
+            if not roster_options:
+                roster_options = sorted(shots["PLAYER"].dropna().unique())
+
+            _sc_col1, _sc_col2 = st.columns([3, 1])
+            with _sc_col1:
+                sel_shooter = st.selectbox(
+                    t("filter_player"), [t("filter_all")] + roster_options, key="shot_player",
+                )
+            with _sc_col2:
+                _sc_heatmap = st.toggle("Density Heatmap", value=False, key="shot_heatmap")
 
             shot_df = shots.copy()
             if sel_shooter != t("filter_all"):
@@ -893,65 +912,85 @@ elif selected_nav == NAV_SINGLE:
                 )
 
                 if has_coords:
+                    shot_df = shot_df.dropna(subset=["COORD_X", "COORD_Y"])
                     shot_df["Outcome"] = shot_df["POINTS"].apply(
                         lambda p: t("lbl_made", default="Made") if p > 0 else t("lbl_missed", default="Missed")
                     )
 
-                    fig = go.Figure()
-                    court_shapes = [
-                        dict(type="rect", x0=-750, y0=0, x1=750, y1=1400,
-                             line=dict(color="rgba(255,255,255,0.3)", width=1), fillcolor="rgba(15,15,35,0.5)"),
-                        dict(type="rect", x0=-250, y0=0, x1=250, y1=580,
-                             line=dict(color="rgba(255,255,255,0.2)", width=1)),
-                        dict(type="circle", x0=-180, y0=400, x1=180, y1=760,
-                             line=dict(color="rgba(255,255,255,0.15)", width=1)),
-                        dict(type="rect", x0=-675, y0=0, x1=675, y1=50,
-                             line=dict(color="rgba(255,255,255,0.1)", width=0)),
-                        dict(type="circle", x0=-22, y0=50, x1=22, y1=94,
-                             line=dict(color="#ff6b35", width=2), fillcolor="rgba(255,107,53,0.2)"),
-                    ]
-                    fig.update_layout(shapes=court_shapes)
+                    # Shooting summary
+                    _sc_total = len(shot_df)
+                    _sc_made = (shot_df["Outcome"] == t("lbl_made", default="Made")).sum()
+                    _sc_fg_pct = _sc_made / _sc_total if _sc_total > 0 else 0
+                    _sc_id = shot_df.get("ID_ACTION", pd.Series(dtype=str))
+                    _sc_twos = shot_df[_sc_id.isin({"2FGA", "2FGM"})] if not _sc_id.empty else pd.DataFrame()
+                    _sc_threes = shot_df[_sc_id.isin({"3FGA", "3FGM"})] if not _sc_id.empty else pd.DataFrame()
+                    _sc_fg2_pct = _sc_twos["POINTS"].gt(0).sum() / len(_sc_twos) if len(_sc_twos) > 0 else 0
+                    _sc_fg3_pct = _sc_threes["POINTS"].gt(0).sum() / len(_sc_threes) if len(_sc_threes) > 0 else 0
 
-                    theta = np.linspace(0, np.pi, 100)
-                    arc_x = np.clip(675 * np.cos(theta), -660, 660)
-                    arc_y = 675 * np.sin(theta) + 72
-                    fig.add_trace(go.Scatter(
-                        x=arc_x, y=arc_y, mode="lines",
-                        line=dict(color="rgba(255,255,255,0.25)", width=2),
-                        showlegend=False, hoverinfo="skip",
-                    ))
+                    # Side-by-side: Court + Summary
+                    col_chart, col_summary = st.columns([3, 1])
 
-                    made = shot_df[shot_df["Outcome"] == t("lbl_made", default="Made")]
-                    missed = shot_df[shot_df["Outcome"] == t("lbl_missed", default="Missed")]
+                    with col_chart:
+                        fig = draw_euroleague_court()
 
-                    fig.add_trace(go.Scatter(
-                        x=made["COORD_X"], y=made["COORD_Y"], mode="markers",
-                        marker=dict(color="#10b981", size=10, symbol="circle",
-                                    line=dict(width=1, color="white"), opacity=0.85),
-                        name=t("lbl_made", default="Made"), text=made["ACTION"],
-                        hovertemplate="%{text}<br>" + t("hover_zone") + ": %{customdata}<extra></extra>",
-                        customdata=made["ZONE"],
-                    ))
-                    fig.add_trace(go.Scatter(
-                        x=missed["COORD_X"], y=missed["COORD_Y"], mode="markers",
-                        marker=dict(color="#ef4444", size=8, symbol="x",
-                                    line=dict(width=1, color="white"), opacity=0.65),
-                        name=t("lbl_missed", default="Missed"), text=missed["ACTION"],
-                        hovertemplate="%{text}<br>" + t("hover_zone") + ": %{customdata}<extra></extra>",
-                        customdata=missed["ZONE"],
-                    ))
+                        if not _sc_heatmap:
+                            made = shot_df[shot_df["Outcome"] == t("lbl_made", default="Made")]
+                            missed = shot_df[shot_df["Outcome"] == t("lbl_missed", default="Missed")]
 
-                    fig.update_layout(
-                        template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)",
-                        plot_bgcolor="rgba(15,15,35,0.9)", height=650, width=700,
-                        xaxis=dict(range=[-800, 800], showgrid=False, zeroline=False,
-                                   showticklabels=False, scaleanchor="y"),
-                        yaxis=dict(range=[-50, 1000], showgrid=False, zeroline=False, showticklabels=False),
-                        legend=dict(x=0.02, y=0.98, font=dict(size=12)),
-                        font=dict(family="Inter"), margin=dict(l=20, r=20, t=30, b=20),
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
+                            fig.add_trace(go.Scatter(
+                                x=made["COORD_X"], y=made["COORD_Y"], mode="markers",
+                                marker=dict(color="#10b981", size=10, symbol="circle",
+                                            line=dict(width=1, color="white"), opacity=0.85),
+                                name=t("lbl_made", default="Made"), text=made["ACTION"],
+                                hovertemplate="%{text}<br>" + t("hover_zone") + ": %{customdata}<extra></extra>",
+                                customdata=made["ZONE"],
+                            ))
+                            fig.add_trace(go.Scatter(
+                                x=missed["COORD_X"], y=missed["COORD_Y"], mode="markers",
+                                marker=dict(color="#ef4444", size=8, symbol="x",
+                                            line=dict(width=1, color="white"), opacity=0.65),
+                                name=t("lbl_missed", default="Missed"), text=missed["ACTION"],
+                                hovertemplate="%{text}<br>" + t("hover_zone") + ": %{customdata}<extra></extra>",
+                                customdata=missed["ZONE"],
+                            ))
+                        else:
+                            fig.add_trace(go.Histogram2dContour(
+                                x=shot_df["COORD_X"], y=shot_df["COORD_Y"],
+                                colorscale=[
+                                    [0, "rgba(15,15,35,0)"], [0.2, "#312e81"],
+                                    [0.4, "#6366f1"], [0.6, "#a78bfa"],
+                                    [0.8, "#f59e0b"], [1.0, "#ef4444"],
+                                ],
+                                showscale=True,
+                                colorbar=dict(title="Density"),
+                                contours=dict(coloring="heatmap"),
+                                ncontours=20,
+                                hoverinfo="skip",
+                            ))
 
+                        fig.update_layout(
+                            template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)",
+                            plot_bgcolor="rgba(15,15,35,0.9)", height=650,
+                            xaxis=dict(range=[-800, 800], showgrid=False, zeroline=False,
+                                       showticklabels=False, scaleanchor="y"),
+                            yaxis=dict(range=[-50, 1050], showgrid=False, zeroline=False, showticklabels=False),
+                            legend=dict(x=0.02, y=0.98, font=dict(size=12)),
+                            font=dict(family="Inter"), margin=dict(l=20, r=20, t=30, b=20),
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+
+                    with col_summary:
+                        st.markdown("#### Shooting Summary")
+                        _sc_label = sel_shooter if sel_shooter != t("filter_all") else "All Players"
+                        st.markdown(f"**{_sc_label}**")
+                        st.metric("Total Shots", _sc_total)
+                        st.metric("FG%", f"{_sc_fg_pct:.1%}")
+                        st.metric("2PT%", f"{_sc_fg2_pct:.1%}",
+                                  help=f"{len(_sc_twos)} attempts" if len(_sc_twos) > 0 else None)
+                        st.metric("3PT%", f"{_sc_fg3_pct:.1%}",
+                                  help=f"{len(_sc_threes)} attempts" if len(_sc_threes) > 0 else None)
+
+                    # Shot Quality table below
                     if not shot_quality.empty:
                         st.markdown(f"#### {t('hdr_shot_quality')}")
                         sq = shot_quality.copy()
@@ -2014,171 +2053,6 @@ elif selected_nav == NAV_SEASON:
                 ),
                 use_container_width=True, hide_index=True,
             )
-
-
-# ========================================================================
-# PAGE: SPATIAL ANALYTICS — Season-wide Shot Charts
-# ========================================================================
-elif selected_nav == NAV_SPATIAL:
-    st.markdown('<p class="section-header">Spatial Analytics</p>', unsafe_allow_html=True)
-    st.markdown(
-        "<p style='color:#9ca3af; font-size:0.9rem;'>"
-        "Season-wide shot charts with player filtering and density heatmaps."
-        "</p>",
-        unsafe_allow_html=True,
-    )
-
-    _spatial_season = st.session_state.get("selected_season", _cfg_default)
-    _spatial_team = st.session_state.get("selected_team")
-
-    if not _spatial_team:
-        st.warning("Please select a team from the sidebar.")
-        st.stop()
-
-    from streamlit_app.queries import fetch_season_shot_data
-    from streamlit_app.utils.court import draw_euroleague_court
-
-    with st.status("Loading shot data...", expanded=True) as _shot_status:
-        try:
-            _shot_status.update(label=f"Fetching shot data for {_spatial_team}...")
-            _spatial_shots = fetch_season_shot_data(_spatial_season, _spatial_team)
-            _shot_status.update(label="Shot data loaded.", state="complete", expanded=False)
-        except Exception as e:
-            _shot_status.update(label="Failed to load shot data", state="error")
-            st.error(f"Could not load shot data. Error: {type(e).__name__}")
-            st.stop()
-
-    if _spatial_shots.empty:
-        st.warning("No shot data available for this team and season.")
-        st.stop()
-
-    # Keep only field-goal events with valid coordinates
-    _FG_ACTIONS = {"2FGA", "2FGM", "3FGA", "3FGM"}
-    _spatial_shots = _spatial_shots[_spatial_shots["id_action"].isin(_FG_ACTIONS)].copy()
-    _spatial_shots = _spatial_shots.dropna(subset=["coord_x", "coord_y"])
-
-    if _spatial_shots.empty:
-        st.warning("No shot coordinate data available.")
-        st.stop()
-
-    _spatial_shots["outcome"] = _spatial_shots["points"].apply(
-        lambda p: "Made" if p > 0 else "Missed"
-    )
-
-    # --- Filters ---
-    _sp_players = sorted(_spatial_shots["player"].dropna().unique())
-    _sp_col1, _sp_col2 = st.columns([3, 1])
-    with _sp_col1:
-        _sp_sel_player = st.selectbox(
-            "Player", ["All Players"] + _sp_players, key="spatial_player",
-        )
-    with _sp_col2:
-        _sp_heatmap = st.toggle("Density Heatmap", value=False, key="spatial_heatmap")
-
-    _sp_df = _spatial_shots.copy()
-    if _sp_sel_player != "All Players":
-        _sp_df = _sp_df[_sp_df["player"] == _sp_sel_player]
-
-    if _sp_df.empty:
-        st.info("No shots for this selection.")
-        st.stop()
-
-    # --- Summary metrics ---
-    _sp_total = len(_sp_df)
-    _sp_made = (_sp_df["outcome"] == "Made").sum()
-    _sp_fg_pct = _sp_made / _sp_total if _sp_total > 0 else 0
-    _sp_twos = _sp_df[_sp_df["id_action"].isin({"2FGA", "2FGM"})]
-    _sp_threes = _sp_df[_sp_df["id_action"].isin({"3FGA", "3FGM"})]
-    _sp_fg2_pct = _sp_twos["points"].gt(0).sum() / len(_sp_twos) if len(_sp_twos) > 0 else 0
-    _sp_fg3_pct = _sp_threes["points"].gt(0).sum() / len(_sp_threes) if len(_sp_threes) > 0 else 0
-
-    _mc1, _mc2, _mc3, _mc4 = st.columns(4)
-    _mc1.metric("Total Shots", _sp_total)
-    _mc2.metric("FG%", f"{_sp_fg_pct:.1%}")
-    _mc3.metric("2P%", f"{_sp_fg2_pct:.1%}")
-    _mc4.metric("3P%", f"{_sp_fg3_pct:.1%}")
-
-    # --- Court + Shot Visualization ---
-    _sp_fig = draw_euroleague_court()
-
-    if not _sp_heatmap:
-        # Scatter plot — Made vs Missed
-        _sp_made_df = _sp_df[_sp_df["outcome"] == "Made"]
-        _sp_miss_df = _sp_df[_sp_df["outcome"] == "Missed"]
-
-        _sp_fig.add_trace(go.Scatter(
-            x=_sp_made_df["coord_x"], y=_sp_made_df["coord_y"],
-            mode="markers",
-            marker=dict(
-                color="#10b981", size=9, symbol="circle",
-                line=dict(width=1, color="white"), opacity=0.85,
-            ),
-            name="Made",
-            text=_sp_made_df["player"],
-            hovertemplate="%{text}<br>%{customdata}<extra>Made</extra>",
-            customdata=_sp_made_df["action"],
-        ))
-        _sp_fig.add_trace(go.Scatter(
-            x=_sp_miss_df["coord_x"], y=_sp_miss_df["coord_y"],
-            mode="markers",
-            marker=dict(
-                color="#ef4444", size=7, symbol="x",
-                line=dict(width=1, color="white"), opacity=0.6,
-            ),
-            name="Missed",
-            text=_sp_miss_df["player"],
-            hovertemplate="%{text}<br>%{customdata}<extra>Missed</extra>",
-            customdata=_sp_miss_df["action"],
-        ))
-    else:
-        # Density heatmap
-        _sp_fig.add_trace(go.Histogram2dContour(
-            x=_sp_df["coord_x"], y=_sp_df["coord_y"],
-            colorscale=[
-                [0, "rgba(15,15,35,0)"], [0.2, "#312e81"],
-                [0.4, "#6366f1"], [0.6, "#a78bfa"],
-                [0.8, "#f59e0b"], [1.0, "#ef4444"],
-            ],
-            showscale=True,
-            colorbar=dict(title="Density"),
-            contours=dict(coloring="heatmap"),
-            ncontours=20,
-            hoverinfo="skip",
-        ))
-
-    _sp_fig.update_layout(
-        template="plotly_dark",
-        paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor="rgba(15,15,35,0.9)",
-        height=700,
-        xaxis=dict(
-            range=[-800, 800], showgrid=False, zeroline=False,
-            showticklabels=False, scaleanchor="y",
-        ),
-        yaxis=dict(
-            range=[-50, 1050], showgrid=False, zeroline=False,
-            showticklabels=False,
-        ),
-        legend=dict(x=0.02, y=0.98, font=dict(size=12)),
-        font=dict(family="Inter"),
-        margin=dict(l=20, r=20, t=30, b=20),
-    )
-    st.plotly_chart(_sp_fig, use_container_width=True)
-
-    # --- Zone Breakdown Table ---
-    st.markdown("---")
-    st.markdown("#### Zone Breakdown")
-    _sp_zone = (
-        _sp_df.groupby("zone")
-        .agg(shots=("points", "size"), made=("points", lambda x: (x > 0).sum()))
-        .reset_index()
-    )
-    _sp_zone["fg_pct"] = (_sp_zone["made"] / _sp_zone["shots"]).round(3)
-    _sp_zone = _sp_zone.sort_values("shots", ascending=False)
-    _sp_zone = _sp_zone.rename(columns={
-        "zone": "Zone", "shots": "Shots", "made": "Made", "fg_pct": "FG%",
-    })
-    st.dataframe(_sp_zone, use_container_width=True, hide_index=True)
 
 
 # ========================================================================
@@ -3369,6 +3243,207 @@ elif selected_nav == NAV_SCOUTING:
             st.plotly_chart(fig_radar, use_container_width=True)
     else:
         st.info(t("scout_select_radar_players"))
+
+
+# ========================================================================
+# PAGE: ORACLE — Upcoming Game Predictions
+# ========================================================================
+elif selected_nav == NAV_ORACLE:
+    if not is_feature_enabled("ENABLE_ML_PREDICTIONS"):
+        show_disabled_message("ENABLE_ML_PREDICTIONS")
+        st.stop()
+
+    st.markdown('<p class="section-header">Oracle: Upcoming Games</p>', unsafe_allow_html=True)
+    st.markdown(
+        "<p style='color:#9ca3af; font-size:0.9rem;'>"
+        "ML-powered win probability predictions based on season net rating, "
+        "recent form, rest days, and home court advantage.</p>",
+        unsafe_allow_html=True,
+    )
+    st.markdown("---")
+
+    current_season = st.session_state.get("selected_season", _cfg_default)
+
+    # Collect team codes from the current season schedule
+    oracle_schedule = fetch_season_schedule(current_season)
+    if oracle_schedule.empty:
+        st.warning("No schedule data available for this season.")
+        st.stop()
+
+    oracle_teams = sorted(
+        list(
+            set(oracle_schedule["home_code"].unique())
+            | set(oracle_schedule["away_code"].unique())
+        )
+    )
+
+    # Team name map from config
+    team_name_map = {code: vals.get("name", code) for code, vals in CFG.get("ui", {}).get("team_colors", {}).items()}
+
+    def _format_team(code):
+        return f"{team_name_map.get(code, code)} ({code})"
+
+    col_home, col_away = st.columns(2)
+    with col_home:
+        home_team = st.selectbox(
+            "Home Team",
+            oracle_teams,
+            index=0,
+            format_func=_format_team,
+            key="oracle_home",
+        )
+    with col_away:
+        default_away = 1 if len(oracle_teams) > 1 else 0
+        away_team = st.selectbox(
+            "Away Team",
+            oracle_teams,
+            index=default_away,
+            format_func=_format_team,
+            key="oracle_away",
+        )
+
+    if home_team == away_team:
+        st.warning("Please select two different teams.")
+        st.stop()
+
+    if st.button("Predict Outcome", type="primary", key="oracle_predict"):
+        # Determine training seasons (up to 3 prior seasons)
+        all_seasons = sorted(_cfg_seasons, reverse=True)
+        training_seasons = tuple(
+            s for s in all_seasons if s < current_season
+        )[:3]
+
+        if not training_seasons:
+            training_seasons = (current_season,)
+
+        with st.spinner("Training prediction model on historical data..."):
+            model = fetch_prediction_model(training_seasons)
+
+        if model is None:
+            st.error("Insufficient historical data to train the model. Try a more recent season.")
+            st.stop()
+
+        with st.spinner("Generating prediction..."):
+            home_wp = predict_game_outcome(model, home_team, away_team, current_season)
+
+        away_wp = 1.0 - home_wp
+
+        home_name = team_name_map.get(home_team, home_team)
+        away_name = team_name_map.get(away_team, away_team)
+
+        home_clr = TEAM_COLORS.get(home_team, DEFAULT_ACCENT)[0]
+        away_clr = TEAM_COLORS.get(away_team, DEFAULT_ACCENT)[0]
+
+        # Gauge charts
+        col_g1, col_g2 = st.columns(2)
+        with col_g1:
+            fig_h = go.Figure(go.Indicator(
+                mode="gauge+number",
+                value=round(home_wp * 100, 1),
+                title={"text": f"{home_name} Win %", "font": {"color": "#e4e4f0", "size": 16}},
+                number={"suffix": "%", "font": {"color": home_clr, "size": 36}},
+                gauge=dict(
+                    axis=dict(range=[0, 100], tickcolor="#6b7280"),
+                    bar=dict(color=home_clr),
+                    bgcolor="rgba(30,30,63,0.8)",
+                    steps=[
+                        dict(range=[0, 50], color="rgba(239,68,68,0.15)"),
+                        dict(range=[50, 100], color="rgba(99,102,241,0.15)"),
+                    ],
+                    threshold=dict(
+                        line=dict(color="#f59e0b", width=3), value=50, thickness=0.8,
+                    ),
+                ),
+            ))
+            fig_h.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)", font=dict(color="#e4e4f0"),
+                height=280, margin=dict(t=60, b=20, l=30, r=30),
+            )
+            st.plotly_chart(fig_h, use_container_width=True)
+
+        with col_g2:
+            fig_a = go.Figure(go.Indicator(
+                mode="gauge+number",
+                value=round(away_wp * 100, 1),
+                title={"text": f"{away_name} Win %", "font": {"color": "#e4e4f0", "size": 16}},
+                number={"suffix": "%", "font": {"color": away_clr, "size": 36}},
+                gauge=dict(
+                    axis=dict(range=[0, 100], tickcolor="#6b7280"),
+                    bar=dict(color=away_clr),
+                    bgcolor="rgba(30,30,63,0.8)",
+                    steps=[
+                        dict(range=[0, 50], color="rgba(239,68,68,0.15)"),
+                        dict(range=[50, 100], color="rgba(99,102,241,0.15)"),
+                    ],
+                    threshold=dict(
+                        line=dict(color="#f59e0b", width=3), value=50, thickness=0.8,
+                    ),
+                ),
+            ))
+            fig_a.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)", font=dict(color="#e4e4f0"),
+                height=280, margin=dict(t=60, b=20, l=30, r=30),
+            )
+            st.plotly_chart(fig_a, use_container_width=True)
+
+        # Verdict
+        winner = home_name if home_wp > 0.5 else away_name
+        wp_pct = max(home_wp, away_wp) * 100
+        loser = away_name if home_wp > 0.5 else home_name
+        venue = "at home" if home_wp > 0.5 else "on the road"
+        st.markdown(
+            f"<div style='text-align:center; padding:16px; "
+            f"background:linear-gradient(135deg, #1e1e3f 0%, #2a2a5a 100%); "
+            f"border-radius:12px; border:1px solid rgba(255,255,255,0.08);'>"
+            f"<span style='font-size:1.3rem; color:#e4e4f0; font-weight:600;'>"
+            f"**{winner}** has a **{wp_pct:.1f}%** probability of winning "
+            f"{venue} against {loser}."
+            f"</span></div>",
+            unsafe_allow_html=True,
+        )
+
+        # Feature breakdown table
+        st.markdown("---")
+        st.markdown("#### Feature Breakdown")
+
+        from data_pipeline.ml_pipeline import (
+            _compute_recent_form,
+            _compute_rest_days_latest,
+            FEATURE_COLS,
+        )
+        from data_pipeline.extractors import (
+            get_league_efficiency_landscape,
+        )
+
+        eff = get_league_efficiency_landscape(current_season)
+        net_map = dict(zip(eff["team_code"], eff["net_rtg"])) if not eff.empty else {}
+
+        max_round = oracle_schedule["round"].max() if not oracle_schedule.empty else 1
+
+        breakdown = pd.DataFrame({
+            "Feature": [
+                "Season Net Rating",
+                "Recent Form (Last 5 Games)",
+                "Rest Days",
+            ],
+            home_name: [
+                f"{net_map.get(home_team, 0.0):+.1f}",
+                f"{_compute_recent_form(oracle_schedule, home_team, max_round + 1):+.1f}",
+                f"{_compute_rest_days_latest(oracle_schedule, home_team)} days",
+            ],
+            away_name: [
+                f"{net_map.get(away_team, 0.0):+.1f}",
+                f"{_compute_recent_form(oracle_schedule, away_team, max_round + 1):+.1f}",
+                f"{_compute_rest_days_latest(oracle_schedule, away_team)} days",
+            ],
+        })
+        st.dataframe(breakdown, use_container_width=True, hide_index=True)
+
+        st.caption(
+            f"Model trained on {len(training_seasons)} historical season(s): "
+            f"{', '.join(str(s) for s in training_seasons)}. "
+            f"Uses LogisticRegression with StandardScaler."
+        )
 
 
 # ========================================================================
