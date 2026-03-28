@@ -1918,5 +1918,71 @@
     "el": "Συνολικοί Πόντοι Δημιουργίας",
     "de": "Erzeugte Gesamtpunkte",
     "es": "Puntos Totales Creados"
+  },
+  "nav_rotations": {
+    "en": "Rotations",
+    "el": "Εναλλαγές",
+    "de": "Rotationen",
+    "es": "Rotaciones"
+  },
+  "sub_rotations": {
+    "en": "Player rotation timeline showing when each player entered and exited the court. Bar color reflects +/− during each stint.",
+    "el": "Χρονοδιάγραμμα εναλλαγών παικτών — πότε μπήκε και βγήκε κάθε παίκτης. Το χρώμα αντικατοπτρίζει το +/− κάθε stint.",
+    "de": "Rotations-Zeitachse: wann jeder Spieler ein- und ausgewechselt wurde. Farbe spiegelt +/− pro Einsatz wider.",
+    "es": "Cronograma de rotaciones: cuándo entró y salió cada jugador. El color refleja el +/− durante cada período."
+  },
+  "rot_no_stints": {
+    "en": "No substitution data found for this team.",
+    "el": "Δεν βρέθηκαν δεδομένα αλλαγών για αυτή την ομάδα.",
+    "de": "Keine Wechseldaten für dieses Team gefunden.",
+    "es": "No se encontraron datos de sustitución para este equipo."
+  },
+  "rot_game_minutes": {
+    "en": "Game Minutes",
+    "el": "Λεπτά Αγώνα",
+    "de": "Spielminuten",
+    "es": "Minutos de Juego"
+  },
+  "rot_positive_pm": {
+    "en": "Positive +/−",
+    "el": "Θετικό +/−",
+    "de": "Positiv +/−",
+    "es": "Positivo +/−"
+  },
+  "rot_neutral_pm": {
+    "en": "Neutral",
+    "el": "Ουδέτερο",
+    "de": "Neutral",
+    "es": "Neutro"
+  },
+  "rot_negative_pm": {
+    "en": "Negative +/−",
+    "el": "Αρνητικό +/−",
+    "de": "Negativ +/−",
+    "es": "Negativo +/−"
+  },
+  "rot_stint_summary": {
+    "en": "Stint Summary",
+    "el": "Σύνοψη Εναλλαγών",
+    "de": "Einsatz-Zusammenfassung",
+    "es": "Resumen de Turnos"
+  },
+  "rot_stints": {
+    "en": "Stints",
+    "el": "Εμφανίσεις",
+    "de": "Einsätze",
+    "es": "Turnos"
+  },
+  "rot_avg_stint": {
+    "en": "Avg Stint (min)",
+    "el": "Μ.Ο. Stint (λεπτά)",
+    "de": "Ø Einsatz (Min)",
+    "es": "Prom. Turno (min)"
+  },
+  "rot_total_pm": {
+    "en": "Total +/−",
+    "el": "Συνολικό +/−",
+    "de": "Gesamt +/−",
+    "es": "Total +/−"
   }
 }

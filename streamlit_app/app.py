@@ -140,6 +140,127 @@ st.markdown(
 
 
 # ========================================================================
+# DYNAMIC TEAM BRANDING
+# ========================================================================
+# (primary, secondary) — primary is the dominant accent; secondary is contrast/text
+TEAM_COLORS = {
+    "OLY": ("#D31145", "#FFFFFF"),   # Olympiacos
+    "PAO": ("#007A33", "#FFFFFF"),   # Panathinaikos
+    "RMB": ("#00529F", "#FEBE10"),   # Real Madrid
+    "FCB": ("#A50044", "#004D98"),   # FC Barcelona
+    "FEN": ("#FFED00", "#09235A"),   # Fenerbahce
+    "EFS": ("#003DA5", "#FFFFFF"),   # Anadolu Efes
+    "MTA": ("#FFD130", "#0057B8"),   # Maccabi Tel Aviv
+    "ASM": ("#CC0000", "#FFFFFF"),   # AS Monaco
+    "BKN": ("#003DA5", "#E30613"),   # Baskonia
+    "CZV": ("#CC0000", "#FFFFFF"),   # Crvena Zvezda (Red Star)
+    "MIL": ("#C8102E", "#FFFFFF"),   # Olimpia Milano
+    "BER": ("#003DA5", "#FFED00"),   # Alba Berlin
+    "ZAL": ("#006633", "#FFFFFF"),   # Zalgiris Kaunas
+    "VIR": ("#000000", "#E2001A"),   # Virtus Bologna
+    "PRS": ("#0055A4", "#FFFFFF"),   # Paris Basketball
+    "BAY": ("#E30613", "#FFFFFF"),   # Bayern Munich
+    "PAR": ("#9B2335", "#FFFFFF"),   # Partizan
+    "VAL": ("#FF6600", "#000000"),   # Valencia
+    "ALB": ("#003DA5", "#FFED00"),   # Alba Berlin alias
+    "MON": ("#CC0000", "#FFFFFF"),   # Monaco alias
+    "PER": ("#00A651", "#FFFFFF"),   # Peristeri
+    "LDP": ("#0055A4", "#FFFFFF"),   # LDLC ASVEL / Paris alias
+}
+
+DEFAULT_ACCENT = ("#6366f1", "#8b5cf6")  # Indigo fallback
+
+
+def _get_team_accent() -> tuple:
+    """Return (primary, secondary) hex colors for the currently active team."""
+    team = st.session_state.get("selected_team") or st.session_state.get("_active_home_team")
+    if team and team in TEAM_COLORS:
+        return TEAM_COLORS[team]
+    return DEFAULT_ACCENT
+
+
+def _inject_team_css(primary: str, secondary: str):
+    """Inject dynamic CSS overrides that theme the UI to the active team's colors."""
+    # Compute a translucent version for backgrounds
+    def hex_to_rgba(h, a=0.25):
+        h = h.lstrip("#")
+        r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+        return f"rgba({r},{g},{b},{a})"
+
+    pri_light = hex_to_rgba(primary, 0.15)
+    pri_medium = hex_to_rgba(primary, 0.30)
+    pri_glow = hex_to_rgba(primary, 0.25)
+
+    st.markdown(
+        f"""
+<style>
+    /* Section header gradient → team primary */
+    .section-header {{
+        background: linear-gradient(90deg, {primary} 0%, {secondary} 100%) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+    }}
+
+    /* Tab underline indicator */
+    .stTabs [data-baseweb="tab-highlight"] {{
+        background-color: {primary} !important;
+    }}
+
+    /* Horizontal rule */
+    .stApp hr {{
+        border-color: {hex_to_rgba(primary, 0.35)} !important;
+    }}
+
+    /* Button hover */
+    .stApp button[kind="secondary"]:hover,
+    .stApp .stButton > button:hover {{
+        border-color: {primary} !important;
+        color: {primary} !important;
+        box-shadow: 0 0 8px {pri_glow};
+    }}
+
+    /* Selectbox border focus */
+    .stApp [data-baseweb="select"] [data-baseweb="input"]:focus-within {{
+        border-color: {primary} !important;
+        box-shadow: 0 0 0 1px {primary} !important;
+    }}
+
+    /* Metric card accent border on hover */
+    [data-testid="stMetric"]:hover {{
+        border-color: {hex_to_rgba(primary, 0.40)} !important;
+        box-shadow: 0 4px 20px {pri_light} !important;
+    }}
+
+    /* Metric positive delta */
+    [data-testid="stMetricDelta"] svg[data-testid="stMetricDeltaIcon-Up"] {{
+        fill: {primary} !important;
+    }}
+    [data-testid="stMetricDelta"][style*="color"] {{
+        color: {primary} !important;
+    }}
+
+    /* Landing cards hover */
+    .landing-card:hover {{
+        box-shadow: 0 8px 30px {pri_glow} !important;
+        border-color: {hex_to_rgba(primary, 0.3)} !important;
+    }}
+
+    /* Selected option-menu item */
+    .nav-link-selected {{
+        background-color: {primary} !important;
+    }}
+
+    /* Dataframe header tint (via Streamlit theming) */
+    .stDataFrame [data-testid="glideDataEditor"] .dvn-scroller .dvn-header {{
+        background-color: {hex_to_rgba(primary, 0.10)} !important;
+    }}
+</style>
+""",
+        unsafe_allow_html=True,
+    )
+
+
+# ========================================================================
 # SIDEBAR — Language Selector (always first)
 # ========================================================================
 with st.sidebar:
@@ -274,8 +395,10 @@ with st.sidebar:
                 selected_game = matchup_dict[selected_label]
                 gamecode = selected_game["gamecode"]
                 st.session_state["game_info_cache"] = selected_game
+                st.session_state["_active_home_team"] = selected_game.get("home_code")
             else:
                 st.session_state["game_info_cache"] = None
+                st.session_state["_active_home_team"] = None
 
         # --- Team selector (Season Overview or Referees) ---
         if needs_team_filter:
@@ -290,6 +413,10 @@ with st.sidebar:
         "Data: euroleague-api &bull; Built with Streamlit &amp; Plotly</p>",
         unsafe_allow_html=True,
     )
+
+# Inject dynamic team-branded CSS
+_team_primary, _team_secondary = _get_team_accent()
+_inject_team_css(_team_primary, _team_secondary)
 
 
 # ========================================================================
@@ -343,16 +470,19 @@ def _render_game_header():
     hl = home_logo or fb_home
     al = away_logo or fb_away
 
+    home_clr = TEAM_COLORS.get(home_code, DEFAULT_ACCENT)[0]
+    away_clr = TEAM_COLORS.get(away_code, DEFAULT_ACCENT)[0]
+
     st.markdown(
         f'<div class="game-header">'
         f'  <div class="team-block">'
         f'    <img src="{hl}" class="team-logo" alt="{home_code}" onerror="this.onerror=null; this.src=\'{fb_home}\';">'
-        f'    <span class="team-name" style="color:#6366f1;">{home_name}</span>'
+        f'    <span class="team-name" style="color:{home_clr};">{home_name}</span>'
         f"  </div>"
         f'  <span class="score">{hs}<span class="dash"> — </span>{as_}</span>'
         f'  <div class="team-block">'
         f'    <img src="{al}" class="team-logo" alt="{away_code}" onerror="this.onerror=null; this.src=\'{fb_away}\';">'
-        f'    <span class="team-name" style="color:#8b5cf6;">{away_name}</span>'
+        f'    <span class="team-name" style="color:{away_clr};">{away_name}</span>'
         f"  </div>"
         f"</div>"
         f'<p style="text-align:center; color:#6b7280; margin-top:-8px;">Season {st.session_state.get("season","")} &bull; Game {st.session_state.get("gamecode","")}</p>',
@@ -437,12 +567,13 @@ elif selected_nav == NAV_SINGLE:
     data = _ensure_game_data(gamecode)
     _render_game_header()
 
-    tab_stats, tab_shots, tab_radar, tab_lineups, tab_assist = st.tabs([
+    tab_stats, tab_shots, tab_radar, tab_lineups, tab_assist, tab_rotations = st.tabs([
         t("nav_player_stats"),
         t("nav_shot_chart"),
         t("nav_radar"),
         t("nav_lineups"),
         t("nav_assist"),
+        t("nav_rotations"),
     ])
 
     # ------------------------------------------------------------------
@@ -938,6 +1069,177 @@ elif selected_nav == NAV_SINGLE:
                     use_container_width=True, hide_index=True,
                 )
 
+    # ------------------------------------------------------------------
+    # TAB: Player Rotations (Gantt Chart)
+    # ------------------------------------------------------------------
+    with tab_rotations:
+        st.markdown(f'<p class="section-header">{t("nav_rotations")}</p>', unsafe_allow_html=True)
+        st.markdown(
+            f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_rotations')}</p>",
+            unsafe_allow_html=True,
+        )
+
+        from data_pipeline.transformers import compute_player_stints
+
+        rot_box = data.get("boxscore", pd.DataFrame())
+        rot_pbp = data.get("pbp", pd.DataFrame())
+
+        if rot_box.empty or rot_pbp.empty:
+            st.warning(t("no_adv_stats", default="No data available."))
+        else:
+            home_players = rot_box[rot_box["Home"] == 1]
+            away_players = rot_box[rot_box["Home"] == 0]
+            home_team_rot = home_players["Team"].iloc[0] if not home_players.empty else "HOME"
+            away_team_rot = away_players["Team"].iloc[0] if not away_players.empty else "AWAY"
+
+            sel_rot_team = st.selectbox(
+                t("team_dropdown", default="Select Team"),
+                [home_team_rot, away_team_rot],
+                key="rot_team",
+            )
+
+            stints_df = compute_player_stints(rot_pbp, rot_box, sel_rot_team)
+
+            if stints_df.empty:
+                st.info(t("rot_no_stints"))
+            else:
+                # Order players by total minutes (most minutes at top)
+                player_minutes = (
+                    stints_df.groupby("player_name")["duration_sec"]
+                    .sum()
+                    .sort_values(ascending=True)
+                )
+                player_order = player_minutes.index.tolist()
+
+                # Determine game length for x-axis
+                max_sec = stints_df["end_sec"].max()
+                n_periods = max(int(np.ceil(max_sec / 600)), 4)
+
+                # Build color scale: +/- mapped to red-gray-green
+                pm_abs_max = max(abs(stints_df["plus_minus"].max()), abs(stints_df["plus_minus"].min()), 1)
+
+                fig_rot = go.Figure()
+
+                for _, stint in stints_df.iterrows():
+                    pm = stint["plus_minus"]
+                    # Normalize +/- to [-1, 1] for color mapping
+                    norm = max(min(pm / pm_abs_max, 1.0), -1.0)
+                    if norm > 0:
+                        r = int(99 + (16 - 99) * norm)
+                        g = int(102 + (185 - 102) * norm)
+                        b = int(241 + (129 - 241) * norm)
+                    elif norm < 0:
+                        r = int(99 + (239 - 99) * abs(norm))
+                        g = int(102 + (68 - 102) * abs(norm))
+                        b = int(241 + (68 - 241) * abs(norm))
+                    else:
+                        r, g, b = 99, 102, 241
+
+                    color = f"rgb({r},{g},{b})"
+
+                    start_min = stint["start_sec"] / 60
+                    end_min = stint["end_sec"] / 60
+                    dur_min = stint["duration_sec"] / 60
+
+                    fig_rot.add_trace(go.Bar(
+                        y=[stint["player_name"]],
+                        x=[dur_min],
+                        base=[start_min],
+                        orientation="h",
+                        marker_color=color,
+                        marker_line=dict(width=0.5, color="rgba(255,255,255,0.15)"),
+                        hovertemplate=(
+                            f"<b>{stint['player_name']}</b><br>"
+                            f"In: {start_min:.1f} min — Out: {end_min:.1f} min<br>"
+                            f"Duration: {dur_min:.1f} min<br>"
+                            f"+/−: {pm:+d}<extra></extra>"
+                        ),
+                        showlegend=False,
+                    ))
+
+                # Period separator lines
+                for p in range(1, n_periods + 1):
+                    fig_rot.add_vline(
+                        x=p * 10, line_dash="dot",
+                        line_color="rgba(255,255,255,0.25)", line_width=1,
+                    )
+
+                # Quarter labels
+                period_labels = []
+                for p in range(1, n_periods + 1):
+                    label = f"Q{p}" if p <= 4 else f"OT{p - 4}"
+                    period_labels.append(
+                        dict(
+                            x=(p - 0.5) * 10, y=1.02, xref="x", yref="paper",
+                            text=label, showarrow=False,
+                            font=dict(size=11, color="#9ca3af"),
+                        )
+                    )
+
+                fig_rot.update_layout(
+                    template="plotly_dark",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(15,15,35,0.8)",
+                    height=max(350, len(player_order) * 36 + 80),
+                    font=dict(family="Inter"),
+                    xaxis=dict(
+                        title=t("rot_game_minutes", default="Game Minutes"),
+                        range=[0, n_periods * 10],
+                        dtick=5,
+                        showgrid=True,
+                        gridcolor="rgba(255,255,255,0.06)",
+                    ),
+                    yaxis=dict(
+                        categoryorder="array",
+                        categoryarray=player_order,
+                        showgrid=False,
+                    ),
+                    barmode="stack",
+                    bargap=0.3,
+                    annotations=period_labels,
+                    margin=dict(l=120, t=40, r=20, b=50),
+                )
+                st.plotly_chart(fig_rot, use_container_width=True)
+
+                # Color legend
+                st.markdown(
+                    "<p style='color:#9ca3af; font-size:0.8rem; text-align:center;'>"
+                    "<span style='color:#10b981;'>■</span> "
+                    + t("rot_positive_pm", default="Positive +/−") +
+                    " &nbsp;&nbsp; "
+                    "<span style='color:#6366f1;'>■</span> "
+                    + t("rot_neutral_pm", default="Neutral") +
+                    " &nbsp;&nbsp; "
+                    "<span style='color:#ef4444;'>■</span> "
+                    + t("rot_negative_pm", default="Negative +/−") +
+                    "</p>",
+                    unsafe_allow_html=True,
+                )
+
+                # Summary stats table
+                st.markdown(f"#### {t('rot_stint_summary', default='Stint Summary')}")
+                summary = (
+                    stints_df.groupby("player_name")
+                    .agg(
+                        total_min=("duration_sec", lambda x: x.sum() / 60),
+                        stints=("duration_sec", "count"),
+                        avg_stint_min=("duration_sec", lambda x: x.mean() / 60),
+                        total_pm=("plus_minus", "sum"),
+                    )
+                    .sort_values("total_min", ascending=False)
+                    .reset_index()
+                )
+                summary.columns = [
+                    t("col_player"), t("col_min"),
+                    t("rot_stints", default="Stints"),
+                    t("rot_avg_stint", default="Avg Stint (min)"),
+                    t("rot_total_pm", default="Total +/−"),
+                ]
+                summary[t("col_min")] = summary[t("col_min")].round(1)
+                summary[t("rot_avg_stint", default="Avg Stint (min)")] = summary[t("rot_avg_stint", default="Avg Stint (min)")].round(1)
+
+                st.dataframe(summary, use_container_width=True, hide_index=True)
+
 
 # ========================================================================
 # PAGE: SEASON OVERVIEW
@@ -952,6 +1254,8 @@ elif selected_nav == NAV_SEASON:
         st.warning(t("warn_select_team"))
         st.stop()
 
+    _tc_primary = TEAM_COLORS.get(team_code, DEFAULT_ACCENT)[0]
+
     # --- League Efficiency Landscape ---
     st.markdown(f"### {t('hdr_league_eff')}")
     st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_league_eff')}</p>", unsafe_allow_html=True)
@@ -963,7 +1267,7 @@ elif selected_nav == NAV_SEASON:
     if eff_df.empty:
         st.warning(t("err_league_eff"))
     else:
-        eff_df["color"] = np.where(eff_df["team_code"] == team_code, "#8b5cf6", "#4b5563")
+        eff_df["color"] = np.where(eff_df["team_code"] == team_code, _tc_primary, "#4b5563")
         eff_df["size"] = np.where(eff_df["team_code"] == team_code, 15, 10)
 
         fig_eff = px.scatter(
@@ -994,7 +1298,7 @@ elif selected_nav == NAV_SEASON:
             avg_games = max(total_games / max(n_teams, 1), 1)
             eff_df["pace"] = eff_df["poss_off"] / avg_games
 
-        eff_df["color_pace"] = np.where(eff_df["team_code"] == team_code, "#8b5cf6", "#4b5563")
+        eff_df["color_pace"] = np.where(eff_df["team_code"] == team_code, _tc_primary, "#4b5563")
         eff_df["size_pace"] = np.where(eff_df["team_code"] == team_code, 15, 10)
 
         fig_pace = px.scatter(
@@ -1055,7 +1359,7 @@ elif selected_nav == NAV_SEASON:
 
             fig_sit = go.Figure()
             fig_sit.add_trace(go.Bar(
-                name=team_code, x=categories, y=team_vals, marker_color="#8b5cf6",
+                name=team_code, x=categories, y=team_vals, marker_color=_tc_primary,
                 text=[f"{v:.1f}%" for v in team_vals], textposition="outside",
             ))
             fig_sit.add_trace(go.Bar(
@@ -1102,8 +1406,8 @@ elif selected_nav == NAV_SEASON:
 
         def build_ha_chart(df, col_home, col_away, title_y):
             fig = go.Figure()
-            c_home = ["#8b5cf6" if c == team_code else "#6b7280" for c in df["team_code"]]
-            c_away = ["#06b6d4" if c == team_code else "#4b5563" for c in df["team_code"]]
+            c_home = [_tc_primary if c == team_code else "#6b7280" for c in df["team_code"]]
+            c_away = [TEAM_COLORS.get(team_code, DEFAULT_ACCENT)[1] if c == team_code else "#4b5563" for c in df["team_code"]]
             fig.add_trace(go.Bar(name=t("lbl_home", default="Home"), x=df["team_code"], y=df[col_home], marker_color=c_home))
             fig.add_trace(go.Bar(name=t("lbl_away", default="Away"), x=df["team_code"], y=df[col_away], marker_color=c_away))
             min_y = min(df[col_home].min(), df[col_away].min()) - 3
@@ -1186,7 +1490,7 @@ elif selected_nav == NAV_SEASON:
                     x=sel["avg_point_diff"], y=sel["close_win_pct"],
                     mode="markers+text", text=sel["team_code"],
                     textposition="top center", textfont=dict(size=11, color="#f0f0ff"),
-                    marker=dict(size=sel["close_games_played"].iloc[0] * 3 + 8, color="#8b5cf6", opacity=1.0,
+                    marker=dict(size=sel["close_games_played"].iloc[0] * 3 + 8, color=_tc_primary, opacity=1.0,
                                 line=dict(width=2, color="#f0f0ff")),
                     hovertemplate="%{customdata[0]}<br>Pt Diff: %{x:.1f}<br>Close W%%: %{y:.1f}%%<br>Close GP: %{customdata[1]}<extra></extra>",
                     customdata=list(zip(sel["team_name"], sel["close_games_played"])),
@@ -1234,7 +1538,7 @@ elif selected_nav == NAV_SEASON:
                     x=sel2["overall_win_pct"], y=sel2["close_win_pct"],
                     mode="markers+text", text=sel2["team_code"],
                     textposition="top center", textfont=dict(size=11, color="#f0f0ff"),
-                    marker=dict(size=14, color="#8b5cf6", opacity=1.0,
+                    marker=dict(size=14, color=_tc_primary, opacity=1.0,
                                 line=dict(width=2, color="#f0f0ff")),
                     hovertemplate="%{customdata}<br>Win%%: %{x:.1f}%%<br>Close W%%: %{y:.1f}%%<extra></extra>",
                     customdata=sel2["team_name"], showlegend=False,
@@ -1294,7 +1598,8 @@ elif selected_nav == NAV_SEASON:
         from data_pipeline.transformers import compute_positional_scoring
         pos_season = compute_positional_scoring(season_box, team_code=team_code)
         if not pos_season.empty and pos_season["points"].sum() > 0:
-            pos_colors = {"Guard": "#8b5cf6", "Forward": "#06b6d4", "Center": "#f59e0b"}
+            _tc_sec = TEAM_COLORS.get(team_code, DEFAULT_ACCENT)[1]
+            pos_colors = {"Guard": _tc_primary, "Forward": "#06b6d4", "Center": _tc_sec}
             fig_donut = px.pie(
                 pos_season, names="position", values="points", color="position",
                 color_discrete_map=pos_colors, hole=0.5,
@@ -1461,7 +1766,7 @@ elif selected_nav == NAV_SEASON:
                             fmt_func(season_avg),
                         )
                         mc2.metric(
-                            t("form_last_n_avg", default="Last {n}-Game Avg").format(n=window),
+                            t("form_last_n_avg", n=window),
                             fmt_func(last_5_avg),
                             f"{trend_pct:+.1f}%",
                         )
@@ -1806,10 +2111,12 @@ elif selected_nav == NAV_LIVE:
             else t("live_period", period=period)
         )
 
+        _live_home_clr = TEAM_COLORS.get(sel_game.get("home_code"), DEFAULT_ACCENT)[0]
+        _live_away_clr = TEAM_COLORS.get(sel_game.get("away_code"), DEFAULT_ACCENT)[0]
         st.markdown(
             f'<div class="game-header">'
             f'  <div class="team-block">'
-            f'    <span class="team-name" style="color:#6366f1;">{sel_game["home_name"]}</span>'
+            f'    <span class="team-name" style="color:{_live_home_clr};">{sel_game["home_name"]}</span>'
             f'    <span style="color:#9ca3af; font-size:0.85rem;">{sel_game["home_code"]}</span>'
             f"  </div>"
             f'  <div style="text-align:center;">'
@@ -1817,7 +2124,7 @@ elif selected_nav == NAV_LIVE:
             f'    <p style="color:#f59e0b; font-weight:600; margin:0;">{period_label} | {time_rem}</p>'
             f"  </div>"
             f'  <div class="team-block">'
-            f'    <span class="team-name" style="color:#8b5cf6;">{sel_game["away_name"]}</span>'
+            f'    <span class="team-name" style="color:{_live_away_clr};">{sel_game["away_name"]}</span>'
             f'    <span style="color:#9ca3af; font-size:0.85rem;">{sel_game["away_code"]}</span>'
             f"  </div>"
             f"</div>",
@@ -1844,8 +2151,8 @@ elif selected_nav == NAV_LIVE:
             col_home, col_away = st.columns(2)
 
             for col, side, color in [
-                (col_home, "home", "#6366f1"),
-                (col_away, "away", "#8b5cf6"),
+                (col_home, "home", _live_home_clr),
+                (col_away, "away", _live_away_clr),
             ]:
                 with col:
                     lu = lineups.get(side)

@@ -1739,3 +1739,270 @@ def compute_positional_scoring(
     grouped = grouped.sort_values("position").reset_index(drop=True)
 
     return grouped
+
+
+# ========================================================================
+# PHASE 7 — PLAYER ROTATION STINTS
+# ========================================================================
+
+def _period_marker_to_game_seconds(period: int, markertime_secs: float) -> float:
+    """Convert period + countdown seconds remaining to elapsed game seconds."""
+    period_length = 600.0  # 10 minutes per period in Euroleague
+    period_start = (period - 1) * period_length
+    elapsed_in_period = period_length - markertime_secs
+    return period_start + elapsed_in_period
+
+
+def compute_player_stints(
+    pbp_df: pd.DataFrame,
+    boxscore_df: pd.DataFrame,
+    team_code: str,
+) -> pd.DataFrame:
+    """
+    Parse substitution IN/OUT events from PBP to build player rotation stints.
+
+    Each stint represents a continuous stretch on court for a single player.
+    Edge cases handled:
+      - Starters have no explicit IN event at period start
+      - Players still on court at period end have no explicit OUT event
+      - Overtime periods (5+) supported
+
+    Stint +/- is computed from POINTS_A / POINTS_B deltas while the player
+    was on court, oriented so positive = good for the player's team.
+
+    Parameters
+    ----------
+    pbp_df : pd.DataFrame
+        Raw play-by-play with PLAYTYPE, PLAYER_ID, PLAYER, CODETEAM,
+        PERIOD, MARKERTIME, POINTS_A, POINTS_B, TRUE_NUMBEROFPLAY.
+    boxscore_df : pd.DataFrame
+        Boxscore with Player_ID, Player, Team, Home, IsStarter.
+    team_code : str
+        Team code to extract stints for.
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns: player_name, start_sec, end_sec, duration_sec,
+                 plus_minus, period_start, period_end.
+    """
+    if pbp_df.empty or boxscore_df.empty:
+        return pd.DataFrame(columns=[
+            "player_name", "start_sec", "end_sec", "duration_sec",
+            "plus_minus", "period_start", "period_end",
+        ])
+
+    df = pbp_df.sort_values("TRUE_NUMBEROFPLAY").copy()
+    df["POINTS_A"] = pd.to_numeric(df["POINTS_A"], errors="coerce").fillna(0).astype(int)
+    df["POINTS_B"] = pd.to_numeric(df["POINTS_B"], errors="coerce").fillna(0).astype(int)
+    df["_marker_secs"] = df["MARKERTIME"].apply(_markertime_to_seconds)
+    df["PERIOD"] = pd.to_numeric(df["PERIOD"], errors="coerce").fillna(1).astype(int)
+
+    # Determine if team is home or away for +/- orientation
+    home_players = boxscore_df[boxscore_df["Home"] == 1]
+    away_players = boxscore_df[boxscore_df["Home"] == 0]
+    home_team = home_players["Team"].iloc[0] if not home_players.empty else None
+    is_home = (team_code == home_team)
+
+    # Build player_id → formatted name map
+    name_map = {}
+    team_box = boxscore_df[boxscore_df["Team"] == team_code]
+    for _, r in team_box.iterrows():
+        pid = str(r["Player_ID"]).strip()
+        name_map[pid] = format_player_name(str(r.get("Player", pid)))
+
+    # Identify starters for the selected team
+    starters = set(
+        team_box[team_box["IsStarter"] == 1.0]["Player_ID"]
+        .astype(str).str.strip().tolist()
+    )
+
+    # Walk through PBP, tracking on-court set and open stint info per player
+    on_court = set()  # player IDs currently on court
+    # open_stints[pid] = {start_sec, start_score_a, start_score_b, period_start}
+    open_stints: Dict[str, dict] = {}
+    stints: List[dict] = []
+
+    periods = sorted(df["PERIOD"].unique())
+
+    for period in periods:
+        period_df = df[df["PERIOD"] == period].copy()
+        if period_df.empty:
+            continue
+
+        period_length = 600.0  # 10 min per period (regular + OT in Euroleague)
+        period_start_sec = (period - 1) * period_length
+        period_end_sec = period * period_length
+
+        # At period start, close all open stints from previous period
+        for pid in list(open_stints.keys()):
+            s = open_stints.pop(pid)
+            prev_period_end = period_start_sec
+            stints.append({
+                "player_id": pid,
+                "start_sec": s["start_sec"],
+                "end_sec": prev_period_end,
+                "start_score_a": s["start_score_a"],
+                "end_score_a": s.get("last_score_a", s["start_score_a"]),
+                "start_score_b": s["start_score_b"],
+                "end_score_b": s.get("last_score_b", s["start_score_b"]),
+                "period_start": s["period_start"],
+                "period_end": period - 1,
+            })
+        on_court.clear()
+
+        # Determine who starts this period
+        # For period 1, use boxscore starters; for later periods, detect from
+        # first actions before any IN/OUT for the team in this period
+        if period == 1:
+            period_starters = set(starters)
+        else:
+            period_starters = set()
+            # Look at team actions before first sub event in this period
+            for _, row in period_df.iterrows():
+                pt = str(row.get("PLAYTYPE", "")).strip()
+                ct = str(row.get("CODETEAM", "")).strip()
+                pid = str(row.get("PLAYER_ID", "")).strip()
+                if ct == team_code and pt in ("IN", "OUT"):
+                    break
+                if ct == team_code and pid and pid in name_map:
+                    period_starters.add(pid)
+
+            # If we couldn't detect 5, fall back: look at who was on court
+            # at end of last period by checking all team actions in this period
+            if len(period_starters) < 5:
+                for _, row in period_df.iterrows():
+                    pt = str(row.get("PLAYTYPE", "")).strip()
+                    ct = str(row.get("CODETEAM", "")).strip()
+                    pid = str(row.get("PLAYER_ID", "")).strip()
+                    if ct == team_code and pt == "OUT" and pid:
+                        period_starters.add(pid)
+                    if ct == team_code and pt == "IN" and pid:
+                        period_starters.discard(pid)
+
+        # Get first score in this period for baseline
+        first_valid = period_df[(period_df["POINTS_A"] > 0) | (period_df["POINTS_B"] > 0)]
+        if not first_valid.empty:
+            base_a = int(first_valid.iloc[0]["POINTS_A"])
+            base_b = int(first_valid.iloc[0]["POINTS_B"])
+            # Subtract the scoring event itself if it just happened
+            first_pt = str(first_valid.iloc[0].get("PLAYTYPE", ""))
+            if first_pt in ("2FGM", "3FGM", "FTM"):
+                score_val = {"2FGM": 2, "3FGM": 3, "FTM": 1}.get(first_pt, 0)
+                first_ct = str(first_valid.iloc[0].get("CODETEAM", ""))
+                if first_ct == home_team:
+                    base_a = max(0, base_a - score_val)
+                else:
+                    base_b = max(0, base_b - score_val)
+        else:
+            base_a, base_b = 0, 0
+
+        # Open stints for period starters
+        on_court = set(period_starters)
+        for pid in period_starters:
+            open_stints[pid] = {
+                "start_sec": period_start_sec,
+                "start_score_a": base_a,
+                "start_score_b": base_b,
+                "period_start": period,
+            }
+
+        # Track the running score for this period
+        running_a, running_b = base_a, base_b
+
+        # Walk through events
+        for _, row in period_df.iterrows():
+            pt = str(row.get("PLAYTYPE", "")).strip()
+            ct = str(row.get("CODETEAM", "")).strip()
+            pid = str(row.get("PLAYER_ID", "")).strip()
+            marker_secs = row["_marker_secs"]
+            game_sec = _period_marker_to_game_seconds(period, marker_secs)
+
+            # Update running score
+            pa = int(row["POINTS_A"])
+            pb = int(row["POINTS_B"])
+            if pa > 0 or pb > 0:
+                running_a = pa
+                running_b = pb
+
+            # Update last known score for all open stints
+            for open_pid in open_stints:
+                open_stints[open_pid]["last_score_a"] = running_a
+                open_stints[open_pid]["last_score_b"] = running_b
+
+            if ct != team_code:
+                continue
+
+            if pt == "OUT" and pid:
+                if pid in open_stints:
+                    s = open_stints.pop(pid)
+                    stints.append({
+                        "player_id": pid,
+                        "start_sec": s["start_sec"],
+                        "end_sec": game_sec,
+                        "start_score_a": s["start_score_a"],
+                        "end_score_a": running_a,
+                        "start_score_b": s["start_score_b"],
+                        "end_score_b": running_b,
+                        "period_start": s["period_start"],
+                        "period_end": period,
+                    })
+                on_court.discard(pid)
+
+            elif pt == "IN" and pid:
+                on_court.add(pid)
+                open_stints[pid] = {
+                    "start_sec": game_sec,
+                    "start_score_a": running_a,
+                    "start_score_b": running_b,
+                    "period_start": period,
+                }
+
+    # Close any remaining open stints at end of last period
+    if periods:
+        last_period = max(periods)
+        final_sec = last_period * 600.0
+        for pid in list(open_stints.keys()):
+            s = open_stints.pop(pid)
+            stints.append({
+                "player_id": pid,
+                "start_sec": s["start_sec"],
+                "end_sec": final_sec,
+                "start_score_a": s["start_score_a"],
+                "end_score_a": s.get("last_score_a", s["start_score_a"]),
+                "start_score_b": s["start_score_b"],
+                "end_score_b": s.get("last_score_b", s["start_score_b"]),
+                "period_start": s["period_start"],
+                "period_end": last_period,
+            })
+
+    if not stints:
+        return pd.DataFrame(columns=[
+            "player_name", "start_sec", "end_sec", "duration_sec",
+            "plus_minus", "period_start", "period_end",
+        ])
+
+    result = pd.DataFrame(stints)
+
+    # Compute +/- oriented for the selected team
+    if is_home:
+        result["plus_minus"] = (
+            (result["end_score_a"] - result["start_score_a"])
+            - (result["end_score_b"] - result["start_score_b"])
+        )
+    else:
+        result["plus_minus"] = (
+            (result["end_score_b"] - result["start_score_b"])
+            - (result["end_score_a"] - result["start_score_a"])
+        )
+
+    result["player_name"] = result["player_id"].map(name_map).fillna(result["player_id"])
+    result["duration_sec"] = result["end_sec"] - result["start_sec"]
+
+    # Drop zero-duration stints
+    result = result[result["duration_sec"] > 0].copy()
+
+    return result[[
+        "player_name", "start_sec", "end_sec", "duration_sec",
+        "plus_minus", "period_start", "period_end",
+    ]].sort_values(["start_sec", "player_name"]).reset_index(drop=True)
