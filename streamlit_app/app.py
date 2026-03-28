@@ -29,6 +29,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 from streamlit_option_menu import option_menu
+from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode
 
 _project_root = str(Path(__file__).resolve().parent.parent)
 if _project_root not in sys.path:
@@ -59,6 +60,72 @@ def t(key: str, **kwargs) -> str:
     lang = st.session_state.get("lang", "en")
     text = TRANSLATIONS.get(key, {}).get(lang, TRANSLATIONS.get(key, {}).get("en", key))
     return text.format(**kwargs) if kwargs else text
+
+
+# ========================================================================
+# AGGRID HELPERS
+# ========================================================================
+_HEATMAP_JSCODE = JsCode("""
+function(params) {
+    if (params.value == null) return {};
+    var val = parseFloat(params.value);
+    if (isNaN(val)) return {};
+    if (val > 0) {
+        var t = Math.min(val / 15, 1);
+        return {
+            backgroundColor: 'rgba(16,185,129,' + (0.15 + 0.50 * t) + ')',
+            color: '#e4e4f0'
+        };
+    } else if (val < 0) {
+        var t = Math.min(Math.abs(val) / 15, 1);
+        return {
+            backgroundColor: 'rgba(239,68,68,' + (0.15 + 0.50 * t) + ')',
+            color: '#e4e4f0'
+        };
+    }
+    return {color: '#e4e4f0'};
+}
+""")
+
+
+def render_aggrid(df, pin_cols=None, pagination=False, page_size=20,
+                  heatmap_cols=None, height=400, key="aggrid"):
+    """Render an interactive AgGrid table with filtering, sorting, pinning, and optional heatmap."""
+    gb = GridOptionsBuilder.from_dataframe(df)
+    gb.configure_default_column(
+        filterable=True, sortable=True, resizable=True,
+        wrapHeaderText=True, autoHeaderHeight=True,
+    )
+    if pin_cols:
+        for col in pin_cols:
+            if col in df.columns:
+                gb.configure_column(col, pinned="left")
+    if pagination:
+        gb.configure_pagination(paginationAutoPageSize=False, paginationPageSize=page_size)
+    if heatmap_cols:
+        for col in heatmap_cols:
+            if col in df.columns:
+                gb.configure_column(col, cellStyle=_HEATMAP_JSCODE)
+
+    grid_options = gb.build()
+
+    AgGrid(
+        df,
+        gridOptions=grid_options,
+        height=height,
+        theme="streamlit",
+        enable_enterprise_modules=False,
+        allow_unsafe_jscode=True,
+        update_mode=GridUpdateMode.NO_UPDATE,
+        key=key,
+    )
+    st.download_button(
+        label="📥 Export CSV",
+        data=df.to_csv(index=False),
+        file_name="euroleague_stats.csv",
+        mime="text/csv",
+        key=f"csv_{key}",
+    )
 
 
 # ========================================================================
@@ -623,17 +690,24 @@ elif selected_nav == NAV_SINGLE:
             display_cols = [c for c in display_cols if c in active.columns]
 
             sort_col = "total_pts_created" if "total_pts_created" in active.columns else "points"
-            st.dataframe(
-                active[display_cols].round(3).sort_values(sort_col, ascending=False).rename(
-                    columns={
-                        "player_name": t("col_player"), "team_code": t("col_team"), "minutes": t("col_min"),
-                        "points": t("col_pts"), "pts_from_assists": "PTS via Assists",
-                        "total_pts_created": "Total PTS Produced",
-                        "possessions": t("col_poss"), "ts_pct": t("col_ts"),
-                        "off_rating": t("col_ortg"), "def_rating": t("col_drtg"), "true_usg_pct": t("col_tusg"),
-                    }
-                ),
-                use_container_width=True, hide_index=True, height=400,
+            grid_df = active[display_cols].round(3).sort_values(sort_col, ascending=False).copy()
+            if "off_rating" in grid_df.columns and "def_rating" in grid_df.columns:
+                grid_df["net_rating"] = (grid_df["off_rating"] - grid_df["def_rating"]).round(1)
+            grid_df = grid_df.rename(columns={
+                "player_name": t("col_player"), "team_code": t("col_team"), "minutes": t("col_min"),
+                "points": t("col_pts"), "pts_from_assists": "PTS via Assists",
+                "total_pts_created": "Total PTS Produced",
+                "possessions": t("col_poss"), "ts_pct": t("col_ts"),
+                "off_rating": t("col_ortg"), "def_rating": t("col_drtg"),
+                "true_usg_pct": t("col_tusg"), "stop_rate": "Stop Rate",
+                "net_rating": "Net Rtg",
+            })
+            render_aggrid(
+                grid_df,
+                pin_cols=[t("col_player"), t("col_team")],
+                heatmap_cols=["Net Rtg"],
+                height=400,
+                key="single_game_stats",
             )
 
             # --- Total Points Produced Stacked Bar Chart ---
@@ -2593,6 +2667,36 @@ elif selected_nav == NAV_LEADERS:
         _render_leaderboard(pct3_df, "fg3_pct", t("leaders_top_fg3"), fmt="pct")
     with e3:
         _render_leaderboard(pctft_df, "ft_pct", t("leaders_top_ft"), fmt="pct")
+
+    # ================================================================
+    # FULL INTERACTIVE STATS TABLE (AgGrid)
+    # ================================================================
+    st.markdown("---")
+    st.markdown(f"### {t('leaders_full_table', default='Full Stats Table')}")
+    leaders_table_cols = [c for c in [
+        "player_name", "team_code", "games", "minutes", "points",
+        "rebounds", "assists", "steals", "blocks", "turnovers",
+        "fgm2", "fga2", "fg2_pct", "fgm3", "fga3", "fg3_pct",
+        "ftm", "fta", "ft_pct",
+    ] if c in vol_df.columns]
+    leaders_grid_df = vol_df[leaders_table_cols].round(1).copy()
+    leaders_grid_df = leaders_grid_df.rename(columns={
+        "player_name": t("col_player"), "team_code": t("col_team"),
+        "games": "GP", "minutes": t("col_min"), "points": t("col_pts"),
+        "rebounds": "REB", "assists": "AST", "steals": "STL",
+        "blocks": "BLK", "turnovers": "TOV",
+        "fgm2": "2PM", "fga2": "2PA", "fg2_pct": "2P%",
+        "fgm3": "3PM", "fga3": "3PA", "fg3_pct": "3P%",
+        "ftm": "FTM", "fta": "FTA", "ft_pct": "FT%",
+    })
+    render_aggrid(
+        leaders_grid_df,
+        pin_cols=[t("col_player"), t("col_team")],
+        pagination=True,
+        page_size=20,
+        height=600,
+        key="league_leaders_table",
+    )
 
 
 # ========================================================================
