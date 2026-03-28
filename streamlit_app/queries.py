@@ -15,18 +15,14 @@ in st.session_state to avoid redundant API calls.
 """
 
 import logging
-import os
-from pathlib import Path
 from typing import Dict, Optional
 
 import pandas as pd
 import streamlit as st
-from dotenv import load_dotenv
+
+from streamlit_app.utils.secrets_manager import USE_DB
 
 logger = logging.getLogger(__name__)
-
-_project_root = Path(__file__).resolve().parent.parent
-load_dotenv(_project_root / ".env")
 
 from streamlit_app.utils.config_loader import get_default_competition, get_cache_ttl
 
@@ -36,7 +32,7 @@ _CACHE_TTL = get_cache_ttl()
 
 def _use_db() -> bool:
     """Check if the dashboard should read from the PostgreSQL DB instead of the live API."""
-    return os.getenv("USE_DB", "false").lower() == "true"
+    return USE_DB
 
 
 def _get_repository():

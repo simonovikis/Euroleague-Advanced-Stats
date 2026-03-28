@@ -19,9 +19,6 @@ import json
 import sys
 import os
 from pathlib import Path
-from dotenv import load_dotenv
-
-load_dotenv()
 
 import numpy as np
 import pandas as pd
@@ -47,6 +44,8 @@ from streamlit_app.utils.config_loader import (
     get_leaders_defaults,
 )
 from streamlit_app.utils.feature_flags import is_feature_enabled, show_disabled_message
+from streamlit_app.utils.auth import init_auth_state, render_auth_page, render_user_sidebar
+from streamlit_app.utils.secrets_manager import OPENAI_API_KEY, REQUIRE_LOGIN
 
 CFG = get_config()
 
@@ -221,6 +220,15 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# ========================================================================
+# AUTHENTICATION GATE
+# ========================================================================
+if REQUIRE_LOGIN:
+    init_auth_state()
+    if not st.session_state.get("authenticated"):
+        render_auth_page()
+        st.stop()
+
 
 # ========================================================================
 # DYNAMIC TEAM BRANDING  (loaded from config/config.yaml)
@@ -337,6 +345,8 @@ with st.sidebar:
         st.rerun()
 
     st.markdown(f"# {t('app_title')}")
+    if REQUIRE_LOGIN:
+        render_user_sidebar()
     st.markdown("---")
 
 # ========================================================================
@@ -3255,14 +3265,8 @@ elif selected_nav == NAV_CHAT:
 
     # --- Key Retrieval Priority: .env → st.secrets → user input ---
     if "openai_api_key" not in st.session_state:
-        env_key = os.getenv("OPENAI_API_KEY", "").strip()
-        if not env_key:
-            try:
-                env_key = st.secrets.get("OPENAI_API_KEY", "").strip()
-            except Exception:
-                env_key = ""
-        if env_key:
-            st.session_state["openai_api_key"] = env_key
+        if OPENAI_API_KEY:
+            st.session_state["openai_api_key"] = OPENAI_API_KEY
 
     # --- BYOK Fallback ---
     if not st.session_state.get("openai_api_key"):
@@ -3400,48 +3404,49 @@ elif selected_nav == NAV_GLOSSARY:
 
 
 # ========================================================================
-# SIDEBAR — Admin: Database Sync Manager
+# SIDEBAR — Admin: Database Sync Manager (Admin Only)
 # ========================================================================
-with st.sidebar:
-    with st.expander("🔧 Database Sync Manager", expanded=False):
-        from streamlit_app.queries import _get_repository
+if not REQUIRE_LOGIN or st.session_state.get("is_admin"):
+    with st.sidebar:
+        with st.expander("🔧 Database Sync Manager", expanded=False):
+            from streamlit_app.queries import _get_repository
 
-        _repo = _get_repository()
+            _repo = _get_repository()
 
-        if _repo.db_available():
-            st.markdown(
-                "<span style='color:#10b981;'>● Database connected</span>",
-                unsafe_allow_html=True,
-            )
+            if _repo.db_available():
+                st.markdown(
+                    "<span style='color:#10b981;'>● Database connected</span>",
+                    unsafe_allow_html=True,
+                )
 
-            _sync_season = st.session_state.get("selected_season", _cfg_default)
-            cached_codes = _repo.get_cached_gamecodes(_sync_season)
-            st.caption(f"Season {_sync_season}: **{len(cached_codes)}** games cached")
+                _sync_season = st.session_state.get("selected_season", _cfg_default)
+                cached_codes = _repo.get_cached_gamecodes(_sync_season)
+                st.caption(f"Season {_sync_season}: **{len(cached_codes)}** games cached")
 
-            if st.button(f"Sync missing games for {_sync_season}", key="btn_sync"):
-                missing = _repo.get_missing_gamecodes(_sync_season)
-                if not missing:
-                    st.success("Database is already up to date!")
-                else:
-                    progress_bar = st.progress(0, text=f"Syncing {len(missing)} games...")
+                if st.button(f"Sync missing games for {_sync_season}", key="btn_sync"):
+                    missing = _repo.get_missing_gamecodes(_sync_season)
+                    if not missing:
+                        st.success("Database is already up to date!")
+                    else:
+                        progress_bar = st.progress(0, text=f"Syncing {len(missing)} games...")
 
-                    def _update_progress(current, total):
-                        progress_bar.progress(
-                            current / total,
-                            text=f"Syncing game {current}/{total}...",
+                        def _update_progress(current, total):
+                            progress_bar.progress(
+                                current / total,
+                                text=f"Syncing game {current}/{total}...",
+                            )
+
+                        result = _repo.sync_missing_games(
+                            _sync_season, progress_callback=_update_progress,
                         )
-
-                    result = _repo.sync_missing_games(
-                        _sync_season, progress_callback=_update_progress,
-                    )
-                    progress_bar.empty()
-                    st.success(
-                        f"Done! Synced **{result['synced']}** / {result['total']} games."
-                        + (f" ({result['failed']} failed)" if result["failed"] else "")
-                    )
-        else:
-            st.markdown(
-                "<span style='color:#ef4444;'>● Database offline</span>",
-                unsafe_allow_html=True,
-            )
-            st.caption("Running in API-only mode. Start PostgreSQL to enable caching.")
+                        progress_bar.empty()
+                        st.success(
+                            f"Done! Synced **{result['synced']}** / {result['total']} games."
+                            + (f" ({result['failed']} failed)" if result["failed"] else "")
+                        )
+            else:
+                st.markdown(
+                    "<span style='color:#ef4444;'>● Database offline</span>",
+                    unsafe_allow_html=True,
+                )
+                st.caption("Running in API-only mode. Start PostgreSQL to enable caching.")

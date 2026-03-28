@@ -11,9 +11,10 @@ Uses:
 
 import logging
 from typing import Dict, List, Optional
-import os
 import pandas as pd
 import streamlit as st
+
+from streamlit_app.utils.secrets_manager import OPENAI_API_KEY
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +76,7 @@ def build_chat_agent(
     from langchain_experimental.agents.agent_toolkits import create_pandas_dataframe_agent
 
     if not api_key:
-        api_key = st.session_state.get("openai_api_key") or os.getenv("OPENAI_API_KEY", "").strip()
+        api_key = st.session_state.get("openai_api_key") or OPENAI_API_KEY
     if not api_key:
         raise ValueError("No OpenAI API key available. Provide one via the UI or environment.")
 

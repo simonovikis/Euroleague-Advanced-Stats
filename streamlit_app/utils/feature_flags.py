@@ -14,11 +14,12 @@ Usage::
 
 from __future__ import annotations
 
-import os
 import logging
 from typing import Dict
 
 import streamlit as st
+
+from streamlit_app.utils.secrets_manager import get_secret
 
 logger = logging.getLogger(__name__)
 
@@ -42,24 +43,17 @@ FEATURE_MAINTENANCE_MESSAGES: Dict[str, str] = {
 def is_feature_enabled(feature_name: str) -> bool:
     """Check whether a feature flag is enabled.
 
-    Resolution order:
+    Resolution order (via ``get_secret``):
       1. Environment variable (loaded from .env via ``python-dotenv``)
       2. ``st.secrets`` (Streamlit Cloud deployment)
       3. Built-in default from ``FEATURE_FLAGS`` dict
       4. ``False`` if the flag is completely unknown
     """
-    env_val = os.getenv(feature_name)
-    if env_val is not None:
-        return env_val.strip().lower() in _TRUTHY
-
-    try:
-        secret_val = st.secrets.get(feature_name)
-        if secret_val is not None:
-            if isinstance(secret_val, bool):
-                return secret_val
-            return str(secret_val).strip().lower() in _TRUTHY
-    except Exception:
-        pass
+    val = get_secret(feature_name)
+    if val is not None:
+        if isinstance(val, bool):
+            return val
+        return str(val).strip().lower() in _TRUTHY
 
     default = FEATURE_FLAGS.get(feature_name)
     if default is not None:

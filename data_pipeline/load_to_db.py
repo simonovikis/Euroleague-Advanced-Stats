@@ -10,48 +10,44 @@ Requires a `.env` file at the project root with:
 """
 
 import logging
-import os
+import sys
 from pathlib import Path
-
-import pandas as pd
-from dotenv import load_dotenv
 from typing import Optional
 
+import pandas as pd
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
 
 logger = logging.getLogger(__name__)
-# Load .env from project root
-_project_root = Path(__file__).resolve().parent.parent
 
-import sys
+_project_root = Path(__file__).resolve().parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-load_dotenv(_project_root / ".env")
+from streamlit_app.utils.secrets_manager import get_secret
+
 
 def get_engine() -> Engine:
     """
     Build a SQLAlchemy engine from environment variables.
 
     Uses psycopg2 as the database driver natively.
+    Resolves secrets at call time so env overrides (e.g. in tests) work.
     """
-    # Prefer a full connection string if provided
-    db_url = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")
-    
+    db_url = get_secret("DATABASE_URL", "") or get_secret("POSTGRES_URL", "")
+
     if db_url:
-        # Ensure it uses psycopg2
         if db_url.startswith("postgres://"):
             db_url = db_url.replace("postgres://", "postgresql+psycopg2://", 1)
         elif db_url.startswith("postgresql://"):
             db_url = db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
         url = db_url
     else:
-        user = os.getenv("POSTGRES_USER", "euroleague")
-        password = os.getenv("POSTGRES_PASSWORD", "euroleague_pass_2024")
-        host = os.getenv("POSTGRES_HOST", "localhost")
-        port = os.getenv("POSTGRES_PORT", "5432")
-        db = os.getenv("POSTGRES_DB", "euroleague_db")
+        user = get_secret("POSTGRES_USER", "euroleague")
+        password = get_secret("POSTGRES_PASSWORD", "")
+        host = get_secret("POSTGRES_HOST", "localhost")
+        port = get_secret("POSTGRES_PORT", "5432")
+        db = get_secret("POSTGRES_DB", "euroleague_db")
         url = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{db}"
 
     try:
