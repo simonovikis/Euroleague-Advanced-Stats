@@ -497,14 +497,23 @@ def _ensure_game_data(gc: int) -> dict:
         or st.session_state.get("gamecode") != gc
     )
     if data_needs_update:
-        with st.spinner(t("loading_data")):
+        season_to_fetch = st.session_state.get("selected_season", 2025)
+        with st.status(t("loading_data"), expanded=True) as status:
             try:
-                season_to_fetch = st.session_state.get("selected_season", 2025)
-                st.session_state["game_data"] = fetch_game_data_live(season_to_fetch, gc)
+                status.update(label="Downloading boxscore & play-by-play from API...")
+                game_data = fetch_game_data_live(season_to_fetch, gc)
+                status.update(label="Computing advanced stats & lineup tracking...")
+                st.session_state["game_data"] = game_data
                 st.session_state["season"] = season_to_fetch
                 st.session_state["gamecode"] = gc
+                status.update(label="Game data loaded successfully.", state="complete", expanded=False)
+            except ConnectionError:
+                status.update(label="Connection failed", state="error", expanded=True)
+                st.error("Could not connect to the Euroleague API. Please check your internet connection and try again.")
+                st.stop()
             except Exception as e:
-                st.error(f"Failed to load game data (Game {gc}): {e}")
+                status.update(label="Data load failed", state="error", expanded=True)
+                st.error(f"Failed to load game data for Game {gc}. The API may be temporarily unavailable. Error: {type(e).__name__}")
                 st.stop()
     return st.session_state["game_data"]
 
@@ -671,14 +680,37 @@ elif selected_nav == NAV_SINGLE:
 
             if not active.empty:
                 c1, c2, c3, c4, c5 = st.columns(5)
-                c1.metric(t("metric_players", default="Players"), len(active))
-                c2.metric(f"{t('metric_avg', default='Avg')} {t('lbl_ts', default='TS%')}", f"{active['ts_pct'].mean():.1%}")
-                c3.metric(f"{t('metric_avg', default='Avg')} {t('lbl_ortg', default='ORtg')}", f"{active['off_rating'].mean():.1f}")
-                c4.metric(f"{t('metric_avg', default='Avg')} {t('lbl_drtg', default='DRtg')}", f"{active['def_rating'].mean():.1f}")
+                c1.metric(
+                    t("metric_players", default="Players"), len(active),
+                    help="Number of players who logged at least 1 minute of playing time.",
+                )
+                c2.metric(
+                    f"{t('metric_avg', default='Avg')} {t('lbl_ts', default='TS%')}",
+                    f"{active['ts_pct'].mean():.1%}",
+                    help="True Shooting %: Measures scoring efficiency accounting for 2-pointers, 3-pointers, and free throws. Formula: PTS / (2 * (FGA + 0.44 * FTA)).",
+                )
+                c3.metric(
+                    f"{t('metric_avg', default='Avg')} {t('lbl_ortg', default='ORtg')}",
+                    f"{active['off_rating'].mean():.1f}",
+                    help="Offensive Rating: Estimated points produced per 100 possessions while this player is on court. Higher is better.",
+                )
+                c4.metric(
+                    f"{t('metric_avg', default='Avg')} {t('lbl_drtg', default='DRtg')}",
+                    f"{active['def_rating'].mean():.1f}",
+                    help="Defensive Rating: Estimated points allowed per 100 possessions while this player is on court. Lower is better.",
+                )
                 if "true_usg_pct" in active.columns:
-                    c5.metric(f"{t('metric_avg', default='Avg')} {t('lbl_tusg', default='tUSG%')}", f"{active['true_usg_pct'].mean():.1%}")
+                    c5.metric(
+                        f"{t('metric_avg', default='Avg')} {t('lbl_tusg', default='tUSG%')}",
+                        f"{active['true_usg_pct'].mean():.1%}",
+                        help="True Usage Rate: Percentage of team possessions used by this player (shots, free throws, turnovers) while on court.",
+                    )
                 else:
-                    c5.metric(f"{t('metric_avg', default='Avg')} {t('col_poss', default='Poss')}", f"{active['possessions'].mean():.1f}")
+                    c5.metric(
+                        f"{t('metric_avg', default='Avg')} {t('col_poss', default='Poss')}",
+                        f"{active['possessions'].mean():.1f}",
+                        help="Possessions: Estimated individual possessions used (FGA + 0.44 * FTA + TOV).",
+                    )
 
             display_cols = [
                 "player_name", "team_code", "minutes", "points",
@@ -1172,7 +1204,8 @@ elif selected_nav == NAV_SINGLE:
                 key="rot_team",
             )
 
-            stints_df = compute_player_stints(rot_pbp, rot_box, sel_rot_team)
+            with st.spinner("Parsing play-by-play and identifying player stints..."):
+                stints_df = compute_player_stints(rot_pbp, rot_box, sel_rot_team)
 
             if stints_df.empty:
                 st.info(t("rot_no_stints"))
@@ -1334,9 +1367,13 @@ elif selected_nav == NAV_SEASON:
     st.markdown(f"### {t('hdr_league_eff')}")
     st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_league_eff')}</p>", unsafe_allow_html=True)
 
-    with st.spinner(t("fetching_league_eff")):
-        from streamlit_app.queries import fetch_league_efficiency_landscape, fetch_team_season_data
-        eff_df = fetch_league_efficiency_landscape(season_to_fetch)
+    try:
+        with st.spinner(t("fetching_league_eff")):
+            from streamlit_app.queries import fetch_league_efficiency_landscape, fetch_team_season_data
+            eff_df = fetch_league_efficiency_landscape(season_to_fetch)
+    except Exception as e:
+        st.error(f"Could not load league efficiency data. Error: {type(e).__name__}")
+        eff_df = pd.DataFrame()
 
     if eff_df.empty:
         st.warning(t("err_league_eff"))
@@ -1412,9 +1449,13 @@ elif selected_nav == NAV_SEASON:
     st.markdown(f"### {t('hdr_sit_scoring')}")
     st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_sit_scoring')}</p>", unsafe_allow_html=True)
 
-    with st.spinner(t("fetching_sit_scoring")):
-        from streamlit_app.queries import fetch_situational_scoring
-        sit_df = fetch_situational_scoring(season_to_fetch)
+    try:
+        with st.spinner(t("fetching_sit_scoring")):
+            from streamlit_app.queries import fetch_situational_scoring
+            sit_df = fetch_situational_scoring(season_to_fetch)
+    except Exception as e:
+        st.error(f"Could not load situational scoring data. Error: {type(e).__name__}")
+        sit_df = pd.DataFrame()
 
     if sit_df.empty:
         st.info(t("no_sit_scoring"))
@@ -1448,14 +1489,27 @@ elif selected_nav == NAV_SEASON:
             st.plotly_chart(fig_sit, use_container_width=True)
 
             c1, c2, c3, c4 = st.columns(4)
-            c1.metric(t("lbl_steals_pg"), f"{team_row['steals_pg']:.1f}",
-                      f"{team_row['steals_pg'] - league_avg['steals_pg']:+.1f} vs avg")
-            c2.metric(t("lbl_turnovers_pg"), f"{team_row['turnovers_pg']:.1f}",
-                      f"{team_row['turnovers_pg'] - league_avg['turnovers_pg']:+.1f} vs avg", delta_color="inverse")
-            c3.metric(t("lbl_off_reb_pg"), f"{team_row['off_reb_pg']:.1f}",
-                      f"{team_row['off_reb_pg'] - league_avg['off_reb_pg']:+.1f} vs avg")
-            c4.metric(t("lbl_assists_pg"), f"{team_row['assists_pg']:.1f}",
-                      f"{team_row['assists_pg'] - league_avg['assists_pg']:+.1f} vs avg")
+            c1.metric(
+                t("lbl_steals_pg"), f"{team_row['steals_pg']:.1f}",
+                f"{team_row['steals_pg'] - league_avg['steals_pg']:+.1f} vs avg",
+                help="Steals per game. Delta shows difference from league average.",
+            )
+            c2.metric(
+                t("lbl_turnovers_pg"), f"{team_row['turnovers_pg']:.1f}",
+                f"{team_row['turnovers_pg'] - league_avg['turnovers_pg']:+.1f} vs avg",
+                delta_color="inverse",
+                help="Turnovers per game. Fewer is better — delta is inverted (green = below avg).",
+            )
+            c3.metric(
+                t("lbl_off_reb_pg"), f"{team_row['off_reb_pg']:.1f}",
+                f"{team_row['off_reb_pg'] - league_avg['off_reb_pg']:+.1f} vs avg",
+                help="Offensive rebounds per game. Indicates second-chance opportunity creation.",
+            )
+            c4.metric(
+                t("lbl_assists_pg"), f"{team_row['assists_pg']:.1f}",
+                f"{team_row['assists_pg'] - league_avg['assists_pg']:+.1f} vs avg",
+                help="Assists per game. Measures team ball movement and playmaking.",
+            )
 
     st.markdown("---")
 
@@ -1463,9 +1517,13 @@ elif selected_nav == NAV_SEASON:
     st.markdown(f"### {t('hdr_home_away', default='Home vs. Away Performance')}")
     st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_home_away', default='Compare team performance at home versus on the road.')}</p>", unsafe_allow_html=True)
 
-    with st.spinner(t("fetching_home_away", default="Calculating Home/Away splits...")):
-        from streamlit_app.queries import fetch_home_away_splits
-        ha_df = fetch_home_away_splits(season_to_fetch)
+    try:
+        with st.spinner(t("fetching_home_away", default="Calculating Home/Away splits...")):
+            from streamlit_app.queries import fetch_home_away_splits
+            ha_df = fetch_home_away_splits(season_to_fetch)
+    except Exception as e:
+        st.error(f"Could not load Home/Away splits. Error: {type(e).__name__}")
+        ha_df = pd.DataFrame()
 
     if ha_df.empty:
         st.info(t("no_home_away", default="No Home/Away data available yet."))
@@ -1512,9 +1570,13 @@ elif selected_nav == NAV_SEASON:
         t("lbl_close_threshold"), min_value=1, max_value=15, value=5, key="close_threshold",
     )
 
-    with st.spinner(t("fetching_clutch_close")):
-        from streamlit_app.queries import fetch_close_game_stats
-        close_df = fetch_close_game_stats(season_to_fetch, close_threshold)
+    try:
+        with st.spinner(t("fetching_clutch_close")):
+            from streamlit_app.queries import fetch_close_game_stats
+            close_df = fetch_close_game_stats(season_to_fetch, close_threshold)
+    except Exception as e:
+        st.error(f"Could not load clutch/close game data. Error: {type(e).__name__}")
+        close_df = pd.DataFrame()
 
     if close_df.empty:
         st.info(t("no_clutch_close"))
@@ -1528,12 +1590,17 @@ elif selected_nav == NAV_SEASON:
                 t("lbl_close_win_pct"),
                 f"{tr['close_win_pct']:.1f}%" if not pd.isna(tr["close_win_pct"]) else "N/A",
                 f"{tr['close_win_pct'] - league_avg_val:+.1f} vs avg" if not pd.isna(tr["close_win_pct"]) else None,
+                help=f"Win percentage in games decided by {close_threshold} points or fewer.",
             )
-            c2.metric(t("lbl_league_avg_close"), f"{league_avg_val:.1f}%")
+            c2.metric(
+                t("lbl_league_avg_close"), f"{league_avg_val:.1f}%",
+                help="League-wide average close-game win percentage for comparison.",
+            )
             c3.metric(
                 t("lbl_close_record"),
                 f"{int(tr['close_wins'])}-{int(tr['close_losses'])}",
                 f"{int(tr['close_games_played'])} close games",
+                help=f"Win-Loss record in games decided by {close_threshold} points or fewer.",
             )
 
         plot_df = close_df[close_df["close_games_played"] > 0].copy()
@@ -1632,8 +1699,16 @@ elif selected_nav == NAV_SEASON:
     st.markdown("---")
 
     # --- Team Averages & Lineups ---
-    with st.spinner(t("agg_season", team_code=team_code)):
-        season_data = fetch_team_season_data(season_to_fetch, team_code)
+    with st.status(t("agg_season", team_code=team_code), expanded=True) as _season_status:
+        try:
+            _season_status.update(label=f"Fetching all game data for {team_code}...")
+            season_data = fetch_team_season_data(season_to_fetch, team_code)
+            _season_status.update(label=f"Aggregating player stats and lineup data for {team_code}...")
+            _season_status.update(label="Season data loaded.", state="complete", expanded=False)
+        except Exception as e:
+            _season_status.update(label="Failed to load season data", state="error")
+            st.error(f"Could not load season data for {team_code}. The API may be temporarily unavailable. Error: {type(e).__name__}")
+            st.stop()
 
     if not season_data or season_data.get("player_season_stats").empty:
         st.warning(t("no_season_stats", team_code=team_code))
@@ -1838,19 +1913,23 @@ elif selected_nav == NAV_SEASON:
                         mc1.metric(
                             t("form_season_avg", default="Season Avg"),
                             fmt_func(season_avg),
+                            help=f"Average {metric_label} across all games played this season.",
                         )
                         mc2.metric(
                             t("form_last_n_avg", n=window),
                             fmt_func(last_5_avg),
                             f"{trend_pct:+.1f}%",
+                            help=f"Rolling {window}-game average vs. the full-season average. Positive delta = trending up.",
                         )
                         mc3.metric(
                             t("form_best_game", default="Best Game"),
                             fmt_func(pdf[metric_col].max()),
+                            help=f"Highest single-game {metric_label} this season.",
                         )
                         mc4.metric(
                             t("form_games_played", default="Games Played"),
                             str(len(pdf)),
+                            help="Total games played with at least 1 minute of floor time.",
                         )
                     else:
                         st.info(t("form_insufficient_games"))
@@ -2091,11 +2170,24 @@ elif selected_nav == NAV_ADVANCED:
                 for _, ft in foul_trouble.iterrows():
                     st.markdown(f"**{ft['team']}** — {ft['star_player']} ({t('lbl_foul2', default='2nd foul in Q')}{ft['foul_period']})")
                     c1, c2, c3, c4 = st.columns(4)
-                    c1.metric(f"{t('lbl_ortg')} {t('lbl_before', default='Before')}", f"{ft['ortg_before']:.1f}")
-                    c2.metric(f"{t('lbl_ortg')} {t('lbl_after', default='After')}", f"{ft['ortg_after']:.1f}", delta=f"{ft['ortg_impact']:+.1f}")
-                    c3.metric(f"{t('lbl_drtg')} {t('lbl_before', default='Before')}", f"{ft['drtg_before']:.1f}")
-                    c4.metric(f"{t('lbl_drtg')} {t('lbl_after', default='After')}", f"{ft['drtg_after']:.1f}",
-                              delta=f"{ft['drtg_impact']:+.1f}", delta_color="inverse")
+                    c1.metric(
+                        f"{t('lbl_ortg')} {t('lbl_before', default='Before')}", f"{ft['ortg_before']:.1f}",
+                        help="Team Offensive Rating before the star player picked up foul trouble.",
+                    )
+                    c2.metric(
+                        f"{t('lbl_ortg')} {t('lbl_after', default='After')}", f"{ft['ortg_after']:.1f}",
+                        delta=f"{ft['ortg_impact']:+.1f}",
+                        help="Team Offensive Rating after foul trouble. Delta shows the impact (positive = improvement).",
+                    )
+                    c3.metric(
+                        f"{t('lbl_drtg')} {t('lbl_before', default='Before')}", f"{ft['drtg_before']:.1f}",
+                        help="Team Defensive Rating before the star player picked up foul trouble.",
+                    )
+                    c4.metric(
+                        f"{t('lbl_drtg')} {t('lbl_after', default='After')}", f"{ft['drtg_after']:.1f}",
+                        delta=f"{ft['drtg_impact']:+.1f}", delta_color="inverse",
+                        help="Team Defensive Rating after foul trouble. For defense, lower is better — delta is inverted.",
+                    )
                     st.markdown("---")
 
 
@@ -2133,12 +2225,16 @@ elif selected_nav == NAV_LIVE:
     # --- Detect live games ---
     from streamlit_app.queries import fetch_live_games, fetch_live_game_data_fresh
 
-    with st.spinner(t("live_checking")):
-        if "live_cache" not in st.session_state:
-            live_games = fetch_live_games(season_live)
-            st.session_state["live_cache"] = live_games
-        else:
-            live_games = st.session_state["live_cache"]
+    try:
+        with st.spinner(t("live_checking")):
+            if "live_cache" not in st.session_state:
+                live_games = fetch_live_games(season_live)
+                st.session_state["live_cache"] = live_games
+            else:
+                live_games = st.session_state["live_cache"]
+    except Exception as e:
+        st.error(f"Could not check for live games. The API may be temporarily unavailable. Error: {type(e).__name__}")
+        live_games = []
 
     if not live_games:
         st.info(t("live_no_games"))
@@ -2165,8 +2261,12 @@ elif selected_nav == NAV_LIVE:
         sel_gc = sel_game["gamecode"]
 
         # --- Fetch fresh data ---
-        with st.spinner(t("live_fetching_data")):
-            live_data = fetch_live_game_data_fresh(season_live, sel_gc)
+        try:
+            with st.spinner(t("live_fetching_data")):
+                live_data = fetch_live_game_data_fresh(season_live, sel_gc)
+        except Exception as e:
+            st.error(f"Could not fetch live game data. Error: {type(e).__name__}")
+            st.stop()
 
         pbp_df = live_data.get("pbp", pd.DataFrame())
         boxscore_df = live_data.get("boxscore", pd.DataFrame())
@@ -2535,8 +2635,15 @@ elif selected_nav == NAV_LEADERS:
 
     from streamlit_app.queries import fetch_league_leaders
 
-    with st.spinner(t("leaders_loading")):
-        leaders_data = fetch_league_leaders(season_leaders)
+    with st.status(t("leaders_loading"), expanded=True) as _leaders_status:
+        try:
+            _leaders_status.update(label="Fetching per-game and accumulated player stats from API...")
+            leaders_data = fetch_league_leaders(season_leaders)
+            _leaders_status.update(label="Leaderboard data loaded.", state="complete", expanded=False)
+        except Exception as e:
+            _leaders_status.update(label="Failed to load leaders", state="error")
+            st.error(f"Could not fetch league leader stats. The API may be temporarily unavailable. Error: {type(e).__name__}")
+            st.stop()
 
     per_game_df = leaders_data.get("per_game", pd.DataFrame())
     totals_df = leaders_data.get("totals", pd.DataFrame())
@@ -2721,8 +2828,15 @@ elif selected_nav == NAV_SCOUTING:
         MIN_MINUTES_PG,
     )
 
-    with st.spinner(t("scout_loading_pool")):
-        player_pool = fetch_scouting_player_pool(season_scout)
+    with st.status(t("scout_loading_pool"), expanded=True) as _scout_status:
+        try:
+            _scout_status.update(label="Fetching season player data and computing scouting features...")
+            player_pool = fetch_scouting_player_pool(season_scout)
+            _scout_status.update(label="Player pool loaded.", state="complete", expanded=False)
+        except Exception as e:
+            _scout_status.update(label="Failed to load player pool", state="error")
+            st.error(f"Could not load scouting data. The API may be temporarily unavailable. Error: {type(e).__name__}")
+            st.stop()
 
     if player_pool.empty:
         st.warning(t("err_no_schedule", season=season_scout))
@@ -2781,12 +2895,12 @@ elif selected_nav == NAV_SCOUTING:
 
     prof_cols = st.columns(7)
     prof_cols[0].metric(t("col_team"), tr["team_code"])
-    prof_cols[1].metric(t("scout_position_label"), target_pos)
-    prof_cols[2].metric("GP", f"{int(tr['games_played'])}")
-    prof_cols[3].metric("MPG", f"{tr['minutes_pg']:.1f}")
-    prof_cols[4].metric("PPG", f"{tr['points_pg']:.1f}")
-    prof_cols[5].metric("TS%", f"{tr['ts_pct']:.1%}")
-    prof_cols[6].metric("tUSG%", f"{tr['true_usg_pct']:.1%}")
+    prof_cols[1].metric(t("scout_position_label"), target_pos, help="Positional classification: Guard, Forward, or Center.")
+    prof_cols[2].metric("GP", f"{int(tr['games_played'])}", help="Games Played this season.")
+    prof_cols[3].metric("MPG", f"{tr['minutes_pg']:.1f}", help="Minutes Per Game: average minutes played per game.")
+    prof_cols[4].metric("PPG", f"{tr['points_pg']:.1f}", help="Points Per Game: average scoring output.")
+    prof_cols[5].metric("TS%", f"{tr['ts_pct']:.1%}", help="True Shooting %: Efficiency metric accounting for all shot types. Formula: PTS / (2 * (FGA + 0.44 * FTA)).")
+    prof_cols[6].metric("tUSG%", f"{tr['true_usg_pct']:.1%}", help="True Usage Rate: % of team possessions used (shots, FTs, turnovers) while on court.")
 
     st.markdown("---")
 
@@ -3014,9 +3128,13 @@ elif selected_nav == NAV_REFEREE:
         t("lbl_min_ref_games"), min_value=1, max_value=10, value=3, key="min_ref_games",
     )
 
-    with st.spinner(t("fetching_referee_stats")):
-        from streamlit_app.queries import fetch_referee_stats
-        ref_stats = fetch_referee_stats(season_to_fetch, selected_team, min_games=min_ref_games)
+    try:
+        with st.spinner(t("fetching_referee_stats")):
+            from streamlit_app.queries import fetch_referee_stats
+            ref_stats = fetch_referee_stats(season_to_fetch, selected_team, min_games=min_ref_games)
+    except Exception as e:
+        st.error(f"Could not load referee data. The API may be temporarily unavailable. Error: {type(e).__name__}")
+        st.stop()
 
     if ref_stats.empty:
         st.info(t("no_referee_stats"))
@@ -3025,9 +3143,18 @@ elif selected_nav == NAV_REFEREE:
         worst_pct = ref_stats["win_pct"].min()
 
         c1, c2, c3 = st.columns(3)
-        c1.metric(t("metric_total_refs"), len(ref_stats))
-        c2.metric(t("metric_best_ref"), f"{best_pct:.1f}%")
-        c3.metric(t("metric_worst_ref"), f"{worst_pct:.1f}%")
+        c1.metric(
+            t("metric_total_refs"), len(ref_stats),
+            help=f"Number of referees who have officiated at least {min_ref_games} game(s) for this team.",
+        )
+        c2.metric(
+            t("metric_best_ref"), f"{best_pct:.1f}%",
+            help="Highest team win percentage under a single referee.",
+        )
+        c3.metric(
+            t("metric_worst_ref"), f"{worst_pct:.1f}%",
+            help="Lowest team win percentage under a single referee.",
+        )
 
         st.markdown("---")
 
@@ -3077,8 +3204,12 @@ elif selected_nav == NAV_CHAT:
         team_df = fetch_league_efficiency_landscape(season)
         return player_df, team_df
 
-    with st.spinner(t("chat_loading_data")):
-        player_df, team_df = _load_chat_dataframes(season_chat)
+    try:
+        with st.spinner(t("chat_loading_data")):
+            player_df, team_df = _load_chat_dataframes(season_chat)
+    except Exception as e:
+        st.error(f"Could not load data for the chat agent. Error: {type(e).__name__}")
+        st.stop()
 
     if player_df.empty and team_df.empty:
         st.warning(t("chat_no_data"))
