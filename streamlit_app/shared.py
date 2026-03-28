@@ -170,6 +170,7 @@ def apply_clutch_filter(data: dict) -> dict:
         compute_duo_trio_synergy, compute_clutch_stats, detect_runs_and_stoppers,
         foul_trouble_impact, build_assist_network, compute_shot_quality,
         link_assists_to_shots, compute_playmaking_metrics, compute_total_points_created,
+        compute_on_off_splits,
     )
 
     pbp_df = data.get("pbp", pd.DataFrame())
@@ -192,6 +193,7 @@ def apply_clutch_filter(data: dict) -> dict:
     lineup_stats = compute_lineup_stats(pbp_lu, clutch_box)
     duo_synergy = compute_duo_trio_synergy(pbp_lu, clutch_box, combo_size=2)
     trio_synergy = compute_duo_trio_synergy(pbp_lu, clutch_box, combo_size=3)
+    on_off_splits = compute_on_off_splits(pbp_lu, clutch_box)
     clutch_stats = compute_clutch_stats(clutch_pbp, clutch_box)
     stoppers = detect_runs_and_stoppers(pbp_lu)
     foul_impact = foul_trouble_impact(clutch_pbp, clutch_box)
@@ -208,7 +210,8 @@ def apply_clutch_filter(data: dict) -> dict:
         "lineup_stats": lineup_stats, "assist_network": assists,
         "clutch_stats": clutch_stats, "run_stoppers": stoppers,
         "foul_trouble": foul_impact, "duo_synergy": duo_synergy,
-        "trio_synergy": trio_synergy, "shot_quality": shot_quality,
+        "trio_synergy": trio_synergy, "on_off_splits": on_off_splits,
+        "shot_quality": shot_quality,
         "assist_shot_links": assist_shot_links,
         "playmaking_aaq": playmaking.get("aaq", pd.DataFrame()),
         "playmaking_axp": playmaking.get("axp", pd.DataFrame()),

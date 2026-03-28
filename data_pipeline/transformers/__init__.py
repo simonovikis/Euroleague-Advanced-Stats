@@ -29,6 +29,7 @@ from data_pipeline.transformers.lineups import (
     compute_lineup_stats,
     compute_duo_trio_synergy,
     compute_player_stints,
+    compute_on_off_splits,
 )
 
 from data_pipeline.transformers.playmaking import (

@@ -122,6 +122,7 @@ def fetch_game_data_live(
         link_assists_to_shots,
         compute_playmaking_metrics,
         compute_total_points_created,
+        compute_on_off_splits,
     )
 
     raw = extract_game_data(season, gamecode, competition)
@@ -135,6 +136,7 @@ def fetch_game_data_live(
     lineup_stats = compute_lineup_stats(pbp_lu, boxscore_df)
     duo_synergy = compute_duo_trio_synergy(pbp_lu, boxscore_df, combo_size=2)
     trio_synergy = compute_duo_trio_synergy(pbp_lu, boxscore_df, combo_size=3)
+    on_off_splits = compute_on_off_splits(pbp_lu, boxscore_df)
     clutch = compute_clutch_stats(pbp_df, boxscore_df)
     stoppers = detect_runs_and_stoppers(pbp_lu)
     foul_impact = foul_trouble_impact(pbp_df, boxscore_df)
@@ -158,6 +160,7 @@ def fetch_game_data_live(
         "foul_trouble": foul_impact,
         "duo_synergy": duo_synergy,
         "trio_synergy": trio_synergy,
+        "on_off_splits": on_off_splits,
         "shot_quality": shot_quality,
         "assist_shot_links": assist_shot_links,
         "playmaking_aaq": playmaking["aaq"],

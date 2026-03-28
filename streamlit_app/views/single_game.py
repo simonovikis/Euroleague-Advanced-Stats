@@ -452,10 +452,11 @@ def render(gamecode):
     with tab_lineups:
         st.markdown(f'<p class="section-header">{t("nav_lineups")}</p>', unsafe_allow_html=True)
 
-        sub_lu, sub_duo, sub_trio = st.tabs([
+        sub_lu, sub_duo, sub_trio, sub_on_off = st.tabs([
             t("tab_5man", default="🏅 5-Man Lineups"),
             t("tab_duo", default="👥 Duo Synergy"),
             t("tab_trio", default="🔺 Trio Synergy"),
+            t("tab_on_off", default="📊 On/Off Court"),
         ])
 
         with sub_lu:
@@ -547,6 +548,120 @@ def render(gamecode):
                     ),
                     use_container_width=True, hide_index=True,
                 )
+
+        with sub_on_off:
+            st.markdown(f"#### {t('hdr_on_off')}")
+            st.markdown(
+                f"<p style='color:#9ca3af; font-size:0.85rem;'>{t('desc_on_off')}</p>",
+                unsafe_allow_html=True,
+            )
+
+            on_off = data.get("on_off_splits", pd.DataFrame())
+            if on_off.empty:
+                st.info(t("no_on_off"))
+            else:
+                oo_teams = sorted(on_off["team"].unique())
+                sel_oo_team = st.selectbox(
+                    t("col_team"), [t("filter_all")] + oo_teams, key="on_off_team",
+                )
+                oo_f = on_off if sel_oo_team == t("filter_all") else on_off[on_off["team"] == sel_oo_team]
+
+                if oo_f.empty:
+                    st.info(t("no_on_off"))
+                else:
+                    # Metric cards for top 3 impact players
+                    st.markdown(f"##### {t('hdr_on_off_top')}")
+                    top3 = oo_f.head(3)
+                    cols = st.columns(len(top3))
+                    for col, (_, row) in zip(cols, top3.iterrows()):
+                        with col:
+                            st.metric(
+                                label=f"{row['player_name']} ({row['team']})",
+                                value=f"{row['on_net_rtg']:+.1f}",
+                                delta=f"{row['on_off_diff']:+.1f} diff",
+                                help=(
+                                    f"On Court: ORtg {row['on_ortg']:.1f} / DRtg {row['on_drtg']:.1f} / "
+                                    f"NetRtg {row['on_net_rtg']:+.1f}\n"
+                                    f"Off Court: ORtg {row['off_ortg']:.1f} / DRtg {row['off_drtg']:.1f} / "
+                                    f"NetRtg {row['off_net_rtg']:+.1f}"
+                                ),
+                            )
+
+                    # Horizontal bar chart: On/Off differential for all players
+                    fig_oo = go.Figure()
+
+                    oo_sorted = oo_f.sort_values("on_off_diff", ascending=True)
+
+                    colors = [
+                        "#10b981" if v > 0 else "#ef4444"
+                        for v in oo_sorted["on_off_diff"]
+                    ]
+
+                    fig_oo.add_trace(go.Bar(
+                        y=oo_sorted["player_name"],
+                        x=oo_sorted["on_off_diff"],
+                        orientation="h",
+                        marker_color=colors,
+                        text=[f"{v:+.1f}" for v in oo_sorted["on_off_diff"]],
+                        textposition="outside",
+                        hovertemplate=(
+                            "<b>%{y}</b><br>"
+                            "On/Off Diff: %{x:+.1f}<br>"
+                            "<extra></extra>"
+                        ),
+                        customdata=oo_sorted[["on_ortg", "on_drtg", "on_net_rtg",
+                                               "off_ortg", "off_drtg", "off_net_rtg"]].values,
+                    ))
+
+                    fig_oo.update_traces(
+                        hovertemplate=(
+                            "<b>%{y}</b><br>"
+                            "On Court: ORtg %{customdata[0]:.1f} / DRtg %{customdata[1]:.1f} / "
+                            "NetRtg %{customdata[2]:+.1f}<br>"
+                            "Off Court: ORtg %{customdata[3]:.1f} / DRtg %{customdata[4]:.1f} / "
+                            "NetRtg %{customdata[5]:+.1f}<br>"
+                            "Diff: %{x:+.1f}<extra></extra>"
+                        ),
+                    )
+
+                    fig_oo.add_vline(x=0, line_dash="dot", line_color="rgba(255,255,255,0.3)")
+                    fig_oo.update_layout(
+                        template="plotly_dark",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(15,15,35,0.8)",
+                        height=max(400, len(oo_sorted) * 32 + 80),
+                        font=dict(family="Inter"),
+                        xaxis=dict(
+                            title=t("col_on_off_diff"),
+                            showgrid=True,
+                            gridcolor="rgba(255,255,255,0.06)",
+                            zeroline=False,
+                        ),
+                        yaxis=dict(showgrid=False),
+                        margin=dict(l=120, t=20, r=60, b=40),
+                        showlegend=False,
+                    )
+                    st.plotly_chart(fig_oo, use_container_width=True)
+
+                    # Full data table
+                    display_cols = [
+                        "player_name", "team",
+                        "on_ortg", "on_drtg", "on_net_rtg",
+                        "off_ortg", "off_drtg", "off_net_rtg",
+                        "on_off_diff",
+                    ]
+                    display_df = oo_f[display_cols].rename(columns={
+                        "player_name": t("col_player"),
+                        "team": t("col_team"),
+                        "on_ortg": t("col_on_ortg"),
+                        "on_drtg": t("col_on_drtg"),
+                        "on_net_rtg": t("col_on_net"),
+                        "off_ortg": t("col_off_ortg"),
+                        "off_drtg": t("col_off_drtg"),
+                        "off_net_rtg": t("col_off_net"),
+                        "on_off_diff": t("col_on_off_diff"),
+                    })
+                    st.dataframe(display_df, use_container_width=True, hide_index=True)
 
     # ------------------------------------------------------------------
     # TAB: Assist Network

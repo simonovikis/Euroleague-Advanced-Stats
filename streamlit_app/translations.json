@@ -1985,6 +1985,84 @@
     "de": "Gesamt +/−",
     "es": "Total +/−"
   },
+  "tab_on_off": {
+    "en": "📊 On/Off Court",
+    "el": "📊 Εντός/Εκτός Παρκέ",
+    "de": "📊 On/Off Court",
+    "es": "📊 En/Fuera de Cancha"
+  },
+  "hdr_on_off": {
+    "en": "On/Off Court Net Rating Splits",
+    "el": "Διαφορές Καθαρής Αξιολόγησης Εντός/Εκτός Παρκέ",
+    "de": "On/Off Court Net Rating Splits",
+    "es": "Splits de Net Rating En/Fuera de Cancha"
+  },
+  "desc_on_off": {
+    "en": "How the team performs when a player is on the court vs. on the bench. Ratings are per 100 possessions.",
+    "el": "Πώς αποδίδει η ομάδα όταν ο παίκτης είναι στο παρκέ έναντι στον πάγκο. Βαθμολογίες ανά 100 κατοχές.",
+    "de": "Wie das Team spielt, wenn ein Spieler auf dem Feld vs. auf der Bank ist. Ratings pro 100 Ballbesitze.",
+    "es": "Cómo rinde el equipo cuando un jugador está en cancha vs. en el banco. Ratings por 100 posesiones."
+  },
+  "no_on_off": {
+    "en": "No on/off court data available for this game.",
+    "el": "Δεν υπάρχουν δεδομένα εντός/εκτός παρκέ για αυτόν τον αγώνα.",
+    "de": "Keine On/Off-Court-Daten für dieses Spiel verfügbar.",
+    "es": "No hay datos de en/fuera de cancha para este partido."
+  },
+  "col_on_ortg": {
+    "en": "On ORtg",
+    "el": "On ORtg",
+    "de": "On ORtg",
+    "es": "On ORtg"
+  },
+  "col_on_drtg": {
+    "en": "On DRtg",
+    "el": "On DRtg",
+    "de": "On DRtg",
+    "es": "On DRtg"
+  },
+  "col_on_net": {
+    "en": "On NetRtg",
+    "el": "On NetRtg",
+    "de": "On NetRtg",
+    "es": "On NetRtg"
+  },
+  "col_off_ortg": {
+    "en": "Off ORtg",
+    "el": "Off ORtg",
+    "de": "Off ORtg",
+    "es": "Off ORtg"
+  },
+  "col_off_drtg": {
+    "en": "Off DRtg",
+    "el": "Off DRtg",
+    "de": "Off DRtg",
+    "es": "Off DRtg"
+  },
+  "col_off_net": {
+    "en": "Off NetRtg",
+    "el": "Off NetRtg",
+    "de": "Off NetRtg",
+    "es": "Off NetRtg"
+  },
+  "col_on_off_diff": {
+    "en": "On/Off Diff",
+    "el": "Διαφ. On/Off",
+    "de": "On/Off Diff",
+    "es": "Dif. On/Off"
+  },
+  "hdr_on_off_top": {
+    "en": "Biggest Positive Impact (On/Off Differential)",
+    "el": "Μεγαλύτερη Θετική Επίδραση (Διαφορά On/Off)",
+    "de": "Größter Positiver Einfluss (On/Off Differenz)",
+    "es": "Mayor Impacto Positivo (Diferencial On/Off)"
+  },
+  "hdr_on_off_bottom": {
+    "en": "Biggest Negative Impact (On/Off Differential)",
+    "el": "Μεγαλύτερη Αρνητική Επίδραση (Διαφορά On/Off)",
+    "de": "Größter Negativer Einfluss (On/Off Differenz)",
+    "es": "Mayor Impacto Negativo (Diferencial On/Off)"
+  },
   "no_duo_data": {
     "en": "No duo synergy data.",
     "el": "Δεν υπάρχουν δεδομένα συνέργειας δίδυμων.",

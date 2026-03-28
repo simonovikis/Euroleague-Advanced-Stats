@@ -575,3 +575,108 @@ def compute_player_stints(
         "player_name", "start_sec", "end_sec", "duration_sec",
         "plus_minus", "period_start", "period_end",
     ]].sort_values(["start_sec", "player_name"]).reset_index(drop=True)
+
+
+def compute_on_off_splits(
+    pbp_with_lineups: pd.DataFrame,
+    boxscore_df: pd.DataFrame,
+) -> pd.DataFrame:
+    """
+    Compute On/Off Court Net Rating splits for every player in a game.
+
+    For each player on each team, partition all PBP events into two buckets:
+      - ON:  events where the player's ID appears in their team's lineup frozenset
+      - OFF: events where the player's ID is absent
+
+    For each bucket, accumulate:
+      - Team Points Scored / Conceded (from 2FGM, 3FGM, FTM events)
+      - Estimated Possessions (average of team + opponent possession-ending events)
+      - ORtg, DRtg, NetRtg  (per 100 possessions)
+
+    Returns a DataFrame with one row per player:
+        player_id, player_name, team,
+        on_pts_for, on_pts_against, on_poss, on_ortg, on_drtg, on_net_rtg,
+        off_pts_for, off_pts_against, off_poss, off_ortg, off_drtg, off_net_rtg,
+        on_off_diff
+    """
+    if pbp_with_lineups.empty or "home_lineup" not in pbp_with_lineups.columns:
+        return pd.DataFrame()
+
+    df = pbp_with_lineups.copy()
+    home_team = df["home_team"].iloc[0]
+    away_team = df["away_team"].iloc[0]
+
+    score_map = {"2FGM": 2, "3FGM": 3, "FTM": 1}
+    df["score_pts"] = df["PLAYTYPE"].map(score_map).fillna(0).astype(int)
+
+    poss_events = {"2FGM", "2FGA", "3FGM", "3FGA", "TO", "D"}
+
+    name_map = {}
+    if boxscore_df is not None and "Player_ID" in boxscore_df.columns:
+        for _, r in boxscore_df.iterrows():
+            pid = str(r["Player_ID"]).strip()
+            name_map[pid] = format_player_name(str(r.get("Player", pid)))
+
+    results = []
+
+    for team, lineup_col in [(home_team, "home_lineup"), (away_team, "away_lineup")]:
+        opp_team = away_team if team == home_team else home_team
+
+        all_players = set()
+        for lu in df[lineup_col].dropna():
+            all_players.update(lu)
+
+        for pid in sorted(all_players):
+            on_mask = df[lineup_col].apply(lambda lu: pid in lu)
+            off_mask = ~on_mask
+
+            for label, mask in [("on", on_mask), ("off", off_mask)]:
+                subset = df[mask]
+                pts_for = subset.loc[subset["CODETEAM"] == team, "score_pts"].sum()
+                pts_against = subset.loc[subset["CODETEAM"] == opp_team, "score_pts"].sum()
+
+                team_poss = len(subset[
+                    (subset["CODETEAM"] == team) & (subset["PLAYTYPE"].isin(poss_events))
+                ])
+                opp_poss = len(subset[
+                    (subset["CODETEAM"] == opp_team) & (subset["PLAYTYPE"].isin(poss_events))
+                ])
+                total_poss = max((team_poss + opp_poss) / 2, 1)
+
+                ortg = (pts_for / total_poss) * 100
+                drtg = (pts_against / total_poss) * 100
+
+                if label == "on":
+                    on_data = {
+                        "on_events": len(subset),
+                        "on_pts_for": pts_for,
+                        "on_pts_against": pts_against,
+                        "on_poss": round(total_poss, 1),
+                        "on_ortg": round(ortg, 1),
+                        "on_drtg": round(drtg, 1),
+                        "on_net_rtg": round(ortg - drtg, 1),
+                    }
+                else:
+                    off_data = {
+                        "off_events": len(subset),
+                        "off_pts_for": pts_for,
+                        "off_pts_against": pts_against,
+                        "off_poss": round(total_poss, 1),
+                        "off_ortg": round(ortg, 1),
+                        "off_drtg": round(drtg, 1),
+                        "off_net_rtg": round(ortg - drtg, 1),
+                    }
+
+            results.append({
+                "player_id": pid,
+                "player_name": name_map.get(pid, pid),
+                "team": team,
+                **on_data,
+                **off_data,
+                "on_off_diff": round(on_data["on_net_rtg"] - off_data["off_net_rtg"], 1),
+            })
+
+    result_df = pd.DataFrame(results)
+    if not result_df.empty:
+        result_df = result_df.sort_values("on_off_diff", ascending=False).reset_index(drop=True)
+    return result_df
