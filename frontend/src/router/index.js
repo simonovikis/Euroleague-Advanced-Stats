@@ -12,6 +12,11 @@ const routes = [
     name: 'TeamDNA',
     component: () => import('../views/TeamDNA.vue'),
   },
+  {
+    path: '/predictor',
+    name: 'PlayoffPredictor',
+    component: () => import('../views/PlayoffPredictor.vue'),
+  },
 ]
 
 const router = createRouter({

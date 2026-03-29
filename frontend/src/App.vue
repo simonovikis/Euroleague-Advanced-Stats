@@ -31,6 +31,14 @@ const app = useAppStore()
             >
               Team DNA
             </RouterLink>
+            <RouterLink
+              to="/predictor"
+              class="rounded px-3 py-1.5 transition-colors hover:bg-gray-800 hover:text-gray-100"
+              active-class="bg-gray-800 text-gray-100"
+              inactive-class="text-gray-400"
+            >
+              Predictor
+            </RouterLink>
           </div>
         </div>
 
