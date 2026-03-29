@@ -30,9 +30,20 @@ if str(_project_root) not in sys.path:
 from streamlit_app.utils.secrets_manager import get_secret, format_pooler_url
 
 
+# Module-level engine singletons — one per (use_pooler) variant.
+# Ensures the entire process shares a single connection pool instead
+# of creating a new one on every Streamlit rerun / function call.
+_ENGINE_CACHE: dict[bool, Engine] = {}
+
+
 def get_engine(use_pooler: bool = True) -> Engine:
     """
-    Build a SQLAlchemy engine from environment variables.
+    Build (or return a cached) SQLAlchemy engine from environment variables.
+
+    The engine is cached at module level so that repeated calls within the
+    same Python process return the **same** connection pool.  This is
+    critical for Streamlit, which re-executes the script on every UI
+    interaction.
 
     Parameters
     ----------
@@ -41,6 +52,9 @@ def get_engine(use_pooler: bool = True) -> Engine:
         Supabase Supavisor (port 6543, ``pool_mode=transaction``).
         Set to *False* for direct connections (migrations, admin tasks).
     """
+    if use_pooler in _ENGINE_CACHE:
+        return _ENGINE_CACHE[use_pooler]
+
     db_url = get_secret("DATABASE_URL", "") or get_secret("POSTGRES_URL", "")
 
     if db_url:
@@ -64,13 +78,14 @@ def get_engine(use_pooler: bool = True) -> Engine:
         engine = create_engine(
             url,
             echo=False,
-            pool_size=10,
-            max_overflow=20,
+            pool_size=5,
+            max_overflow=10,
             pool_pre_ping=True,
-            pool_recycle=300,
+            pool_recycle=3600,
         )
         safe_url = url.split("@")[-1] if "@" in url else "unknown_host"
         logger.info(f"Database engine created for {safe_url}")
+        _ENGINE_CACHE[use_pooler] = engine
         return engine
     except Exception as e:
         logger.error(f"Failed to create database engine: {e}")

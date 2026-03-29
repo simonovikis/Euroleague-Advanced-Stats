@@ -479,12 +479,14 @@ def _fetch_team_season_from_db(
 # DB MODE — SQL queries for pre-loaded data
 # ========================================================================
 
+@st.cache_resource
 def _get_db_engine():
     """Get a pooled SQLAlchemy engine for Streamlit database queries.
 
-    Delegates to ``load_to_db.get_engine`` which applies Supavisor
-    connection pooling (port 6543, ``pool_mode=transaction``) and
-    optimised SQLAlchemy pool settings automatically.
+    Decorated with ``@st.cache_resource`` so the engine is created
+    exactly **once** per app lifecycle (survives reruns and sessions).
+    The underlying ``get_engine()`` also has a module-level cache,
+    making this a belt-and-suspenders guard against pool sprawl.
     """
     try:
         from data_pipeline.load_to_db import get_engine
