@@ -8,6 +8,7 @@ from streamlit_app.shared import (
     t, render_aggrid, TEAM_COLORS, DEFAULT_ACCENT, _cfg_default,
     render_team_sidebar, format_df_decimals, get_decimal_column_config,
     GLOBAL_DECIMALS, render_skeleton_loader, render_page_header,
+    skeleton_kpi_row, skeleton_dataframe, skeleton_chart,
 )
 from streamlit_app.utils.config_loader import get_feature_toggle
 
@@ -34,20 +35,20 @@ def render():
     _tc_primary = TEAM_COLORS.get(team_code, DEFAULT_ACCENT)[0]
 
     # --- League Efficiency Landscape ---
-    st.markdown(f"### {t('hdr_league_eff')}")
-    st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_league_eff')}</p>", unsafe_allow_html=True)
+    with st.container(border=True):
+        st.markdown(f"### {t('hdr_league_eff')}")
+        st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_league_eff')}</p>", unsafe_allow_html=True)
 
-    # Skeleton placeholder while loading
-    eff_placeholder = st.empty()
-    with eff_placeholder.container():
-        render_skeleton_loader(height=500)
+        eff_placeholder = st.empty()
+        with eff_placeholder.container():
+            skeleton_chart(height=500)
 
-    try:
-        from streamlit_app.queries import fetch_league_efficiency_landscape, fetch_team_season_data
-        eff_df = fetch_league_efficiency_landscape(season_to_fetch)
-    except Exception as e:
-        eff_placeholder.error(f"Could not load league efficiency data. Error: {type(e).__name__}")
-        eff_df = pd.DataFrame()
+        try:
+            from streamlit_app.queries import fetch_league_efficiency_landscape, fetch_team_season_data
+            eff_df = fetch_league_efficiency_landscape(season_to_fetch)
+        except Exception as e:
+            eff_placeholder.error(f"Could not load league efficiency data. Error: {type(e).__name__}")
+            eff_df = pd.DataFrame()
 
     if eff_df.empty:
         eff_placeholder.warning(t("err_league_eff"))
@@ -169,28 +170,29 @@ def render():
             )
             st.plotly_chart(fig_sit)
 
-            c1, c2, c3, c4 = st.columns(4)
-            c1.metric(
-                t("lbl_steals_pg"), f"{team_row['steals_pg']:.1f}",
-                f"{team_row['steals_pg'] - league_avg['steals_pg']:+.1f} vs avg",
-                help=t("tooltip_steals_pg"),
-            )
-            c2.metric(
-                t("lbl_turnovers_pg"), f"{team_row['turnovers_pg']:.1f}",
-                f"{team_row['turnovers_pg'] - league_avg['turnovers_pg']:+.1f} vs avg",
-                delta_color="inverse",
-                help=t("tooltip_turnovers_pg"),
-            )
-            c3.metric(
-                t("lbl_off_reb_pg"), f"{team_row['off_reb_pg']:.1f}",
-                f"{team_row['off_reb_pg'] - league_avg['off_reb_pg']:+.1f} vs avg",
-                help=t("tooltip_off_reb_pg"),
-            )
-            c4.metric(
-                t("lbl_assists_pg"), f"{team_row['assists_pg']:.1f}",
-                f"{team_row['assists_pg'] - league_avg['assists_pg']:+.1f} vs avg",
-                help=t("tooltip_assists_pg"),
-            )
+            with st.container(border=True):
+                c1, c2, c3, c4 = st.columns(4)
+                c1.metric(
+                    t("lbl_steals_pg"), f"{team_row['steals_pg']:.1f}",
+                    f"{team_row['steals_pg'] - league_avg['steals_pg']:+.1f} vs avg",
+                    help=t("tooltip_steals_pg"),
+                )
+                c2.metric(
+                    t("lbl_turnovers_pg"), f"{team_row['turnovers_pg']:.1f}",
+                    f"{team_row['turnovers_pg'] - league_avg['turnovers_pg']:+.1f} vs avg",
+                    delta_color="inverse",
+                    help=t("tooltip_turnovers_pg"),
+                )
+                c3.metric(
+                    t("lbl_off_reb_pg"), f"{team_row['off_reb_pg']:.1f}",
+                    f"{team_row['off_reb_pg'] - league_avg['off_reb_pg']:+.1f} vs avg",
+                    help=t("tooltip_off_reb_pg"),
+                )
+                c4.metric(
+                    t("lbl_assists_pg"), f"{team_row['assists_pg']:.1f}",
+                    f"{team_row['assists_pg'] - league_avg['assists_pg']:+.1f} vs avg",
+                    help=t("tooltip_assists_pg"),
+                )
 
     st.markdown("---")
 
@@ -274,23 +276,24 @@ def render():
         if not team_row.empty:
             tr = team_row.iloc[0]
             league_avg_val = tr["league_avg_close_win_pct"]
-            c1, c2, c3 = st.columns(3)
-            c1.metric(
-                t("lbl_close_win_pct"),
-                f"{tr['close_win_pct']:.1f}%" if not pd.isna(tr["close_win_pct"]) else "N/A",
-                f"{tr['close_win_pct'] - league_avg_val:+.1f} vs avg" if not pd.isna(tr["close_win_pct"]) else None,
-                help=t("tooltip_close_win_pct", threshold=close_threshold),
-            )
-            c2.metric(
-                t("lbl_league_avg_close"), f"{league_avg_val:.1f}%",
-                help=t("tooltip_league_avg_close"),
-            )
-            c3.metric(
-                t("lbl_close_record"),
-                f"{int(tr['close_wins'])}-{int(tr['close_losses'])}",
-                f"{int(tr['close_games_played'])} close games",
-                help=t("tooltip_close_record", threshold=close_threshold),
-            )
+            with st.container(border=True):
+                c1, c2, c3 = st.columns(3)
+                c1.metric(
+                    t("lbl_close_win_pct"),
+                    f"{tr['close_win_pct']:.1f}%" if not pd.isna(tr["close_win_pct"]) else "N/A",
+                    f"{tr['close_win_pct'] - league_avg_val:+.1f} vs avg" if not pd.isna(tr["close_win_pct"]) else None,
+                    help=t("tooltip_close_win_pct", threshold=close_threshold),
+                )
+                c2.metric(
+                    t("lbl_league_avg_close"), f"{league_avg_val:.1f}%",
+                    help=t("tooltip_league_avg_close"),
+                )
+                c3.metric(
+                    t("lbl_close_record"),
+                    f"{int(tr['close_wins'])}-{int(tr['close_losses'])}",
+                    f"{int(tr['close_games_played'])} close games",
+                    help=t("tooltip_close_record", threshold=close_threshold),
+                )
 
         plot_df = close_df[close_df["close_games_played"] > 0].copy()
         plot_df["is_selected"] = plot_df["team_code"] == team_code
@@ -604,28 +607,29 @@ def render():
                         trend = last_5_avg - season_avg
                         trend_pct = (trend / season_avg * 100) if season_avg != 0 else 0
 
-                        mc1, mc2, mc3, mc4 = st.columns(4)
-                        mc1.metric(
-                            t("form_season_avg", default="Season Avg"),
-                            fmt_func(season_avg),
-                            help=t("tooltip_season_avg", metric=metric_label),
-                        )
-                        mc2.metric(
-                            t("form_last_n_avg", n=window),
-                            fmt_func(last_5_avg),
-                            f"{trend_pct:+.1f}%",
-                            help=t("tooltip_rolling_avg", n=window),
-                        )
-                        mc3.metric(
-                            t("form_best_game", default="Best Game"),
-                            fmt_func(pdf[metric_col].max()),
-                            help=t("tooltip_best_game", metric=metric_label),
-                        )
-                        mc4.metric(
-                            t("form_games_played", default="Games Played"),
-                            str(len(pdf)),
-                            help=t("tooltip_games_played"),
-                        )
+                        with st.container(border=True):
+                            mc1, mc2, mc3, mc4 = st.columns(4)
+                            mc1.metric(
+                                t("form_season_avg", default="Season Avg"),
+                                fmt_func(season_avg),
+                                help=t("tooltip_season_avg", metric=metric_label),
+                            )
+                            mc2.metric(
+                                t("form_last_n_avg", n=window),
+                                fmt_func(last_5_avg),
+                                f"{trend_pct:+.1f}%",
+                                help=t("tooltip_rolling_avg", n=window),
+                            )
+                            mc3.metric(
+                                t("form_best_game", default="Best Game"),
+                                fmt_func(pdf[metric_col].max()),
+                                help=t("tooltip_best_game", metric=metric_label),
+                            )
+                            mc4.metric(
+                                t("form_games_played", default="Games Played"),
+                                str(len(pdf)),
+                                help=t("tooltip_games_played"),
+                            )
                     else:
                         st.info(t("form_insufficient_games"))
             else:
@@ -653,10 +657,12 @@ def render():
 
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown(f"#### {t('hdr_best_net')}")
-            _best_df = format_df_decimals(lineup_stats.head(5)[_lineup_cols]).rename(columns=_lineup_rename)
-            st.dataframe(_best_df, hide_index=True, column_config=_col_config)
+            with st.container(border=True):
+                st.markdown(f"#### {t('hdr_best_net')}")
+                _best_df = format_df_decimals(lineup_stats.head(5)[_lineup_cols]).rename(columns=_lineup_rename)
+                st.dataframe(_best_df, hide_index=True, column_config=_col_config)
         with col2:
-            st.markdown(f"#### {t('hdr_worst_net')}")
-            _worst_df = format_df_decimals(lineup_stats.tail(5)[_lineup_cols]).rename(columns=_lineup_rename)
-            st.dataframe(_worst_df, hide_index=True, column_config=_col_config)
+            with st.container(border=True):
+                st.markdown(f"#### {t('hdr_worst_net')}")
+                _worst_df = format_df_decimals(lineup_stats.tail(5)[_lineup_cols]).rename(columns=_lineup_rename)
+                st.dataframe(_worst_df, hide_index=True, column_config=_col_config)

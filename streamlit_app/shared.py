@@ -683,3 +683,212 @@ def render_skeleton_table(rows: int = 5, cols: int = 4, row_height: int = 40) ->
         f'{css}<div style="background: rgba(15,15,35,0.5); border-radius: 8px; padding: 8px 16px;">{header_row}{body_rows}</div>',
         unsafe_allow_html=True,
     )
+
+
+# ========================================================================
+# ADVANCED CONTENT-AWARE SKELETON LOADERS
+# ========================================================================
+_ADV_SKELETON_CSS = """
+<style>
+    @keyframes skel-shimmer {
+        0%   { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
+    }
+    .skel-bar {
+        background: linear-gradient(
+            90deg,
+            rgba(30,30,63,0.8) 0%,
+            rgba(50,50,90,0.9) 20%,
+            rgba(70,70,120,1.0) 40%,
+            rgba(50,50,90,0.9) 60%,
+            rgba(30,30,63,0.8) 100%
+        );
+        background-size: 200% 100%;
+        animation: skel-shimmer 1.5s ease-in-out infinite;
+        border-radius: 4px;
+    }
+    .skel-kpi-card {
+        background: linear-gradient(135deg, #1e1e3f 0%, #2a2a5a 100%);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 12px;
+        padding: 20px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .skel-kpi-row {
+        display: grid;
+        gap: 16px;
+    }
+    .skel-table-wrap {
+        background: rgba(15,15,35,0.5);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 8px;
+        padding: 12px 16px;
+        overflow: hidden;
+    }
+    .skel-tr {
+        display: grid;
+        gap: 12px;
+        padding: 10px 0;
+    }
+    .skel-tr-header { border-bottom: 2px solid rgba(99,102,241,0.25); }
+    .skel-tr-body   { border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .skel-chart-wrap {
+        background: linear-gradient(135deg, #1e1e3f 0%, #2a2a5a 100%);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 12px;
+        padding: 20px;
+        position: relative;
+        overflow: hidden;
+    }
+    .skel-chart-yaxis {
+        position: absolute;
+        left: 20px;
+        top: 50px;
+        bottom: 50px;
+        width: 6px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    .skel-chart-yaxis .skel-bar { width: 30px; height: 8px; opacity: 0.4; }
+    .skel-chart-xaxis {
+        position: absolute;
+        left: 60px;
+        right: 20px;
+        bottom: 20px;
+        height: 8px;
+        display: flex;
+        gap: 12px;
+        justify-content: space-around;
+    }
+    .skel-chart-xaxis .skel-bar { flex: 1; height: 8px; opacity: 0.4; }
+    .skel-chart-bars {
+        display: flex;
+        align-items: flex-end;
+        gap: 8px;
+        margin-left: 44px;
+        margin-right: 16px;
+        margin-bottom: 30px;
+    }
+    .skel-chart-bars .skel-bar { flex: 1; border-radius: 4px 4px 0 0; }
+</style>
+"""
+
+_ADV_SKELETON_CSS_INJECTED = False
+
+
+def _ensure_adv_skeleton_css() -> str:
+    global _ADV_SKELETON_CSS_INJECTED
+    if not _ADV_SKELETON_CSS_INJECTED:
+        _ADV_SKELETON_CSS_INJECTED = True
+        return _ADV_SKELETON_CSS
+    return ""
+
+
+def skeleton_kpi_row(columns: int = 3) -> None:
+    """Render a shimmer skeleton that mimics a row of st.metric KPI cards.
+
+    Args:
+        columns: Number of KPI card placeholders to show (1-6).
+    """
+    css = _ensure_adv_skeleton_css()
+    cards = ""
+    for _ in range(columns):
+        cards += (
+            '<div class="skel-kpi-card">'
+            '  <div class="skel-bar" style="width:55%;height:12px;opacity:0.5;"></div>'
+            '  <div class="skel-bar" style="width:40%;height:28px;"></div>'
+            '  <div class="skel-bar" style="width:35%;height:10px;opacity:0.4;"></div>'
+            '</div>'
+        )
+    html = (
+        f'{css}'
+        f'<div class="skel-kpi-row" style="grid-template-columns:repeat({columns},1fr);">'
+        f'{cards}'
+        f'</div>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def skeleton_dataframe(rows: int = 5, cols: int = 5) -> None:
+    """Render a shimmer skeleton that mimics a data table with header and rows.
+
+    Args:
+        rows: Number of body rows.
+        cols: Number of columns.
+    """
+    css = _ensure_adv_skeleton_css()
+    col_tpl = f"repeat({cols}, 1fr)"
+
+    header_cells = "".join(
+        f'<div class="skel-bar" style="height:14px;opacity:0.6;"></div>'
+        for _ in range(cols)
+    )
+    header = (
+        f'<div class="skel-tr skel-tr-header" style="grid-template-columns:{col_tpl};">'
+        f'{header_cells}'
+        f'</div>'
+    )
+
+    body = ""
+    for i in range(rows):
+        width_variation = [("90%", "0.5"), ("75%", "0.45"), ("85%", "0.5"), ("65%", "0.4"), ("80%", "0.45")]
+        cells = ""
+        for c in range(cols):
+            w, o = width_variation[c % len(width_variation)]
+            cells += f'<div class="skel-bar" style="height:12px;width:{w};opacity:{o};"></div>'
+        body += (
+            f'<div class="skel-tr skel-tr-body" style="grid-template-columns:{col_tpl};">'
+            f'{cells}'
+            f'</div>'
+        )
+
+    html = (
+        f'{css}'
+        f'<div class="skel-table-wrap">'
+        f'{header}{body}'
+        f'</div>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def skeleton_chart(height: int = 300) -> None:
+    """Render a shimmer skeleton that mimics a Plotly/Altair chart area.
+
+    Includes faux Y-axis ticks, X-axis labels, and randomised bar heights
+    to give the illusion of a real chart loading.
+
+    Args:
+        height: Total height of the chart skeleton in pixels.
+    """
+    css = _ensure_adv_skeleton_css()
+    usable = height - 70  # space for axis labels and padding
+
+    bar_heights = [int(usable * p) for p in (0.65, 0.85, 0.45, 0.72, 0.55, 0.90, 0.38)]
+    bars = "".join(
+        f'<div class="skel-bar" style="height:{h}px;"></div>'
+        for h in bar_heights
+    )
+
+    y_ticks = "".join(
+        '<div class="skel-bar"></div>' for _ in range(5)
+    )
+    x_ticks = "".join(
+        '<div class="skel-bar"></div>' for _ in range(7)
+    )
+
+    # Title placeholder
+    title_bar = '<div class="skel-bar" style="width:35%;height:14px;margin-bottom:12px;opacity:0.5;"></div>'
+
+    html = (
+        f'{css}'
+        f'<div class="skel-chart-wrap" style="height:{height}px;">'
+        f'  {title_bar}'
+        f'  <div class="skel-chart-yaxis">{y_ticks}</div>'
+        f'  <div class="skel-chart-bars" style="height:{usable}px;">{bars}</div>'
+        f'  <div class="skel-chart-xaxis">{x_ticks}</div>'
+        f'</div>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
