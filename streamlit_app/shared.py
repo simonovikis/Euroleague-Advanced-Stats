@@ -57,7 +57,8 @@ _FALLBACK_LANG = CFG["app"]["default_language"]
 
 def t(key: str, **kwargs) -> str:
     lang = st.session_state.get("lang", _FALLBACK_LANG)
-    text = TRANSLATIONS.get(key, {}).get(lang, TRANSLATIONS.get(key, {}).get(_FALLBACK_LANG, key))
+    default = kwargs.pop("default", key)
+    text = TRANSLATIONS.get(key, {}).get(lang, TRANSLATIONS.get(key, {}).get(_FALLBACK_LANG, default))
     return text.format(**kwargs) if kwargs else text
 
 
@@ -189,7 +190,11 @@ def render_game_sidebar():
     with st.sidebar:
         rounds = sorted(schedule["round"].unique())
         if st.session_state.get("selected_round") not in rounds:
-            st.session_state.selected_round = rounds[0] if rounds else 1
+            played_games = schedule[schedule["home_score"].notna() & schedule["away_score"].notna()] if "home_score" in schedule.columns else pd.DataFrame()
+            if not played_games.empty:
+                st.session_state.selected_round = int(played_games["round"].max())
+            else:
+                st.session_state.selected_round = rounds[-1] if rounds else 1
 
         def _fmt_round(r):
             if "round_name" not in schedule.columns:
@@ -247,17 +252,6 @@ def render_game_sidebar():
         else:
             st.session_state["game_info_cache"] = None
             st.session_state["_active_home_team"] = None
-
-        st.markdown("---")
-        clutch_mode = st.toggle(
-            "🧊 Isolate Clutch Time Only",
-            value=st.session_state.get("clutch_mode", False),
-            key="clutch_toggle",
-            help="Recalculate all stats for Clutch Time only: last 5 min of Q4/OT, score within 5 pts.",
-        )
-        st.session_state["clutch_mode"] = clutch_mode
-        if clutch_mode:
-            st.caption("Showing clutch-time stats only (Q4/OT, ≤5 min, ≤5 pt diff)")
 
     return gamecode
 

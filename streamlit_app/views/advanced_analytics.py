@@ -17,9 +17,18 @@ def render():
         st.stop()
 
     data = ensure_game_data(gamecode)
-    if st.session_state.get("clutch_mode"):
-        data = apply_clutch_filter(data)
     render_game_header()
+
+    clutch_mode = st.toggle(
+        t("clutch_toggle_label", default="Isolate Clutch Time Only"),
+        value=st.session_state.get("clutch_mode", False),
+        key="clutch_toggle_advanced",
+        help=t("clutch_toggle_help", default="Recalculate all stats for Clutch Time only: last 5 min of Q4/OT, score within 5 pts."),
+    )
+    st.session_state["clutch_mode"] = clutch_mode
+    if clutch_mode:
+        st.caption(t("clutch_caption", default="Showing clutch-time stats only (Q4/OT, <=5 min, <=5 pt diff)"))
+        data = apply_clutch_filter(data)
 
     tab_playmaking, tab_clutch_mom = st.tabs([
         t("nav_playmaking"),

@@ -2434,5 +2434,113 @@
     "el": "ομοιότητα",
     "de": "Ähnlichkeit",
     "es": "similitud"
+  },
+  "nav_team_hub": {
+    "en": "Team Hub",
+    "el": "Ομάδα",
+    "de": "Team-Hub",
+    "es": "Centro de Equipo"
+  },
+  "sub_team_hub": {
+    "en": "Deep-dive into a single team's season",
+    "el": "Εμβάθυνση στη σεζόν μιας ομάδας",
+    "de": "Detailanalyse einer Mannschaftssaison",
+    "es": "Análisis en profundidad de la temporada de un equipo"
+  },
+  "tab_roster": {
+    "en": "Roster",
+    "el": "Ρόστερ",
+    "de": "Kader",
+    "es": "Plantilla"
+  },
+  "tab_season_stats": {
+    "en": "Season Stats",
+    "el": "Στατιστικά Σεζόν",
+    "de": "Saisonstatistiken",
+    "es": "Estadísticas de Temporada"
+  },
+  "tab_schedule_form": {
+    "en": "Schedule & Form",
+    "el": "Πρόγραμμα & Φόρμα",
+    "de": "Spielplan & Form",
+    "es": "Calendario y Forma"
+  },
+  "hdr_roster": {
+    "en": "Roster",
+    "el": "Ρόστερ",
+    "de": "Kader",
+    "es": "Plantilla"
+  },
+  "hdr_season_stats": {
+    "en": "Season Stats",
+    "el": "Στατιστικά Σεζόν",
+    "de": "Saisonstatistiken",
+    "es": "Estadísticas de Temporada"
+  },
+  "hdr_schedule_form": {
+    "en": "Schedule & Form",
+    "el": "Πρόγραμμα & Φόρμα",
+    "de": "Spielplan & Form",
+    "es": "Calendario y Forma"
+  },
+  "hdr_recent_games": {
+    "en": "Recent Games",
+    "el": "Πρόσφατοι Αγώνες",
+    "de": "Letzte Spiele",
+    "es": "Partidos Recientes"
+  },
+  "hdr_full_schedule": {
+    "en": "Full Schedule",
+    "el": "Πλήρες Πρόγραμμα",
+    "de": "Vollständiger Spielplan",
+    "es": "Calendario Completo"
+  },
+  "lbl_current_streak": {
+    "en": "Current Streak",
+    "el": "Τρέχον Σερί",
+    "de": "Aktuelle Serie",
+    "es": "Racha Actual"
+  },
+  "lbl_record": {
+    "en": "Record",
+    "el": "Ρεκόρ",
+    "de": "Bilanz",
+    "es": "Registro"
+  },
+  "no_recent_games": {
+    "en": "No completed games yet.",
+    "el": "Δεν υπάρχουν ολοκληρωμένοι αγώνες.",
+    "de": "Noch keine abgeschlossenen Spiele.",
+    "es": "Aún no hay partidos completados."
+  },
+  "loading_roster": {
+    "en": "Loading roster...",
+    "el": "Φόρτωση ρόστερ...",
+    "de": "Kader wird geladen...",
+    "es": "Cargando plantilla..."
+  },
+  "col_games": {
+    "en": "GP",
+    "el": "Αγ.",
+    "de": "Sp.",
+    "es": "PJ"
+  },
+  "clutch_toggle_label": {
+    "en": "Isolate Clutch Time Only",
+    "el": "Μόνο Clutch Time",
+    "de": "Nur Clutch-Zeit isolieren",
+    "es": "Solo Tiempo Clutch"
+  },
+  "clutch_toggle_help": {
+    "en": "Recalculate all stats for Clutch Time only: last 5 min of Q4/OT, score within 5 pts.",
+    "el": "Επανυπολογισμός στατιστικών μόνο για Clutch Time: τελευταία 5 λεπτά Q4/OT, διαφορά ≤5 πόντοι.",
+    "de": "Statistiken nur für Clutch Time neu berechnen: letzte 5 Min. Q4/OT, Differenz ≤5 Punkte.",
+    "es": "Recalcular estadísticas solo para Clutch Time: últimos 5 min Q4/OT, diferencia ≤5 puntos."
+  },
+  "clutch_caption": {
+    "en": "Showing clutch-time stats only (Q4/OT, ≤5 min, ≤5 pt diff)",
+    "el": "Εμφάνιση στατιστικών clutch-time μόνο (Q4/OT, ≤5 λεπτά, ≤5 πόντοι διαφορά)",
+    "de": "Nur Clutch-Time-Statistiken (Q4/OT, ≤5 Min., ≤5 Punkte Diff.)",
+    "es": "Mostrando solo estadísticas clutch-time (Q4/OT, ≤5 min, ≤5 pts dif.)"
   }
 }

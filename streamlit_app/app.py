@@ -237,10 +237,10 @@ with st.sidebar:
     if "selected_season" not in st.session_state:
         st.session_state.selected_season = _cfg_default
     if "selected_round" not in st.session_state:
-        st.session_state.selected_round = 1
+        st.session_state.selected_round = -1
 
     def on_season_change():
-        st.session_state.selected_round = 1
+        st.session_state.selected_round = -1
 
     seasons = _cfg_seasons
     selected_season_input = st.selectbox(
@@ -376,7 +376,9 @@ nav.run()
 # ========================================================================
 # SIDEBAR — Admin: Database Sync Manager (rendered after page content)
 # ========================================================================
-if not REQUIRE_LOGIN or st.session_state.get("is_admin"):
+_show_db_sync = CFG.get("data", {}).get("show_db_sync_status", False)
+
+if _show_db_sync and (not REQUIRE_LOGIN or st.session_state.get("is_admin")):
     with st.sidebar:
         with st.expander("🔧 Database Sync Manager", expanded=False):
             from streamlit_app.queries import _get_repository

@@ -29,6 +29,8 @@ data:
     min_fga3: 30
     min_fta: 30
 
+  show_db_sync_status: false
+
 ui:
   global_decimals: 2
 
