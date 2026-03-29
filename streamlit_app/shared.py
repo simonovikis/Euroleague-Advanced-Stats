@@ -530,3 +530,162 @@ def render_game_header():
         unsafe_allow_html=True,
     )
     st.markdown("")
+
+
+# ========================================================================
+# UI COMPONENTS: Page Headers & Skeleton Loaders
+# ========================================================================
+def render_page_header(title: str, subtitle: str = None, icon: str = None) -> None:
+    """Render a consistent page header with optional subtitle.
+
+    Args:
+        title: Main page title
+        subtitle: Optional subtitle/description
+        icon: Optional emoji icon (prepended to title)
+
+    Example:
+        render_page_header("Season Overview", "Team performance across the season", "📊")
+    """
+    display_title = f"{icon} {title}" if icon else title
+    st.markdown(
+        f'<h1 class="section-header" style="font-size: 2rem; margin-bottom: 0.25rem;">{display_title}</h1>',
+        unsafe_allow_html=True,
+    )
+    if subtitle:
+        st.markdown(
+            f'<p style="color: #9ca3af; font-size: 0.95rem; margin-top: 0; margin-bottom: 1.5rem;">{subtitle}</p>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown("<div style='margin-bottom: 1rem;'></div>", unsafe_allow_html=True)
+
+
+_SKELETON_CSS_INJECTED = False
+
+
+def render_skeleton_loader(
+    height: int = 200,
+    width: str = "100%",
+    border_radius: int = 8,
+    count: int = 1,
+    gap: int = 12,
+) -> None:
+    """Render a shimmering skeleton placeholder for loading states.
+
+    Args:
+        height: Height of each skeleton block in pixels
+        width: Width (CSS value, e.g., "100%", "300px")
+        border_radius: Corner radius in pixels
+        count: Number of skeleton blocks to render
+        gap: Gap between multiple blocks in pixels
+
+    Example:
+        placeholder = st.empty()
+        with placeholder.container():
+            render_skeleton_loader(height=300)
+        # ... fetch data ...
+        placeholder.plotly_chart(fig)
+    """
+    global _SKELETON_CSS_INJECTED
+
+    css = ""
+    if not _SKELETON_CSS_INJECTED:
+        css = """
+        <style>
+            @keyframes skeleton-shimmer {
+                0% {
+                    background-position: -200% 0;
+                }
+                100% {
+                    background-position: 200% 0;
+                }
+            }
+            .skeleton-loader {
+                background: linear-gradient(
+                    90deg,
+                    rgba(30, 30, 63, 0.8) 0%,
+                    rgba(50, 50, 90, 0.9) 20%,
+                    rgba(70, 70, 120, 1) 40%,
+                    rgba(50, 50, 90, 0.9) 60%,
+                    rgba(30, 30, 63, 0.8) 100%
+                );
+                background-size: 200% 100%;
+                animation: skeleton-shimmer 1.5s ease-in-out infinite;
+                border-radius: var(--skeleton-radius, 8px);
+            }
+            .skeleton-container {
+                display: flex;
+                flex-direction: column;
+            }
+        </style>
+        """
+        _SKELETON_CSS_INJECTED = True
+
+    skeletons = "".join([
+        f'<div class="skeleton-loader" style="'
+        f'height: {height}px; '
+        f'width: {width}; '
+        f'--skeleton-radius: {border_radius}px; '
+        f'margin-bottom: {gap if i < count - 1 else 0}px;'
+        f'"></div>'
+        for i in range(count)
+    ])
+
+    st.markdown(
+        f'{css}<div class="skeleton-container">{skeletons}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def render_skeleton_table(rows: int = 5, cols: int = 4, row_height: int = 40) -> None:
+    """Render a table-shaped skeleton loader.
+
+    Args:
+        rows: Number of skeleton rows
+        cols: Number of columns
+        row_height: Height of each row in pixels
+    """
+    global _SKELETON_CSS_INJECTED
+
+    css = ""
+    if not _SKELETON_CSS_INJECTED:
+        css = """
+        <style>
+            @keyframes skeleton-shimmer {
+                0% { background-position: -200% 0; }
+                100% { background-position: 200% 0; }
+            }
+            .skeleton-loader {
+                background: linear-gradient(
+                    90deg,
+                    rgba(30, 30, 63, 0.8) 0%,
+                    rgba(50, 50, 90, 0.9) 20%,
+                    rgba(70, 70, 120, 1) 40%,
+                    rgba(50, 50, 90, 0.9) 60%,
+                    rgba(30, 30, 63, 0.8) 100%
+                );
+                background-size: 200% 100%;
+                animation: skeleton-shimmer 1.5s ease-in-out infinite;
+            }
+        </style>
+        """
+        _SKELETON_CSS_INJECTED = True
+
+    header_cells = "".join([
+        f'<div class="skeleton-loader" style="height: 20px; border-radius: 4px;"></div>'
+        for _ in range(cols)
+    ])
+    header_row = f'<div style="display: grid; grid-template-columns: repeat({cols}, 1fr); gap: 12px; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">{header_cells}</div>'
+
+    body_rows = ""
+    for _ in range(rows):
+        cells = "".join([
+            f'<div class="skeleton-loader" style="height: 16px; border-radius: 4px;"></div>'
+            for _ in range(cols)
+        ])
+        body_rows += f'<div style="display: grid; grid-template-columns: repeat({cols}, 1fr); gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">{cells}</div>'
+
+    st.markdown(
+        f'{css}<div style="background: rgba(15,15,35,0.5); border-radius: 8px; padding: 8px 16px;">{header_row}{body_rows}</div>',
+        unsafe_allow_html=True,
+    )

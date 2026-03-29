@@ -7,19 +7,25 @@ import streamlit as st
 from streamlit_app.shared import (
     t, render_aggrid, TEAM_COLORS, DEFAULT_ACCENT, _cfg_default,
     render_team_sidebar, format_df_decimals, get_decimal_column_config,
-    GLOBAL_DECIMALS,
+    GLOBAL_DECIMALS, render_skeleton_loader, render_page_header,
 )
+from streamlit_app.utils.config_loader import get_feature_toggle
 
 
 def render():
     render_team_sidebar()
     schedule = st.session_state.get("schedule", pd.DataFrame())
 
-    st.markdown(f'<p class="section-header">{t("hdr_season_overview")}</p>', unsafe_allow_html=True)
-
     season_to_fetch = st.session_state.get("selected_season", _cfg_default)
     team_code = st.session_state.get("selected_team")
     valid_teams = st.session_state.get("season_team_codes", set())
+
+    # --- Page Header ---
+    render_page_header(
+        t("hdr_season_overview", default="Season Overview"),
+        t("sub_season_overview", default="Team performance metrics and league standings"),
+        icon="📊",
+    )
 
     if not team_code:
         st.warning(t("warn_select_team"))
@@ -31,18 +37,20 @@ def render():
     st.markdown(f"### {t('hdr_league_eff')}")
     st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_league_eff')}</p>", unsafe_allow_html=True)
 
+    # Skeleton placeholder while loading
+    eff_placeholder = st.empty()
+    with eff_placeholder.container():
+        render_skeleton_loader(height=500)
+
     try:
-        with st.status(t("fetching_league_eff"), expanded=True) as eff_status:
-            st.write("⏳ Loading offensive & defensive ratings for all teams...")
-            from streamlit_app.queries import fetch_league_efficiency_landscape, fetch_team_season_data
-            eff_df = fetch_league_efficiency_landscape(season_to_fetch)
-            eff_status.update(label="League efficiency loaded.", state="complete", expanded=False)
+        from streamlit_app.queries import fetch_league_efficiency_landscape, fetch_team_season_data
+        eff_df = fetch_league_efficiency_landscape(season_to_fetch)
     except Exception as e:
-        st.error(f"Could not load league efficiency data. Error: {type(e).__name__}")
+        eff_placeholder.error(f"Could not load league efficiency data. Error: {type(e).__name__}")
         eff_df = pd.DataFrame()
 
     if eff_df.empty:
-        st.warning(t("err_league_eff"))
+        eff_placeholder.warning(t("err_league_eff"))
     else:
         if valid_teams:
             eff_df = eff_df[eff_df["team_code"].isin(valid_teams)].copy()
@@ -63,7 +71,8 @@ def render():
             plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
             font=dict(color="#e4e4f0"), showlegend=False, height=500,
         )
-        st.plotly_chart(fig_eff)
+        # Replace skeleton with actual chart
+        eff_placeholder.plotly_chart(fig_eff)
 
         # Pace vs Net Rating
         st.markdown(f"### {t('hdr_pace_eff')}")
@@ -423,32 +432,33 @@ def render():
 
     st.markdown("---")
 
-    # Positional Scoring (Season)
-    st.markdown(f"### {t('hdr_pos_scoring_season')}")
-    st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_pos_scoring_season')}</p>", unsafe_allow_html=True)
+    # Positional Scoring (Season) — Feature Toggle
+    if get_feature_toggle("show_positional_scoring_chart", default=True):
+        st.markdown(f"### {t('hdr_pos_scoring_season')}")
+        st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_pos_scoring_season')}</p>", unsafe_allow_html=True)
 
-    season_box = season_data.get("boxscore", pd.DataFrame())
-    if not season_box.empty and "Points" in season_box.columns:
-        from data_pipeline.transformers import compute_positional_scoring
-        pos_season = compute_positional_scoring(season_box, team_code=team_code)
-        if not pos_season.empty and pos_season["points"].sum() > 0:
-            _tc_sec = TEAM_COLORS.get(team_code, DEFAULT_ACCENT)[1]
-            pos_colors = {"Guard": _tc_primary, "Forward": "#06b6d4", "Center": _tc_sec}
-            fig_donut = px.pie(
-                pos_season, names="position", values="points", color="position",
-                color_discrete_map=pos_colors, hole=0.5,
-            )
-            fig_donut.update_traces(textinfo="label+percent", textfont_size=14,
-                                    hovertemplate="%{label}: %{value} pts (%{percent})")
-            fig_donut.update_layout(
-                plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="#e4e4f0"), height=400, showlegend=False,
-            )
-            st.plotly_chart(fig_donut)
+        season_box = season_data.get("boxscore", pd.DataFrame())
+        if not season_box.empty and "Points" in season_box.columns:
+            from data_pipeline.transformers import compute_positional_scoring
+            pos_season = compute_positional_scoring(season_box, team_code=team_code)
+            if not pos_season.empty and pos_season["points"].sum() > 0:
+                _tc_sec = TEAM_COLORS.get(team_code, DEFAULT_ACCENT)[1]
+                pos_colors = {"Guard": _tc_primary, "Forward": "#06b6d4", "Center": _tc_sec}
+                fig_donut = px.pie(
+                    pos_season, names="position", values="points", color="position",
+                    color_discrete_map=pos_colors, hole=0.5,
+                )
+                fig_donut.update_traces(textinfo="label+percent", textfont_size=14,
+                                        hovertemplate="%{label}: %{value} pts (%{percent})")
+                fig_donut.update_layout(
+                    plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="#e4e4f0"), height=400, showlegend=False,
+                )
+                st.plotly_chart(fig_donut)
+            else:
+                st.info(t("no_pos_scoring"))
         else:
             st.info(t("no_pos_scoring"))
-    else:
-        st.info(t("no_pos_scoring"))
 
     st.markdown("---")
 

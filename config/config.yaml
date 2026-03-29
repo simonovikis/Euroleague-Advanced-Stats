@@ -32,6 +32,14 @@ data:
 ui:
   global_decimals: 2
 
+  # Feature toggles for UI components
+  features:
+    show_positional_scoring_chart: true  # Fixed: now aggregates per-player before classification
+    show_assist_network: true
+    show_shot_chart: true
+    show_form_tracker: true
+    show_lineup_stats: true
+
   default_accent:
     primary: "#6366f1"
     secondary: "#8b5cf6"

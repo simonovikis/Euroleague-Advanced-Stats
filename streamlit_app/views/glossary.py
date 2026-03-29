@@ -1,10 +1,13 @@
 import streamlit as st
-from streamlit_app.shared import t
+from streamlit_app.shared import t, render_page_header
 
 
 def render():
-    st.markdown(f'<p class="section-header">{t("hdr_glossary")}</p>', unsafe_allow_html=True)
-    st.markdown("---")
+    render_page_header(
+        t("hdr_glossary", default="Glossary"),
+        t("sub_glossary", default="Statistical definitions and formulas"),
+        icon="📖",
+    )
 
     st.markdown(f"""
 ### {t('gloss_ortg_title')}

@@ -1,13 +1,15 @@
 import pandas as pd
 import streamlit as st
-from streamlit_app.shared import t, TEAM_COLORS, DEFAULT_ACCENT, _cfg_default, render_team_sidebar
+from streamlit_app.shared import t, TEAM_COLORS, DEFAULT_ACCENT, _cfg_default, render_team_sidebar, render_page_header
 
 
 def render():
     render_team_sidebar()
-    st.markdown(f'<p class="section-header">{t("hdr_referee_stats")}</p>', unsafe_allow_html=True)
-    st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_referee_stats')}</p>", unsafe_allow_html=True)
-    st.markdown("---")
+    render_page_header(
+        t("hdr_referee_stats", default="Referee Analysis"),
+        t("sub_referee_stats", default="Officiating patterns and tendencies"),
+        icon="📋",
+    )
 
     season_to_fetch = st.session_state.get("selected_season", _cfg_default)
     selected_team = st.session_state.get("selected_team")

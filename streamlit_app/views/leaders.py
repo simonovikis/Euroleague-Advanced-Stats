@@ -4,15 +4,16 @@ import streamlit as st
 
 from streamlit_app.shared import (
     t, render_aggrid, TEAM_COLORS, DEFAULT_ACCENT, _cfg_default,
+    render_page_header,
 )
 from streamlit_app.utils.config_loader import get_leaders_defaults
 
 
 def render():
-    st.markdown(f'<p class="section-header">{t("leaders_title")}</p>', unsafe_allow_html=True)
-    st.markdown(
-        f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('leaders_subtitle')}</p>",
-        unsafe_allow_html=True,
+    render_page_header(
+        t("leaders_title", default="Season Leaders"),
+        t("leaders_subtitle", default="Top performers across all statistical categories"),
+        icon="🏅",
     )
 
     season_leaders = st.session_state.get("selected_season", _cfg_default)

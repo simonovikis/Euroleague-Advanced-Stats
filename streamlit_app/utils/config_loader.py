@@ -103,6 +103,25 @@ def get_global_decimals() -> int:
     return get_config().get("ui", {}).get("global_decimals", 2)
 
 
+def get_feature_toggle(feature_name: str, default: bool = True) -> bool:
+    """Return the value of a feature toggle from config.
+
+    Args:
+        feature_name: Name of the feature (e.g., 'show_positional_scoring_chart')
+        default: Default value if feature not found
+
+    Returns:
+        Boolean indicating if feature is enabled
+    """
+    features = get_config().get("ui", {}).get("features", {})
+    return features.get(feature_name, default)
+
+
+def get_all_feature_toggles() -> Dict[str, bool]:
+    """Return all feature toggles as a dictionary."""
+    return get_config().get("ui", {}).get("features", {})
+
+
 # ------------------------------------------------------------------
 # Fallback (keeps the app running even without the YAML file)
 # ------------------------------------------------------------------
@@ -135,6 +154,13 @@ def _build_fallback_config() -> Dict[str, Any]:
         },
         "ui": {
             "global_decimals": 2,
+            "features": {
+                "show_positional_scoring_chart": True,
+                "show_assist_network": True,
+                "show_shot_chart": True,
+                "show_form_tracker": True,
+                "show_lineup_stats": True,
+            },
             "default_accent": {"primary": "#6366f1", "secondary": "#8b5cf6"},
             "team_colors": {},
         },

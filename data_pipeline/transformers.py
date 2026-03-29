@@ -1869,10 +1869,51 @@ def compute_positional_scoring(
     Returns:
         DataFrame with columns: position, points, pct
     """
-    df = classify_player_positions(boxscore)
+    if boxscore.empty:
+        return pd.DataFrame(columns=["position", "points", "pct"])
 
-    if team_code:
+    df = boxscore.copy()
+
+    # Filter by team first if specified
+    if team_code and "Team" in df.columns:
         df = df[df["Team"] == team_code]
+
+    if df.empty:
+        return pd.DataFrame(columns=["position", "points", "pct"])
+
+    # Aggregate per-player stats across all games before classification
+    # This ensures position classification uses season totals, not per-game rows
+    agg_cols = {
+        "Points": "sum",
+        "Assistances": "sum",
+        "TotalRebounds": "sum",
+        "Minutes": "sum",  # Will be parsed in classify_player_positions
+    }
+    # Only aggregate columns that exist
+    agg_cols = {k: v for k, v in agg_cols.items() if k in df.columns}
+
+    if "Player_ID" in df.columns:
+        player_id_col = "Player_ID"
+    elif "player_id" in df.columns:
+        player_id_col = "player_id"
+    else:
+        player_id_col = None
+
+    if player_id_col and agg_cols:
+        # Keep Team for each player (take first occurrence)
+        group_cols = [player_id_col]
+        if "Team" in df.columns:
+            # Aggregate and preserve Team
+            df_agg = df.groupby(group_cols, as_index=False).agg({
+                **agg_cols,
+                "Team": "first",
+            })
+        else:
+            df_agg = df.groupby(group_cols, as_index=False).agg(agg_cols)
+        df = df_agg
+
+    # Now classify positions on aggregated data
+    df = classify_player_positions(df)
 
     if df.empty:
         return pd.DataFrame(columns=["position", "points", "pct"])
