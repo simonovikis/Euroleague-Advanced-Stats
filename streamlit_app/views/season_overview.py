@@ -21,6 +21,11 @@ def render():
     team_code = st.session_state.get("selected_team")
     valid_teams = st.session_state.get("season_team_codes", set())
 
+    _d = GLOBAL_DECIMALS
+    _fmt = f"{{:.{_d}f}}"
+    _pct_fmt = f"{{:.{_d}f}}%"
+    _delta_fmt = f"{{:+.{_d}f}} vs avg"
+
     # --- Page Header ---
     render_page_header(
         t("hdr_season_overview", default="Season Overview"),
@@ -157,11 +162,11 @@ def render():
             fig_sit = go.Figure()
             fig_sit.add_trace(go.Bar(
                 name=team_code, x=categories, y=team_vals, marker_color=_tc_primary,
-                text=[f"{v:.1f}%" for v in team_vals], textposition="outside",
+                text=[_pct_fmt.format(v) for v in team_vals], textposition="outside",
             ))
             fig_sit.add_trace(go.Bar(
                 name=t("lbl_league_avg"), x=categories, y=league_vals, marker_color="#4b5563",
-                text=[f"{v:.1f}%" for v in league_vals], textposition="outside",
+                text=[_pct_fmt.format(v) for v in league_vals], textposition="outside",
             ))
             fig_sit.update_layout(
                 barmode="group", plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
@@ -173,24 +178,24 @@ def render():
             with st.container(border=True):
                 c1, c2, c3, c4 = st.columns(4)
                 c1.metric(
-                    t("lbl_steals_pg"), f"{team_row['steals_pg']:.1f}",
-                    f"{team_row['steals_pg'] - league_avg['steals_pg']:+.1f} vs avg",
+                    t("lbl_steals_pg"), _fmt.format(team_row['steals_pg']),
+                    _delta_fmt.format(team_row['steals_pg'] - league_avg['steals_pg']),
                     help=t("tooltip_steals_pg"),
                 )
                 c2.metric(
-                    t("lbl_turnovers_pg"), f"{team_row['turnovers_pg']:.1f}",
-                    f"{team_row['turnovers_pg'] - league_avg['turnovers_pg']:+.1f} vs avg",
+                    t("lbl_turnovers_pg"), _fmt.format(team_row['turnovers_pg']),
+                    _delta_fmt.format(team_row['turnovers_pg'] - league_avg['turnovers_pg']),
                     delta_color="inverse",
                     help=t("tooltip_turnovers_pg"),
                 )
                 c3.metric(
-                    t("lbl_off_reb_pg"), f"{team_row['off_reb_pg']:.1f}",
-                    f"{team_row['off_reb_pg'] - league_avg['off_reb_pg']:+.1f} vs avg",
+                    t("lbl_off_reb_pg"), _fmt.format(team_row['off_reb_pg']),
+                    _delta_fmt.format(team_row['off_reb_pg'] - league_avg['off_reb_pg']),
                     help=t("tooltip_off_reb_pg"),
                 )
                 c4.metric(
-                    t("lbl_assists_pg"), f"{team_row['assists_pg']:.1f}",
-                    f"{team_row['assists_pg'] - league_avg['assists_pg']:+.1f} vs avg",
+                    t("lbl_assists_pg"), _fmt.format(team_row['assists_pg']),
+                    _delta_fmt.format(team_row['assists_pg'] - league_avg['assists_pg']),
                     help=t("tooltip_assists_pg"),
                 )
 
@@ -280,12 +285,12 @@ def render():
                 c1, c2, c3 = st.columns(3)
                 c1.metric(
                     t("lbl_close_win_pct"),
-                    f"{tr['close_win_pct']:.1f}%" if not pd.isna(tr["close_win_pct"]) else "N/A",
-                    f"{tr['close_win_pct'] - league_avg_val:+.1f} vs avg" if not pd.isna(tr["close_win_pct"]) else None,
+                    _pct_fmt.format(tr['close_win_pct']) if not pd.isna(tr["close_win_pct"]) else "N/A",
+                    _delta_fmt.format(tr['close_win_pct'] - league_avg_val) if not pd.isna(tr["close_win_pct"]) else None,
                     help=t("tooltip_close_win_pct", threshold=close_threshold),
                 )
                 c2.metric(
-                    t("lbl_league_avg_close"), f"{league_avg_val:.1f}%",
+                    t("lbl_league_avg_close"), _pct_fmt.format(league_avg_val),
                     help=t("tooltip_league_avg_close"),
                 )
                 c3.metric(
@@ -307,7 +312,7 @@ def render():
 
             fig_dom = go.Figure()
             others = plot_df[~plot_df["is_selected"]]
-            _hover_dom = "%{customdata[0]}<br>" + t("hover_pt_diff") + ": %{x:.1f}<br>" + t("hover_close_win_pct") + ": %{y:.1f}%%<br>" + t("hover_close_gp") + ": %{customdata[1]}<extra></extra>"
+            _hover_dom = "%{customdata[0]}<br>" + t("hover_pt_diff") + f": %{{x:.{_d}f}}<br>" + t("hover_close_win_pct") + f": %{{y:.{_d}f}}%%<br>" + t("hover_close_gp") + ": %{customdata[1]}<extra></extra>"
             fig_dom.add_trace(go.Scatter(
                 x=others["avg_point_diff"], y=others["close_win_pct"],
                 mode="markers+text", text=others["team_code"],
@@ -332,7 +337,7 @@ def render():
                 ))
 
             fig_dom.add_hline(y=league_avg_cw, line_dash="dash", line_color="#f59e0b",
-                              annotation_text=f"League Avg: {league_avg_cw:.1f}%",
+                              annotation_text=f"League Avg: {_pct_fmt.format(league_avg_cw)}",
                               annotation_font_color="#f59e0b")
             fig_dom.add_vline(x=0, line_dash="dash", line_color="#374151")
 
@@ -357,7 +362,7 @@ def render():
 
             fig_ov = go.Figure()
             others2 = plot_df[~plot_df["is_selected"]]
-            _hover_ov = "%{customdata}<br>" + t("lbl_overall_win_pct") + ": %{x:.1f}%%<br>" + t("hover_close_win_pct") + ": %{y:.1f}%%<extra></extra>"
+            _hover_ov = "%{customdata}<br>" + t("lbl_overall_win_pct") + f": %{{x:.{_d}f}}%%<br>" + t("hover_close_win_pct") + f": %{{y:.{_d}f}}%%<extra></extra>"
             fig_ov.add_trace(go.Scatter(
                 x=others2["overall_win_pct"], y=others2["close_win_pct"],
                 mode="markers+text", text=others2["team_code"],
@@ -496,12 +501,12 @@ def render():
                 if form_metric == "TPC":
                     metric_col = "total_pts_created"
                     metric_label = t("lbl_tpc", default="Total Points Created")
-                    fmt_func = lambda v: f"{v:.1f}"
+                    fmt_func = lambda v: _fmt.format(v)
                     is_pct = False
                 else:
                     metric_col = "ts_pct"
                     metric_label = t("lbl_ts", default="TS%")
-                    fmt_func = lambda v: f"{v:.1%}"
+                    fmt_func = lambda v: f"{{:.{_d}%}}".format(v)
                     is_pct = True
 
                 if metric_col not in pdf.columns:

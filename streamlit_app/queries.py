@@ -763,39 +763,63 @@ def fetch_scouting_player_pool(
             try:
                 from sqlalchemy import text
                 from data_pipeline.transformers import format_player_name
+                from data_pipeline.scouting_engine import infer_position
                 query = text("""
                     SELECT
                         pas.player_id AS player_code,
                         pas.player_name AS player_name_raw,
                         pas.team_code,
-                        COUNT(DISTINCT pas.gamecode) AS "gamesPlayed",
-                        SUM(pas.minutes) AS total_minutes,
-                        AVG(pas.minutes) AS "minutesPlayed",
-                        AVG(pas.points) AS "pointsScored",
-                        AVG(pas.fgm2) AS "twoPointersMade",
-                        AVG(pas.fga2) AS "twoPointersAttempted",
-                        AVG(pas.fgm3) AS "threePointersMade",
-                        AVG(pas.fga3) AS "threePointersAttempted",
-                        AVG(pas.ftm) AS "freeThrowsMade",
-                        AVG(pas.fta) AS "freeThrowsAttempted",
-                        AVG(pas.total_rebounds) AS "totalRebounds",
-                        AVG(pas.assists) AS "assists",
-                        AVG(pas.turnovers) AS "turnovers",
-                        AVG(pas.steals) AS "steals",
-                        AVG(pas.blocks_favour) AS "blocks",
+                        t.team_name,
+                        COUNT(DISTINCT pas.gamecode) AS games_played,
+                        AVG(pas.minutes) AS minutes_pg,
+                        AVG(pas.points) AS points_pg,
                         AVG(pas.ts_pct) AS ts_pct,
                         AVG(pas.off_rating) AS off_rating,
-                        AVG(pas.def_rating) AS def_rating,
-                        AVG(pas.possessions) AS possessions
+                        AVG(pas.steals) AS steals_pg,
+                        AVG(pas.blocks_favour) AS blocks_pg,
+                        AVG(pas.assists) AS assists_pg,
+                        AVG(pas.total_rebounds) AS rebounds_pg,
+                        CASE WHEN SUM(pas.fga2 + pas.fga3) > 0
+                             THEN SUM(pas.fga3)::float / SUM(pas.fga2 + pas.fga3)
+                             ELSE 0 END AS three_pt_rate,
+                        CASE WHEN SUM(pas.fga2 + pas.fga3) > 0
+                             THEN SUM(pas.fta)::float / SUM(pas.fga2 + pas.fga3)
+                             ELSE 0 END AS ft_rate,
+                        CASE WHEN SUM(pas.turnovers) > 0
+                             THEN SUM(pas.assists)::float / SUM(pas.turnovers)
+                             ELSE 0 END AS ast_tov_ratio,
+                        CASE WHEN SUM(pas.possessions) > 0
+                             THEN (SUM(pas.fga2 + pas.fga3) + 0.44 * SUM(pas.fta)
+                                   + SUM(pas.turnovers) + SUM(pas.assists)
+                                   + SUM(pas.fouls_received))::float
+                                  / SUM(pas.possessions)
+                             ELSE 0 END AS true_usg_pct,
+                        CASE WHEN SUM(pas.possessions) > 0
+                             THEN (SUM(pas.steals) + SUM(pas.blocks_favour)
+                                   + SUM(pas.def_rebounds))::float
+                                  / SUM(pas.possessions)
+                             ELSE 0 END AS stop_rate,
+                        CASE WHEN SUM(pas.possessions) > 0
+                             THEN SUM(pas.assists)::float / SUM(pas.possessions)
+                             ELSE 0 END AS assist_ratio,
+                        CASE WHEN SUM(pas.total_rebounds) > 0
+                             THEN SUM(pas.off_rebounds)::float / SUM(pas.total_rebounds)
+                             ELSE 0 END AS orb_pct,
+                        CASE WHEN SUM(pas.total_rebounds) > 0
+                             THEN SUM(pas.def_rebounds)::float / SUM(pas.total_rebounds)
+                             ELSE 0 END AS drb_pct
                     FROM player_advanced_stats pas
+                    LEFT JOIN teams t ON pas.team_code = t.team_code
                     WHERE pas.season = :season AND pas.minutes > 0
-                    GROUP BY pas.player_id, pas.player_name, pas.team_code
+                    GROUP BY pas.player_id, pas.player_name, pas.team_code, t.team_name
                     HAVING COUNT(DISTINCT pas.gamecode) >= 10
                 """)
                 with engine.connect() as conn:
                     df = pd.read_sql(query, conn, params={"season": season})
                 if not df.empty:
                     df["player_name"] = df["player_name_raw"].apply(format_player_name)
+                    df["image_url"] = ""
+                    df["position"] = df.apply(infer_position, axis=1)
                     return df
             except Exception as e:
                 logger.warning("DB fetch failed for fetch_scouting_player_pool(%s). Falling back to API. Reason: %s: %s", season, type(e).__name__, e)
