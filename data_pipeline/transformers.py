@@ -656,13 +656,14 @@ def compute_lineup_stats(
 
     Scoring events are identified by PLAYTYPE in {2FGM, 3FGM, FTM}
     with point values derived from the play type.
+
+    Handles multi-game data correctly by processing each game's
+    home/away context independently, preserving strict team boundaries.
     """
     if pbp_with_lineups.empty or "home_lineup" not in pbp_with_lineups.columns:
         return pd.DataFrame()
 
     df = pbp_with_lineups.copy()
-    home_team = df["home_team"].iloc[0]
-    away_team = df["away_team"].iloc[0]
 
     # Build player_id → formatted_name map
     name_map = {}
@@ -676,76 +677,87 @@ def compute_lineup_stats(
     score_map = {"2FGM": 2, "3FGM": 3, "FTM": 1}
     df["score_pts"] = df["PLAYTYPE"].map(score_map).fillna(0).astype(int)
 
-    # Possession-ending events: made shots (non-FT), turnovers, defensive rebounds
-    # We use a simplified count of possessions per lineup
+    # Possession-ending events
     poss_events = {"2FGM", "2FGA", "3FGM", "3FGA", "TO", "D"}
 
+    # ---- Process each game independently ----
+    per_lineup: dict[frozenset, dict] = {}
+
+    game_groups = df.groupby(["home_team", "away_team"])
+
+    for (ht, at), game_df in game_groups:
+        # Process home lineups for this game context
+        for lineup, group in game_df.groupby("home_lineup"):
+            if len(lineup) != 5:
+                continue
+
+            pts_for = group.loc[group["CODETEAM"] == ht, "score_pts"].sum()
+            pts_against = group.loc[group["CODETEAM"] == at, "score_pts"].sum()
+
+            team_poss = len(group[
+                (group["CODETEAM"] == ht) & (group["PLAYTYPE"].isin(poss_events))
+            ])
+            opp_poss = len(group[
+                (group["CODETEAM"] == at) & (group["PLAYTYPE"].isin(poss_events))
+            ])
+
+            key = (ht, lineup)
+            if key not in per_lineup:
+                per_lineup[key] = {
+                    "team": ht, "lineup": lineup,
+                    "events": 0, "pts_for": 0, "pts_against": 0,
+                    "team_poss": 0, "opp_poss": 0,
+                }
+            per_lineup[key]["events"] += len(group)
+            per_lineup[key]["pts_for"] += int(pts_for)
+            per_lineup[key]["pts_against"] += int(pts_against)
+            per_lineup[key]["team_poss"] += team_poss
+            per_lineup[key]["opp_poss"] += opp_poss
+
+        # Process away lineups for this game context
+        for lineup, group in game_df.groupby("away_lineup"):
+            if len(lineup) != 5:
+                continue
+
+            pts_for = group.loc[group["CODETEAM"] == at, "score_pts"].sum()
+            pts_against = group.loc[group["CODETEAM"] == ht, "score_pts"].sum()
+
+            team_poss = len(group[
+                (group["CODETEAM"] == at) & (group["PLAYTYPE"].isin(poss_events))
+            ])
+            opp_poss = len(group[
+                (group["CODETEAM"] == ht) & (group["PLAYTYPE"].isin(poss_events))
+            ])
+
+            key = (at, lineup)
+            if key not in per_lineup:
+                per_lineup[key] = {
+                    "team": at, "lineup": lineup,
+                    "events": 0, "pts_for": 0, "pts_against": 0,
+                    "team_poss": 0, "opp_poss": 0,
+                }
+            per_lineup[key]["events"] += len(group)
+            per_lineup[key]["pts_for"] += int(pts_for)
+            per_lineup[key]["pts_against"] += int(pts_against)
+            per_lineup[key]["team_poss"] += team_poss
+            per_lineup[key]["opp_poss"] += opp_poss
+
+    # ---- Build final results from aggregated per-lineup stats ----
     results = []
+    for (_team, _lineup), agg in per_lineup.items():
+        total_poss = max((agg["team_poss"] + agg["opp_poss"]) / 2, 1)
+        ortg = (agg["pts_for"] / total_poss) * 100
+        drtg = (agg["pts_against"] / total_poss) * 100
 
-    # Process home lineups
-    for lineup, group in df.groupby("home_lineup"):
-        if len(lineup) != 5:
-            continue
-
-        pts_for = group.loc[group["CODETEAM"] == home_team, "score_pts"].sum()
-        pts_against = group.loc[group["CODETEAM"] == away_team, "score_pts"].sum()
-
-        # Estimate possessions: count possession-ending events by home team
-        home_poss = len(group[
-            (group["CODETEAM"] == home_team) & (group["PLAYTYPE"].isin(poss_events))
-        ])
-        # Estimate opponent possessions likewise
-        opp_poss = len(group[
-            (group["CODETEAM"] == away_team) & (group["PLAYTYPE"].isin(poss_events))
-        ])
-
-        total_poss = max((home_poss + opp_poss) / 2, 1)  # average both sides
-        ortg = (pts_for / total_poss) * 100 if total_poss > 0 else 0
-        drtg = (pts_against / total_poss) * 100 if total_poss > 0 else 0
-
-        formatted_names = [name_map.get(pid, pid) for pid in lineup]
+        formatted_names = [name_map.get(pid, pid) for pid in agg["lineup"]]
 
         results.append({
-            "team": home_team,
-            "lineup": lineup,
+            "team": agg["team"],
+            "lineup": agg["lineup"],
             "lineup_str": ", ".join(sorted(formatted_names)),
-            "events": len(group),
-            "pts_for": pts_for,
-            "pts_against": pts_against,
-            "poss": total_poss,
-            "ortg": round(ortg, 1),
-            "drtg": round(drtg, 1),
-            "net_rtg": round(ortg - drtg, 1),
-        })
-
-    # Process away lineups
-    for lineup, group in df.groupby("away_lineup"):
-        if len(lineup) != 5:
-            continue
-
-        pts_for = group.loc[group["CODETEAM"] == away_team, "score_pts"].sum()
-        pts_against = group.loc[group["CODETEAM"] == home_team, "score_pts"].sum()
-
-        home_poss = len(group[
-            (group["CODETEAM"] == away_team) & (group["PLAYTYPE"].isin(poss_events))
-        ])
-        opp_poss = len(group[
-            (group["CODETEAM"] == home_team) & (group["PLAYTYPE"].isin(poss_events))
-        ])
-
-        total_poss = max((home_poss + opp_poss) / 2, 1)
-        ortg = (pts_for / total_poss) * 100 if total_poss > 0 else 0
-        drtg = (pts_against / total_poss) * 100 if total_poss > 0 else 0
-
-        formatted_names = [name_map.get(pid, pid) for pid in lineup]
-
-        results.append({
-            "team": away_team,
-            "lineup": lineup,
-            "lineup_str": ", ".join(sorted(formatted_names)),
-            "events": len(group),
-            "pts_for": pts_for,
-            "pts_against": pts_against,
+            "events": agg["events"],
+            "pts_for": agg["pts_for"],
+            "pts_against": agg["pts_against"],
             "poss": total_poss,
             "ortg": round(ortg, 1),
             "drtg": round(drtg, 1),
