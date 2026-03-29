@@ -35,6 +35,10 @@ plotly>=5.18.0
 streamlit-option-menu>=0.3.6
 streamlit-aggrid>=0.3.4
 
+# FastAPI backend
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+
 # LLM Agent (Chat with Stats)
 langchain>=0.3.0
 langchain-experimental>=0.3.0
