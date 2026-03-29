@@ -20,7 +20,7 @@ if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
 from sqlalchemy import text
-from data_pipeline.load_to_db import run_pipeline_batch, run_season_aggregations, get_engine, ensure_schema, update_games_from_schedule, update_games_referees
+from data_pipeline.load_to_db import run_pipeline_batch, run_season_aggregations, get_engine, ensure_schema, update_games_from_schedule, update_games_referees, update_teams_metadata
 from data_pipeline.extractors import get_season_schedule
 
 logger = logging.getLogger(__name__)
@@ -64,6 +64,7 @@ def sync_recent_games(season: int, competition: str = "E") -> None:
     result = run_pipeline_batch(season, missing_games, competition, engine=engine)
 
     update_games_from_schedule(engine, schedule, season)
+    update_teams_metadata(engine, schedule)
     update_games_referees(engine, season)
 
     if result["loaded"] > 0:

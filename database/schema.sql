@@ -10,7 +10,8 @@
 -- -----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS teams (
     team_code   VARCHAR(10) PRIMARY KEY,      -- e.g. "PAO", "BAR", "OLY"
-    team_name   VARCHAR(120) NOT NULL
+    team_name   VARCHAR(120) NOT NULL,
+    logo_url    TEXT                           -- team crest / logo URL
 );
 
 -- -----------------------------------------------------------

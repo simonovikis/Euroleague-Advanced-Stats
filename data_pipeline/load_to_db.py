@@ -195,11 +195,53 @@ def load_teams(engine: Engine, boxscore_df: pd.DataFrame) -> None:
     n = _bulk_execute(
         engine,
         """INSERT INTO teams (team_code, team_name) VALUES %s
-           ON CONFLICT (team_code) DO UPDATE SET team_name = EXCLUDED.team_name""",
+           ON CONFLICT (team_code) DO UPDATE SET
+               team_name = CASE WHEN teams.team_name = teams.team_code
+                                THEN EXCLUDED.team_name
+                                ELSE teams.team_name END""",
         ["team_code", "team_name"],
         records,
     )
     logger.info(f"Upserted {n} teams")
+
+
+def update_teams_metadata(engine: Engine, schedule: pd.DataFrame) -> None:
+    """Update teams table with full names and logo URLs from the schedule."""
+    if schedule.empty:
+        return
+
+    from sqlalchemy import text as sa_text
+
+    records = {}
+    for _, row in schedule.iterrows():
+        hc = row.get("home_code", "")
+        if hc and hc not in records:
+            records[hc] = {
+                "team_code": hc,
+                "team_name": row.get("home_name", hc),
+                "logo_url": row.get("home_logo", None) or None,
+            }
+        ac = row.get("away_code", "")
+        if ac and ac not in records:
+            records[ac] = {
+                "team_code": ac,
+                "team_name": row.get("away_name", ac),
+                "logo_url": row.get("away_logo", None) or None,
+            }
+
+    if not records:
+        return
+
+    with engine.begin() as conn:
+        for rec in records.values():
+            conn.execute(sa_text("""
+                UPDATE teams
+                SET team_name = COALESCE(:team_name, team_name),
+                    logo_url  = COALESCE(:logo_url, logo_url)
+                WHERE team_code = :team_code
+            """), rec)
+
+    logger.info(f"Updated {len(records)} team(s) with names and logos")
 
 
 def load_players(engine: Engine, boxscore_df: pd.DataFrame) -> None:
@@ -1052,6 +1094,9 @@ def load_season(
 
     # Update games with schedule metadata (round, date, played)
     update_games_from_schedule(engine, schedule, season)
+
+    # Update teams with full names and logo URLs from the schedule
+    update_teams_metadata(engine, schedule)
 
     # Fetch and persist referee data from GameMetadata API
     update_games_referees(engine, season, competition)
