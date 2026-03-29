@@ -1,0 +1,57 @@
+name: Nightly ETL Pipeline
+
+on:
+  schedule:
+    # Every day at 03:00 AM UTC
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "Season year (e.g. 2025)"
+        required: false
+        default: "2025"
+      mode:
+        description: "Run mode"
+        required: false
+        default: "sync"
+        type: choice
+        options:
+          - sync
+          - full-reset
+
+jobs:
+  etl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run ETL pipeline (sync — incremental)
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.mode == 'sync')
+        run: |
+          SEASON="${{ inputs.season || '2025' }}"
+          echo "Running incremental sync for season ${SEASON}..."
+          python -m data_pipeline.sync --season "${SEASON}"
+
+      - name: Run ETL pipeline (full reset)
+        if: github.event_name == 'workflow_dispatch' && inputs.mode == 'full-reset'
+        run: |
+          SEASON="${{ inputs.season || '2025' }}"
+          echo "Running full reset for season ${SEASON}..."
+          python -m data_pipeline.load_to_db --season "${SEASON}" --reset
