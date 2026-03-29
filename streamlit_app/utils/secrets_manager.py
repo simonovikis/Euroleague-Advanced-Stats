@@ -28,6 +28,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from typing import Any, List, Optional
+from urllib.parse import urlparse, urlunparse, parse_qs, urlencode
 
 from dotenv import load_dotenv
 
@@ -83,6 +84,52 @@ def get_secret_as_list(key_name: str) -> List[str]:
     if not raw_str:
         return []
     return [e.strip().lower() for e in raw_str.split(",") if e.strip()]
+
+
+def format_pooler_url(db_url: str) -> str:
+    """Transform a standard PostgreSQL connection string for Supabase Supavisor.
+
+    Rewrites the port to **6543** (Supavisor IPv4 pooler) and appends
+    ``pool_mode=transaction`` as a query parameter.  Handles the
+    ``postgresql+psycopg2://`` driver prefix that SQLAlchemy needs.
+    """
+    if not db_url:
+        return db_url
+
+    normalized = db_url
+    if normalized.startswith("postgres://"):
+        normalized = normalized.replace("postgres://", "postgresql://", 1)
+
+    parsed = urlparse(normalized)
+
+    # Replace port with 6543
+    netloc = parsed.hostname or ""
+    if parsed.username:
+        user_part = parsed.username
+        if parsed.password:
+            user_part += f":{parsed.password}"
+        netloc = f"{user_part}@{netloc}"
+    netloc += ":6543"
+
+    # Merge pool_mode=transaction into existing query params
+    params = parse_qs(parsed.query)
+    params["pool_mode"] = ["transaction"]
+    query_string = urlencode(params, doseq=True)
+
+    pooled = urlunparse((
+        parsed.scheme,
+        netloc,
+        parsed.path,
+        parsed.params,
+        query_string,
+        parsed.fragment,
+    ))
+
+    # Ensure the psycopg2 driver prefix for SQLAlchemy
+    if pooled.startswith("postgresql://"):
+        pooled = pooled.replace("postgresql://", "postgresql+psycopg2://", 1)
+
+    return pooled
 
 
 # ------------------------------------------------------------------

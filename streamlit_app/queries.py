@@ -283,10 +283,15 @@ def fetch_team_season_data(season: int, team_code: str, competition: str = COMPE
 # ========================================================================
 
 def _get_db_engine():
-    """Get SQLAlchemy engine for database queries."""
+    """Get a pooled SQLAlchemy engine for Streamlit database queries.
+
+    Delegates to ``load_to_db.get_engine`` which applies Supavisor
+    connection pooling (port 6543, ``pool_mode=transaction``) and
+    optimised SQLAlchemy pool settings automatically.
+    """
     try:
         from data_pipeline.load_to_db import get_engine
-        return get_engine()
+        return get_engine(use_pooler=True)
     except Exception as e:
         logger.warning(f"Database not available: {e}")
         return None

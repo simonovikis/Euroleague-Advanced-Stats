@@ -24,15 +24,19 @@ _project_root = Path(__file__).resolve().parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-from streamlit_app.utils.secrets_manager import get_secret
+from streamlit_app.utils.secrets_manager import get_secret, format_pooler_url
 
 
-def get_engine() -> Engine:
+def get_engine(use_pooler: bool = True) -> Engine:
     """
     Build a SQLAlchemy engine from environment variables.
 
-    Uses psycopg2 as the database driver natively.
-    Resolves secrets at call time so env overrides (e.g. in tests) work.
+    Parameters
+    ----------
+    use_pooler : bool
+        When *True* (default), the connection string is rewritten to use
+        Supabase Supavisor (port 6543, ``pool_mode=transaction``).
+        Set to *False* for direct connections (migrations, admin tasks).
     """
     db_url = get_secret("DATABASE_URL", "") or get_secret("POSTGRES_URL", "")
 
@@ -50,9 +54,18 @@ def get_engine() -> Engine:
         db = get_secret("POSTGRES_DB", "euroleague_db")
         url = f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{db}"
 
+    if use_pooler:
+        url = format_pooler_url(url)
+
     try:
-        engine = create_engine(url, echo=False)
-        # Log safely without exposing password
+        engine = create_engine(
+            url,
+            echo=False,
+            pool_size=10,
+            max_overflow=20,
+            pool_pre_ping=True,
+            pool_recycle=300,
+        )
         safe_url = url.split("@")[-1] if "@" in url else "unknown_host"
         logger.info(f"Database engine created for {safe_url}")
         return engine
