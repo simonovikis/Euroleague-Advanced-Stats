@@ -86,9 +86,7 @@ st.markdown(
     .stDataFrame { border-radius: 8px; overflow: hidden; }
 
     .section-header {
-        background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        color: #e4e4f0;
         font-size: 1.5rem;
         font-weight: 700;
         margin-bottom: 0.5rem;
@@ -197,9 +195,7 @@ def _inject_team_css(primary: str, secondary: str):
         f"""
 <style>
     .section-header {{
-        background: linear-gradient(90deg, {primary} 0%, {secondary} 100%) !important;
-        -webkit-background-clip: text !important;
-        -webkit-text-fill-color: transparent !important;
+        color: {primary} !important;
     }}
     .stTabs [data-baseweb="tab-highlight"] {{ background-color: {primary} !important; }}
     .stApp hr {{ border-color: {hex_to_rgba(primary, 0.35)} !important; }}
@@ -241,8 +237,7 @@ default_lang_idx = list(lang_map.values()).index(st.session_state.get("lang", _d
 
 with st.sidebar:
     st.markdown(
-        "<h1 style='text-align:center; background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%); "
-        "-webkit-background-clip: text; -webkit-text-fill-color: transparent; "
+        "<h1 style='text-align:center; color: #e4e4f0; "
         "font-size: 1.6rem; font-weight: 700; margin-bottom: 0.5rem;'>Euroleague Analytics</h1>",
         unsafe_allow_html=True,
     )
