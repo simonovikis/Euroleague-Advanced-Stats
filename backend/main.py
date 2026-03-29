@@ -5,6 +5,8 @@ Run with:
     uvicorn backend.main:app --reload --port 8000
 """
 
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -17,13 +19,19 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# ── CORS — allow local Vue / Nuxt dev servers ───────────────────────
+# ── CORS — allow local dev + production frontend ────────────────────
+_allowed_origins = [
+    "http://localhost:5173",   # Vite default
+    "http://localhost:3000",   # Nuxt default
+]
+
+_frontend_url = os.getenv("FRONTEND_URL")  # e.g. https://my-euroleague-app.vercel.app
+if _frontend_url:
+    _allowed_origins.append(_frontend_url.rstrip("/"))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",   # Vite default
-        "http://localhost:3000",   # Nuxt default
-    ],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
