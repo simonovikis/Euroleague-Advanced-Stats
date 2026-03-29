@@ -310,7 +310,7 @@ with st.sidebar:
         t("fav_change_btn", default="Change Favorite Team") if _fav
         else t("fav_set_btn", default="Set Favorite Team"),
         key="sidebar_change_fav",
-        use_container_width=True,
+        width="stretch",
     ):
         show_favorite_team_selector()
 
@@ -381,6 +381,10 @@ def _page_scout_finder():
     from streamlit_app.views.scout_finder import render
     render()
 
+def _page_playoff_picture():
+    from streamlit_app.views.playoff_probabilities import render
+    render()
+
 
 # ========================================================================
 # NAVIGATION  (grouped into Main / Analytics / Tools)
@@ -409,6 +413,9 @@ analytics_pages.append(
     st.Page(_page_scout_finder, title=t("nav_scout_finder", default="Scout Finder"), icon="💰", url_path="scout-finder"),
 )
 if is_feature_enabled("ENABLE_ML_PREDICTIONS"):
+    analytics_pages.append(
+        st.Page(_page_playoff_picture, title=t("nav_playoff_picture", default="Playoff Picture"), icon="🎯", url_path="playoff-picture"),
+    )
     analytics_pages.append(
         st.Page(_page_lineup_optimizer, title=t("nav_lineup_label", default="Lineup Optimizer"), icon="🧪", url_path="lineup-optimizer"),
     )

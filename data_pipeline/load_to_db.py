@@ -1087,6 +1087,11 @@ def load_season(
     ensure_schema(engine)
 
     logger.info(f"=== Starting full-season load for {competition}{season} ===")
+
+    # Seed the full schedule (played + unplayed) first
+    from data_pipeline.sync_schedule import seed_schedule
+    seed_schedule(season, competition, engine=engine)
+
     schedule = get_season_schedule(season, competition)
     if schedule.empty:
         logger.error("Failed to load schedule. Aborting.")

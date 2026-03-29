@@ -165,6 +165,38 @@ class TestLoaderImports:
         from data_pipeline.load_to_db import load_season
 
 
+class TestMonteCarloImports:
+    """Verify Monte Carlo simulation engine is importable."""
+
+    def test_import_simulate_season(self):
+        from data_pipeline.monte_carlo import simulate_season
+
+    def test_import_build_current_standings(self):
+        from data_pipeline.monte_carlo import build_current_standings
+
+    def test_import_get_remaining_games(self):
+        from data_pipeline.monte_carlo import get_remaining_games
+
+    def test_import_win_probability(self):
+        from data_pipeline.monte_carlo import _win_probability
+
+    def test_import_fetch_full_schedule(self):
+        from data_pipeline.monte_carlo import fetch_full_schedule
+
+    def test_import_get_remaining_regular_season_games(self):
+        from data_pipeline.monte_carlo import get_remaining_regular_season_games
+
+
+class TestSyncScheduleImports:
+    """Verify schedule seeder is importable."""
+
+    def test_import_seed_schedule(self):
+        from data_pipeline.sync_schedule import seed_schedule
+
+    def test_import_fetch_regular_season_schedule(self):
+        from data_pipeline.sync_schedule import fetch_regular_season_schedule
+
+
 class TestSeasonalTrendsImports:
     """Verify seasonal trends ML pipeline is importable."""
 

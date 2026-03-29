@@ -336,11 +336,11 @@ def show_favorite_team_selector(team_options: list[str] | None = None) -> None:
 
     col_save, col_skip = st.columns(2)
     with col_save:
-        if st.button(t("fav_save_btn", default="Save Preference"), type="primary", use_container_width=True):
+        if st.button(t("fav_save_btn", default="Save Preference"), type="primary", width="stretch"):
             save_favorite_team(chosen)
             st.rerun()
     with col_skip:
-        if st.button(t("fav_skip_btn", default="Skip for now"), use_container_width=True):
+        if st.button(t("fav_skip_btn", default="Skip for now"), width="stretch"):
             st.session_state["favorite_team_skipped"] = True
             st.rerun()
 

@@ -44,7 +44,7 @@ def render():
     # ------------------------------------------------------------------
     # FILTERS
     # ------------------------------------------------------------------
-    with st.popover("🔎 " + t("scout_finder_filters", default="Filter Players"), use_container_width=True):
+    with st.popover("🔎 " + t("scout_finder_filters", default="Filter Players"), width="stretch"):
         f_col1, f_col2 = st.columns(2)
 
         with f_col1:
@@ -192,7 +192,7 @@ def render():
                 title_text="",
             ),
         )
-        st.plotly_chart(fig_scatter, use_container_width=True)
+        st.plotly_chart(fig_scatter, width="stretch")
 
     st.markdown("---")
 
@@ -280,6 +280,6 @@ def render():
         display,
         column_config=col_config,
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
         height=min(700, 40 + len(display) * 35),
     )

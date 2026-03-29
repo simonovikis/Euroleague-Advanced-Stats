@@ -31,6 +31,10 @@ def sync_recent_games(season: int, competition: str = "E") -> None:
     Finds games that are marked as 'played' on the official schedule
     but are missing from the local database, and loads them using the
     concurrent batch pipeline.
+
+    Also seeds the full regular-season calendar (including future
+    unplayed fixtures) so that downstream consumers like the Monte
+    Carlo simulator can see the remaining schedule.
     """
     logger.info(f"=== Starting Smart Sync for {competition}{season} ===")
 
@@ -39,10 +43,18 @@ def sync_recent_games(season: int, competition: str = "E") -> None:
         logger.error("Failed to fetch live schedule. Aborting sync.")
         return
 
-    played_official = schedule[schedule["played"] == True]["gamecode"].tolist()
-
     engine = get_engine()
     ensure_schema(engine)
+
+    # Seed the full schedule (played + unplayed) before syncing boxscores
+    from data_pipeline.sync_schedule import seed_schedule
+    seed_result = seed_schedule(season, competition, engine=engine)
+    logger.info(
+        "Schedule seed: %d new, %d updated.",
+        seed_result["inserted"], seed_result["updated"],
+    )
+
+    played_official = schedule[schedule["played"] == True]["gamecode"].tolist()
 
     with engine.connect() as conn:
         db_games = pd.read_sql(
