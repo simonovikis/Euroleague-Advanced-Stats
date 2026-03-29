@@ -158,13 +158,8 @@ def ensure_game_data(gc: int) -> dict:
 
                 repo = _get_repository()
                 if repo.db_available() and repo.is_game_cached(season_to_fetch, gc):
-                    st.write("✅ Game found in database cache.")
-                    raw = {
-                        "boxscore": repo._load_boxscore_from_db(season_to_fetch, gc),
-                        "pbp": repo._load_pbp_from_db(season_to_fetch, gc),
-                        "shots": repo._load_shots_from_db(season_to_fetch, gc),
-                        "game_info": repo._load_game_info_from_db(season_to_fetch, gc),
-                    }
+                    st.write("✅ Game found in database cache (parallel fetch).")
+                    raw = repo.load_game_data_concurrent(season_to_fetch, gc)
                 else:
                     st.write("⏳ Downloading boxscore & play-by-play from API...")
                     from data_pipeline.extractors import extract_game_data

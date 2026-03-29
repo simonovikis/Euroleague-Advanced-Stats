@@ -10,6 +10,7 @@ Usage:
     game_data = repo.get_game_data(season=2024, gamecode=1)
 """
 
+import asyncio
 import logging
 from typing import Dict, List, Optional
 
@@ -206,6 +207,48 @@ class DataRepository:
             logger.error(f"Failed to cache game {season}/{gamecode}: {e}")
 
     # ------------------------------------------------------------------
+    # Concurrent DB loading (parallel I/O via asyncio)
+    # ------------------------------------------------------------------
+    async def _load_game_data_from_db_async(
+        self, season: int, gamecode: int
+    ) -> Dict[str, pd.DataFrame]:
+        """Fire all four raw-data queries in parallel using thread workers."""
+        boxscore, pbp, shots, game_info = await asyncio.gather(
+            asyncio.to_thread(self._load_boxscore_from_db, season, gamecode),
+            asyncio.to_thread(self._load_pbp_from_db, season, gamecode),
+            asyncio.to_thread(self._load_shots_from_db, season, gamecode),
+            asyncio.to_thread(self._load_game_info_from_db, season, gamecode),
+        )
+        return {
+            "boxscore": boxscore,
+            "pbp": pbp,
+            "shots": shots,
+            "game_info": game_info,
+        }
+
+    def load_game_data_concurrent(
+        self, season: int, gamecode: int
+    ) -> Dict[str, pd.DataFrame]:
+        """Synchronous wrapper for Streamlit — runs parallel DB fetches."""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+                futures = {
+                    "boxscore": pool.submit(self._load_boxscore_from_db, season, gamecode),
+                    "pbp": pool.submit(self._load_pbp_from_db, season, gamecode),
+                    "shots": pool.submit(self._load_shots_from_db, season, gamecode),
+                    "game_info": pool.submit(self._load_game_info_from_db, season, gamecode),
+                }
+                return {k: f.result() for k, f in futures.items()}
+
+        return asyncio.run(self._load_game_data_from_db_async(season, gamecode))
+
+    # ------------------------------------------------------------------
     # Transformer pipeline (same logic as fetch_game_data_live)
     # ------------------------------------------------------------------
     @staticmethod
@@ -281,15 +324,10 @@ class DataRepository:
         """
         import streamlit as st
 
-        # --- 1. Try loading from DB ---
+        # --- 1. Try loading from DB (concurrent) ---
         if self.is_game_cached(season, gamecode):
-            logger.info(f"DB HIT: loading game {season}/{gamecode} from cache")
-            raw = {
-                "boxscore": self._load_boxscore_from_db(season, gamecode),
-                "pbp": self._load_pbp_from_db(season, gamecode),
-                "shots": self._load_shots_from_db(season, gamecode),
-                "game_info": self._load_game_info_from_db(season, gamecode),
-            }
+            logger.info(f"DB HIT: loading game {season}/{gamecode} from cache (parallel)")
+            raw = self.load_game_data_concurrent(season, gamecode)
             return self._transform_raw(raw)
 
         # --- 2. Cache miss → fetch from API ---
