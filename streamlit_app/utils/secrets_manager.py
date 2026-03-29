@@ -89,8 +89,8 @@ def get_secret_as_list(key_name: str) -> List[str]:
 def format_pooler_url(db_url: str) -> str:
     """Transform a standard PostgreSQL connection string for Supabase Supavisor.
 
-    Rewrites the port to **6543** (Supavisor IPv4 pooler) and appends
-    ``pool_mode=transaction`` as a query parameter.  Handles the
+    Rewrites the port to **6543** (Supavisor IPv4 pooler) and strips any
+    ``pool_mode`` query parameter that psycopg2 cannot handle.  Handles the
     ``postgresql+psycopg2://`` driver prefix that SQLAlchemy needs.
     """
     if not db_url:
@@ -111,9 +111,11 @@ def format_pooler_url(db_url: str) -> str:
         netloc = f"{user_part}@{netloc}"
     netloc += ":6543"
 
-    # Merge pool_mode=transaction into existing query params
+    # Strip pool_mode from query params — psycopg2 does not support it
+    # as a libpq connection option. Supavisor infers transaction mode
+    # from the port (6543) automatically.
     params = parse_qs(parsed.query)
-    params["pool_mode"] = ["transaction"]
+    params.pop("pool_mode", None)
     query_string = urlencode(params, doseq=True)
 
     pooled = urlunparse((
