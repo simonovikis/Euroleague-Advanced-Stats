@@ -131,6 +131,47 @@ if REQUIRE_LOGIN:
 
 
 # ========================================================================
+# DEEP LINKING: Initialize state from URL query parameters
+# ========================================================================
+if "_deep_link_applied" not in st.session_state:
+    _qp = st.query_params
+    if "season" in _qp:
+        try:
+            _url_season = int(_qp["season"])
+            if _url_season in _cfg_seasons:
+                st.session_state["selected_season"] = _url_season
+        except (ValueError, TypeError):
+            pass
+    if "round" in _qp:
+        try:
+            st.session_state["selected_round"] = int(_qp["round"])
+        except (ValueError, TypeError):
+            pass
+    if "gamecode" in _qp:
+        try:
+            st.session_state["_url_gamecode"] = int(_qp["gamecode"])
+        except (ValueError, TypeError):
+            pass
+    if "team" in _qp:
+        st.session_state["_url_team"] = _qp["team"]
+    st.session_state["_deep_link_applied"] = True
+
+# URL-friendly page key <-> nav label mapping (populated after NAV labels)
+_PAGE_KEYS = [
+    ("home", "nav_home_label"),
+    ("single_game", "nav_single_label"),
+    ("season", "nav_season_label"),
+    ("advanced", "nav_advanced_label"),
+    ("live", "nav_live_label"),
+    ("leaders", "nav_leaders_label"),
+    ("scouting", "nav_scouting_label"),
+    ("oracle", None),
+    ("referee", "nav_referee_label"),
+    ("chat", "nav_chat_label"),
+    ("glossary", "nav_glossary_label"),
+]
+
+# ========================================================================
 # DYNAMIC TEAM BRANDING
 # ========================================================================
 def _inject_team_css(primary: str, secondary: str):
@@ -237,11 +278,26 @@ _ALL_NAV = [
 NAV_OPTIONS = [label for label, _, flag in _ALL_NAV if flag is None or is_feature_enabled(flag)]
 NAV_ICONS = [icon for _, icon, flag in _ALL_NAV if flag is None or is_feature_enabled(flag)]
 
+# Build bidirectional mappings between URL page keys and translated nav labels
+_NAV_LABEL_TO_KEY = {}
+_KEY_TO_NAV_LABEL = {}
+for _pk, _tk in _PAGE_KEYS:
+    _label = t(_tk) if _tk else _pk.capitalize()
+    if _label in NAV_OPTIONS:
+        _NAV_LABEL_TO_KEY[_label] = _pk
+        _KEY_TO_NAV_LABEL[_pk] = _label
+
+_default_nav_idx = 0
+if "page" in st.query_params and "main_nav" not in st.session_state:
+    _target_label = _KEY_TO_NAV_LABEL.get(st.query_params["page"])
+    if _target_label and _target_label in NAV_OPTIONS:
+        _default_nav_idx = NAV_OPTIONS.index(_target_label)
+
 selected_nav = option_menu(
     menu_title=None,
     options=NAV_OPTIONS,
     icons=NAV_ICONS,
-    default_index=0,
+    default_index=_default_nav_idx,
     orientation="horizontal",
     key="main_nav",
     styles={
@@ -290,6 +346,13 @@ with st.sidebar:
 
     schedule = fetch_season_schedule(st.session_state.selected_season)
 
+    # Deep link: resolve gamecode -> round when round wasn't explicitly provided
+    _url_gc = st.session_state.get("_url_gamecode")
+    if _url_gc is not None and not schedule.empty:
+        _gc_match = schedule[schedule["gamecode"] == _url_gc]
+        if not _gc_match.empty:
+            st.session_state.selected_round = int(_gc_match.iloc[0]["round"])
+
     if schedule.empty:
         st.warning(t("err_no_schedule", season=st.session_state.selected_season))
         st.session_state["game_info_cache"] = None
@@ -327,7 +390,18 @@ with st.sidebar:
             matchup_dict = {row["matchup_label"]: row.to_dict() for _, row in round_games.iterrows()}
             labels = list(matchup_dict.keys())
 
-            selected_label = st.selectbox(t("matchup_dropdown"), labels, key="matchup_picker")
+            _default_game_idx = 0
+            _url_gc = st.session_state.pop("_url_gamecode", None)
+            if _url_gc is not None and "matchup_picker" not in st.session_state:
+                for _i, (_lbl, _ginfo) in enumerate(matchup_dict.items()):
+                    if _ginfo.get("gamecode") == _url_gc:
+                        _default_game_idx = _i
+                        break
+
+            selected_label = st.selectbox(
+                t("matchup_dropdown"), labels,
+                index=_default_game_idx, key="matchup_picker",
+            )
 
             if selected_label:
                 selected_game = matchup_dict[selected_label]
@@ -356,8 +430,15 @@ with st.sidebar:
             else:
                 team_options = sorted(list(set(schedule["home_code"].unique()) | set(schedule["away_code"].unique())))
             st.session_state["season_team_codes"] = set(team_options)
+
+            _default_team_idx = 0
+            _url_team = st.session_state.pop("_url_team", None)
+            if _url_team and _url_team in team_options and "team_picker" not in st.session_state:
+                _default_team_idx = team_options.index(_url_team)
+
             st.session_state["selected_team"] = st.selectbox(
-                t("team_dropdown"), team_options, key="team_picker"
+                t("team_dropdown"), team_options,
+                index=_default_team_idx, key="team_picker",
             )
 
     st.markdown("---")
@@ -371,6 +452,26 @@ with st.sidebar:
 _team_primary, _team_secondary = get_team_accent()
 _inject_team_css(_team_primary, _team_secondary)
 
+
+# ========================================================================
+# DEEP LINKING: Sync current state back to URL query parameters
+# ========================================================================
+_new_qp = {"page": _NAV_LABEL_TO_KEY.get(selected_nav, "home")}
+_new_qp["season"] = str(st.session_state.get("selected_season", _cfg_default))
+
+if selected_nav in (NAV_SINGLE, NAV_ADVANCED):
+    _new_qp["round"] = str(st.session_state.get("selected_round", 1))
+    if gamecode is not None:
+        _new_qp["gamecode"] = str(gamecode)
+
+if selected_nav in (NAV_SEASON, NAV_REFEREE):
+    _sel_team = st.session_state.get("selected_team")
+    if _sel_team:
+        _new_qp["team"] = _sel_team
+
+st.query_params.clear()
+for _k, _v in _new_qp.items():
+    st.query_params[_k] = _v
 
 # ========================================================================
 # PAGE ROUTING
