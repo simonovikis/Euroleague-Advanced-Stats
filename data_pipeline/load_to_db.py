@@ -554,10 +554,14 @@ def teardown_database(engine: Engine) -> None:
 
 
 def ensure_schema(engine: Engine) -> None:
-    """Create tables if they don't already exist (idempotent)."""
-    schema_path = Path(__file__).resolve().parent.parent / "database" / "schema.sql"
-    if schema_path.exists():
-        ddl = schema_path.read_text()
+    """Create tables and indexes if they don't already exist (idempotent)."""
+    db_dir = Path(__file__).resolve().parent.parent / "database"
+
+    for sql_file in ("schema.sql", "indexes.sql"):
+        sql_path = db_dir / sql_file
+        if not sql_path.exists():
+            continue
+        ddl = sql_path.read_text()
         with engine.begin() as conn:
             for statement in ddl.split(";"):
                 statement = statement.strip()
