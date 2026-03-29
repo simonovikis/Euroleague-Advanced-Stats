@@ -420,7 +420,16 @@ def fetch_season_game_metadata(
 ) -> pd.DataFrame:
     """Fetch per-game metadata (including referees) for a full season."""
     if _use_db():
-        return fetch_season_schedule(season, competition)
+        engine = _get_db_engine()
+        if engine:
+            from sqlalchemy import text
+            with engine.connect() as conn:
+                has_refs = conn.execute(text(
+                    "SELECT 1 FROM games WHERE season = :season AND referee1 IS NOT NULL LIMIT 1"
+                ), {"season": season}).fetchone()
+            if has_refs:
+                return fetch_season_schedule(season, competition)
+
     from data_pipeline.extractors import get_season_game_metadata
     return get_season_game_metadata(season, competition)
 

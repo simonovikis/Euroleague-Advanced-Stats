@@ -277,6 +277,96 @@ def load_game(engine: Engine, game_info_df: pd.DataFrame) -> None:
     logger.info(f"Upserted {n} game(s)")
 
 
+def update_games_from_schedule(engine: Engine, schedule: pd.DataFrame, season: int) -> None:
+    """Update games table with schedule metadata (round, game_date, played)."""
+    if schedule.empty:
+        return
+
+    from sqlalchemy import text
+
+    played_schedule = schedule[schedule["played"] == True].copy()
+    if played_schedule.empty:
+        return
+
+    records = []
+    for _, row in played_schedule.iterrows():
+        records.append({
+            "season": int(season),
+            "gamecode": int(row["gamecode"]),
+            "round": int(row["round"]) if pd.notna(row.get("round")) else None,
+            "game_date": str(row.get("date", "")) or None,
+            "played": True,
+        })
+
+    with engine.begin() as conn:
+        for rec in records:
+            conn.execute(text("""
+                UPDATE games
+                SET round = COALESCE(:round, round),
+                    game_date = COALESCE(:game_date, game_date),
+                    played = :played
+                WHERE season = :season AND gamecode = :gamecode
+            """), rec)
+
+    logger.info(f"Updated {len(records)} game(s) with schedule metadata")
+
+
+def update_games_referees(engine: Engine, season: int, competition: str = "E") -> None:
+    """Fetch referee data from GameMetadata API and update the games table."""
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        has_refs = conn.execute(text(
+            "SELECT 1 FROM games WHERE season = :season AND referee1 IS NOT NULL LIMIT 1"
+        ), {"season": season}).fetchone()
+
+    if has_refs:
+        logger.info(f"Referee data already present for season {season}, skipping.")
+        return
+
+    try:
+        from data_pipeline.extractors import get_season_game_metadata
+        metadata = get_season_game_metadata(season, competition)
+    except Exception as e:
+        logger.warning(f"Could not fetch game metadata for referees: {e}")
+        return
+
+    if metadata.empty or "Referee1" not in metadata.columns:
+        logger.warning("No referee data in game metadata")
+        return
+
+    gc_col = "Gamecode" if "Gamecode" in metadata.columns else "gamecode"
+    records = []
+    for _, row in metadata.iterrows():
+        ref1 = row.get("Referee1")
+        ref2 = row.get("Referee2")
+        ref3 = row.get("Referee3")
+        if pd.notna(ref1) or pd.notna(ref2) or pd.notna(ref3):
+            records.append({
+                "season": int(season),
+                "gamecode": int(row[gc_col]),
+                "referee1": str(ref1).strip() if pd.notna(ref1) else None,
+                "referee2": str(ref2).strip() if pd.notna(ref2) else None,
+                "referee3": str(ref3).strip() if pd.notna(ref3) else None,
+            })
+
+    if not records:
+        return
+
+    from sqlalchemy import text as sa_text
+    with engine.begin() as conn:
+        for rec in records:
+            conn.execute(sa_text("""
+                UPDATE games
+                SET referee1 = COALESCE(:referee1, referee1),
+                    referee2 = COALESCE(:referee2, referee2),
+                    referee3 = COALESCE(:referee3, referee3)
+                WHERE season = :season AND gamecode = :gamecode
+            """), rec)
+
+    logger.info(f"Updated {len(records)} game(s) with referee data")
+
+
 def load_play_by_play(engine: Engine, pbp_df: pd.DataFrame) -> None:
     """
     Load play-by-play data into the play_by_play table.
@@ -959,6 +1049,12 @@ def load_season(
     logger.info(f"Found {total_available} played games; loading {len(gamecodes)}.")
 
     result = run_pipeline_batch(season, gamecodes, competition, engine=engine)
+
+    # Update games with schedule metadata (round, date, played)
+    update_games_from_schedule(engine, schedule, season)
+
+    # Fetch and persist referee data from GameMetadata API
+    update_games_referees(engine, season, competition)
 
     # Phase 4: Season-level aggregations (on/off splits, etc.)
     if result["loaded"] > 0:

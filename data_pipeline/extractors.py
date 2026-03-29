@@ -265,6 +265,7 @@ def _extract_game_info(
         "away_team": away_team,
         "home_score": home_score,
         "away_score": away_score,
+        "played": True,
     }
 
     return pd.DataFrame([game_info])
