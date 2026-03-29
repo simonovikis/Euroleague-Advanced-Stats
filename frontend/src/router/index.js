@@ -7,6 +7,11 @@ const routes = [
     component: () => import('../views/SeasonOverview.vue'),
     alias: '/standings',
   },
+  {
+    path: '/dna',
+    name: 'TeamDNA',
+    component: () => import('../views/TeamDNA.vue'),
+  },
 ]
 
 const router = createRouter({

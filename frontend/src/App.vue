@@ -1,5 +1,6 @@
 <script setup>
 import { useAppStore } from './stores/appStore'
+import { RouterLink } from 'vue-router'
 
 const app = useAppStore()
 </script>
@@ -9,9 +10,29 @@ const app = useAppStore()
     <!-- Top Navbar -->
     <nav class="sticky top-0 z-50 border-b border-gray-700 bg-gray-900/80 backdrop-blur">
       <div class="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
-        <span class="text-lg font-bold tracking-tight text-orange-400">
-          Euroleague Analytics
-        </span>
+        <div class="flex items-center gap-6">
+          <span class="text-lg font-bold tracking-tight text-orange-400">
+            Euroleague Analytics
+          </span>
+          <div class="hidden sm:flex items-center gap-1 text-sm">
+            <RouterLink
+              to="/"
+              class="rounded px-3 py-1.5 transition-colors hover:bg-gray-800 hover:text-gray-100"
+              active-class="bg-gray-800 text-gray-100"
+              inactive-class="text-gray-400"
+            >
+              Standings
+            </RouterLink>
+            <RouterLink
+              to="/dna"
+              class="rounded px-3 py-1.5 transition-colors hover:bg-gray-800 hover:text-gray-100"
+              active-class="bg-gray-800 text-gray-100"
+              inactive-class="text-gray-400"
+            >
+              Team DNA
+            </RouterLink>
+          </div>
+        </div>
 
         <div class="flex items-center gap-3">
           <label for="season" class="text-sm text-gray-400">Season</label>

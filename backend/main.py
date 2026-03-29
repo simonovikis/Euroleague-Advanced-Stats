@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api.endpoints.season import router as season_router
+from backend.api.endpoints.teams import router as teams_router
 
 app = FastAPI(
     title="Euroleague Stats API",
@@ -29,3 +30,4 @@ app.add_middleware(
 
 # ── Routers ──────────────────────────────────────────────────────────
 app.include_router(season_router)
+app.include_router(teams_router)
