@@ -1,7 +1,7 @@
 # Euroleague Advanced Analytics Platform — Dependencies
 
 # Data extraction
-euroleague-api>=0.0.21
+euroleague-api==0.0.21
 
 # Data manipulation
 pandas>=2.0.0
