@@ -30,6 +30,8 @@ data:
     min_fta: 30
 
 ui:
+  global_decimals: 2
+
   default_accent:
     primary: "#6366f1"
     secondary: "#8b5cf6"

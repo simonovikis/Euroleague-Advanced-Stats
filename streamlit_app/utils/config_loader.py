@@ -98,6 +98,11 @@ def get_default_accent() -> Tuple[str, str]:
     return (accent.get("primary", "#6366f1"), accent.get("secondary", "#8b5cf6"))
 
 
+def get_global_decimals() -> int:
+    """Return the global decimal places for rounding stats (default: 2)."""
+    return get_config().get("ui", {}).get("global_decimals", 2)
+
+
 # ------------------------------------------------------------------
 # Fallback (keeps the app running even without the YAML file)
 # ------------------------------------------------------------------
@@ -129,6 +134,7 @@ def _build_fallback_config() -> Dict[str, Any]:
             },
         },
         "ui": {
+            "global_decimals": 2,
             "default_accent": {"primary": "#6366f1", "secondary": "#8b5cf6"},
             "team_colors": {},
         },

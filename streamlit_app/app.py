@@ -202,24 +202,35 @@ def _inject_team_css(primary: str, secondary: str):
 
 
 # ========================================================================
-# SIDEBAR — Language & Season (common to all pages)
+# HEADER — Language Selector (top-right of main container)
 # ========================================================================
-with st.sidebar:
-    lang_map = get_language_map()
-    _default_lang = get_default_language()
-    default_lang_idx = list(lang_map.values()).index(st.session_state.get("lang", _default_lang))
+lang_map = get_language_map()
+_default_lang = get_default_language()
+default_lang_idx = list(lang_map.values()).index(st.session_state.get("lang", _default_lang))
 
+_hdr_col1, _hdr_col2 = st.columns([8, 2])
+with _hdr_col2:
     selected_lang_label = st.selectbox(
         t("lang_selection"),
         list(lang_map.keys()),
         index=default_lang_idx,
         label_visibility="collapsed",
+        key="header_lang_selector",
     )
     if st.session_state.get("lang") != lang_map[selected_lang_label]:
         st.session_state["lang"] = lang_map[selected_lang_label]
         st.rerun()
 
-    st.markdown(f"# {t('app_title')}")
+# ========================================================================
+# SIDEBAR — Branding & Season (common to all pages)
+# ========================================================================
+with st.sidebar:
+    st.markdown(
+        "<h1 style='text-align:center; background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%); "
+        "-webkit-background-clip: text; -webkit-text-fill-color: transparent; "
+        "font-size: 1.6rem; font-weight: 700; margin-bottom: 0.5rem;'>Euroleague Analytics</h1>",
+        unsafe_allow_html=True,
+    )
     if REQUIRE_LOGIN:
         render_user_sidebar()
     st.markdown("---")

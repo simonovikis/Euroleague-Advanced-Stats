@@ -28,6 +28,7 @@ from streamlit_app.utils.config_loader import (
     get_default_accent,
     get_leaders_defaults,
     get_team_name_map,
+    get_global_decimals,
 )
 from streamlit_app.utils.feature_flags import is_feature_enabled, show_disabled_message
 from streamlit_app.utils.secrets_manager import OPENAI_API_KEY, REQUIRE_LOGIN
@@ -39,6 +40,7 @@ _cfg_default = get_default_season()
 TEAM_COLORS = get_team_colors()
 DEFAULT_ACCENT = get_default_accent()
 TEAM_NAME_MAP = get_team_name_map()
+GLOBAL_DECIMALS = get_global_decimals()
 
 
 # ========================================================================
@@ -83,6 +85,46 @@ function(params) {
     return {color: '#e4e4f0'};
 }
 """)
+
+
+def format_df_decimals(df: pd.DataFrame, decimals: int = None) -> pd.DataFrame:
+    """Round all float columns in a DataFrame to GLOBAL_DECIMALS (or custom).
+
+    This provides a single source of truth for decimal formatting across the app.
+    Change GLOBAL_DECIMALS in config.yaml to adjust globally.
+
+    Args:
+        df: DataFrame to format
+        decimals: Override decimal places (uses GLOBAL_DECIMALS if None)
+
+    Returns:
+        DataFrame with rounded float columns
+    """
+    if df.empty:
+        return df
+    decimals = decimals if decimals is not None else GLOBAL_DECIMALS
+    df_copy = df.copy()
+    float_cols = df_copy.select_dtypes(include=["float64", "float32"]).columns
+    for col in float_cols:
+        df_copy[col] = df_copy[col].round(decimals)
+    return df_copy
+
+
+def get_decimal_column_config(columns: list[str], decimals: int = None) -> dict:
+    """Generate Streamlit column_config for NumberColumn formatting.
+
+    Use with st.dataframe(df, column_config=get_decimal_column_config([...]))
+
+    Args:
+        columns: List of column names to format
+        decimals: Override decimal places (uses GLOBAL_DECIMALS if None)
+
+    Returns:
+        Dict suitable for st.dataframe column_config parameter
+    """
+    decimals = decimals if decimals is not None else GLOBAL_DECIMALS
+    fmt = f"%.{decimals}f"
+    return {col: st.column_config.NumberColumn(format=fmt) for col in columns}
 
 
 def render_aggrid(df, pin_cols=None, pagination=False, page_size=20,

@@ -6,7 +6,8 @@ import streamlit as st
 
 from streamlit_app.shared import (
     t, render_aggrid, TEAM_COLORS, DEFAULT_ACCENT, _cfg_default,
-    render_team_sidebar,
+    render_team_sidebar, format_df_decimals, get_decimal_column_config,
+    GLOBAL_DECIMALS,
 )
 
 
@@ -632,22 +633,20 @@ def render():
     if lineup_stats.empty:
         st.info(t("no_lineups"))
     else:
+        _lineup_cols = ["lineup_str", "events", "ortg", "drtg", "net_rtg"]
+        _lineup_rename = {
+            "lineup_str": t("col_lineup"), "events": t("col_poss"),
+            "ortg": t("col_ortg"), "drtg": t("col_drtg"), "net_rtg": t("col_netrtg")
+        }
+        _numeric_cols = [t("col_ortg"), t("col_drtg"), t("col_netrtg")]
+        _col_config = get_decimal_column_config(_numeric_cols)
+
         col1, col2 = st.columns(2)
         with col1:
             st.markdown(f"#### {t('hdr_best_net')}")
-            st.dataframe(
-                lineup_stats.head(5)[["lineup_str", "events", "ortg", "drtg", "net_rtg"]].rename(
-                    columns={"lineup_str": t("col_lineup"), "events": t("col_poss"),
-                             "ortg": t("col_ortg"), "drtg": t("col_drtg"), "net_rtg": t("col_netrtg")}
-                ),
-                hide_index=True,
-            )
+            _best_df = format_df_decimals(lineup_stats.head(5)[_lineup_cols]).rename(columns=_lineup_rename)
+            st.dataframe(_best_df, hide_index=True, column_config=_col_config)
         with col2:
             st.markdown(f"#### {t('hdr_worst_net')}")
-            st.dataframe(
-                lineup_stats.tail(5)[["lineup_str", "events", "ortg", "drtg", "net_rtg"]].rename(
-                    columns={"lineup_str": t("col_lineup"), "events": t("col_poss"),
-                             "ortg": t("col_ortg"), "drtg": t("col_drtg"), "net_rtg": t("col_netrtg")}
-                ),
-                hide_index=True,
-            )
+            _worst_df = format_df_decimals(lineup_stats.tail(5)[_lineup_cols]).rename(columns=_lineup_rename)
+            st.dataframe(_worst_df, hide_index=True, column_config=_col_config)
