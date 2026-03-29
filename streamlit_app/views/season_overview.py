@@ -26,9 +26,11 @@ def render(schedule):
     st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_league_eff')}</p>", unsafe_allow_html=True)
 
     try:
-        with st.spinner(t("fetching_league_eff")):
+        with st.status(t("fetching_league_eff"), expanded=True) as eff_status:
+            st.write("⏳ Loading offensive & defensive ratings for all teams...")
             from streamlit_app.queries import fetch_league_efficiency_landscape, fetch_team_season_data
             eff_df = fetch_league_efficiency_landscape(season_to_fetch)
+            eff_status.update(label="League efficiency loaded.", state="complete", expanded=False)
     except Exception as e:
         st.error(f"Could not load league efficiency data. Error: {type(e).__name__}")
         eff_df = pd.DataFrame()
@@ -111,9 +113,11 @@ def render(schedule):
     st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_sit_scoring')}</p>", unsafe_allow_html=True)
 
     try:
-        with st.spinner(t("fetching_sit_scoring")):
+        with st.status(t("fetching_sit_scoring"), expanded=True) as sit_status:
+            st.write("⏳ Aggregating 2PT / 3PT / FT scoring distributions...")
             from streamlit_app.queries import fetch_situational_scoring
             sit_df = fetch_situational_scoring(season_to_fetch)
+            sit_status.update(label="Situational scoring loaded.", state="complete", expanded=False)
     except Exception as e:
         st.error(f"Could not load situational scoring data. Error: {type(e).__name__}")
         sit_df = pd.DataFrame()
@@ -181,9 +185,11 @@ def render(schedule):
     st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_home_away', default='Compare team performance at home versus on the road.')}</p>", unsafe_allow_html=True)
 
     try:
-        with st.spinner(t("fetching_home_away", default="Calculating Home/Away splits...")):
+        with st.status(t("fetching_home_away", default="Calculating Home/Away splits..."), expanded=True) as ha_status:
+            st.write("⏳ Computing home vs. away offensive & defensive ratings...")
             from streamlit_app.queries import fetch_home_away_splits
             ha_df = fetch_home_away_splits(season_to_fetch)
+            ha_status.update(label="Home/Away splits loaded.", state="complete", expanded=False)
     except Exception as e:
         st.error(f"Could not load Home/Away splits. Error: {type(e).__name__}")
         ha_df = pd.DataFrame()
@@ -236,9 +242,11 @@ def render(schedule):
     )
 
     try:
-        with st.spinner(t("fetching_clutch_close")):
+        with st.status(t("fetching_clutch_close"), expanded=True) as clutch_status:
+            st.write("⏳ Identifying close games and computing clutch win rates...")
             from streamlit_app.queries import fetch_close_game_stats
             close_df = fetch_close_game_stats(season_to_fetch, close_threshold)
+            clutch_status.update(label="Clutch/close game data loaded.", state="complete", expanded=False)
     except Exception as e:
         st.error(f"Could not load clutch/close game data. Error: {type(e).__name__}")
         close_df = pd.DataFrame()

@@ -744,8 +744,10 @@ def render(gamecode):
                 key="rot_team",
             )
 
-            with st.spinner("Parsing play-by-play and identifying player stints..."):
+            with st.status("Computing Rotations...", expanded=True) as rot_status:
+                st.write("⏳ Parsing play-by-play and identifying player stints...")
                 stints_df = compute_player_stints(rot_pbp, rot_box, sel_rot_team)
+                rot_status.update(label="Rotations Ready!", state="complete", expanded=False)
 
             if stints_df.empty:
                 st.info(t("rot_no_stints"))

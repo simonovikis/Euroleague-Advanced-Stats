@@ -17,7 +17,7 @@ _project_root = str(Path(__file__).resolve().parent.parent)
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
-from streamlit_app.queries import fetch_game_data_live, fetch_season_schedule
+from streamlit_app.queries import fetch_season_schedule
 from streamlit_app.utils.config_loader import (
     get_config,
     get_supported_seasons,
@@ -143,15 +143,88 @@ def ensure_game_data(gc: int) -> dict:
     )
     if data_needs_update:
         season_to_fetch = st.session_state.get("selected_season", _cfg_default)
-        with st.status(t("loading_data"), expanded=True) as status:
+        with st.status("Analyzing Game Data...", expanded=True) as status:
             try:
-                status.update(label="Downloading boxscore & play-by-play from API...")
-                game_data = fetch_game_data_live(season_to_fetch, gc)
-                status.update(label="Computing advanced stats & lineup tracking...")
+                st.write("⏳ Fetching Play-by-Play from DB...")
+                from streamlit_app.queries import _use_db, _get_repository
+                from data_pipeline.transformers import (
+                    compute_advanced_stats, track_lineups, compute_lineup_stats,
+                    compute_duo_trio_synergy, compute_clutch_stats,
+                    detect_runs_and_stoppers, foul_trouble_impact,
+                    build_assist_network, compute_shot_quality,
+                    link_assists_to_shots, compute_playmaking_metrics,
+                    compute_total_points_created, compute_on_off_splits,
+                )
+
+                repo = _get_repository()
+                if repo.db_available() and repo.is_game_cached(season_to_fetch, gc):
+                    st.write("✅ Game found in database cache.")
+                    raw = {
+                        "boxscore": repo._load_boxscore_from_db(season_to_fetch, gc),
+                        "pbp": repo._load_pbp_from_db(season_to_fetch, gc),
+                        "shots": repo._load_shots_from_db(season_to_fetch, gc),
+                        "game_info": repo._load_game_info_from_db(season_to_fetch, gc),
+                    }
+                else:
+                    st.write("⏳ Downloading boxscore & play-by-play from API...")
+                    from data_pipeline.extractors import extract_game_data
+                    raw = extract_game_data(season_to_fetch, gc)
+                    if repo.db_available():
+                        repo._save_raw_to_db(raw, season_to_fetch, gc)
+
+                boxscore_df = raw["boxscore"]
+                pbp_df = raw["pbp"]
+                shots_df = raw["shots"]
+                game_info_df = raw["game_info"]
+
+                st.write("⏳ Reconstructing on-court lineups...")
+                pbp_lu = track_lineups(pbp_df, boxscore_df)
+
+                st.write("⏳ Calculating Advanced Metrics...")
+                advanced_df = compute_advanced_stats(boxscore_df)
+                lineup_stats = compute_lineup_stats(pbp_lu, boxscore_df)
+                duo_synergy = compute_duo_trio_synergy(pbp_lu, boxscore_df, combo_size=2)
+                trio_synergy = compute_duo_trio_synergy(pbp_lu, boxscore_df, combo_size=3)
+                on_off_splits = compute_on_off_splits(pbp_lu, boxscore_df)
+
+                st.write("⏳ Analyzing clutch situations & momentum...")
+                clutch = compute_clutch_stats(pbp_df, boxscore_df)
+                stoppers = detect_runs_and_stoppers(pbp_lu)
+                foul_impact = foul_trouble_impact(pbp_df, boxscore_df)
+
+                st.write("⏳ Building assist networks & shot quality...")
+                assists = build_assist_network(pbp_df)
+                shot_quality = compute_shot_quality(shots_df)
+                assist_shot_links = link_assists_to_shots(pbp_df, shots_df)
+                playmaking = compute_playmaking_metrics(assist_shot_links, min_assists=1)
+                advanced_df = compute_total_points_created(advanced_df, assist_shot_links)
+
+                game_data = {
+                    "boxscore": boxscore_df,
+                    "pbp": pbp_df,
+                    "shots": shots_df,
+                    "game_info": game_info_df,
+                    "advanced_stats": advanced_df,
+                    "pbp_with_lineups": pbp_lu,
+                    "lineup_stats": lineup_stats,
+                    "assist_network": assists,
+                    "clutch_stats": clutch,
+                    "run_stoppers": stoppers,
+                    "foul_trouble": foul_impact,
+                    "duo_synergy": duo_synergy,
+                    "trio_synergy": trio_synergy,
+                    "on_off_splits": on_off_splits,
+                    "shot_quality": shot_quality,
+                    "assist_shot_links": assist_shot_links,
+                    "playmaking_aaq": playmaking["aaq"],
+                    "playmaking_axp": playmaking["axp"],
+                    "playmaking_duos": playmaking["duos"],
+                }
+
                 st.session_state["game_data"] = game_data
                 st.session_state["season"] = season_to_fetch
                 st.session_state["gamecode"] = gc
-                status.update(label="Game data loaded successfully.", state="complete", expanded=False)
+                status.update(label="Analysis Complete!", state="complete", expanded=False)
             except ConnectionError:
                 status.update(label="Connection failed", state="error", expanded=True)
                 st.error("Could not connect to the Euroleague API. Please check your internet connection and try again.")
@@ -173,39 +246,49 @@ def apply_clutch_filter(data: dict) -> dict:
         compute_on_off_splits,
     )
 
-    pbp_df = data.get("pbp", pd.DataFrame())
-    shots_df = data.get("shots", pd.DataFrame())
-    original_box = data.get("boxscore", pd.DataFrame())
+    with st.status("Applying Clutch Filter...", expanded=True) as status:
+        pbp_df = data.get("pbp", pd.DataFrame())
+        shots_df = data.get("shots", pd.DataFrame())
+        original_box = data.get("boxscore", pd.DataFrame())
 
-    # Track lineups on the FULL PBP first to preserve substitution state.
-    # Filtering to clutch time before tracking loses who subbed in earlier.
-    pbp_with_lineups = track_lineups(pbp_df, original_box)
+        st.write("⏳ Reconstructing on-court lineups for full game...")
+        pbp_with_lineups = track_lineups(pbp_df, original_box)
 
-    clutch_pbp = filter_clutch_time(pbp_with_lineups)
-    clutch_shots = filter_clutch_shots(shots_df)
+        st.write("⏳ Filtering to clutch-time plays...")
+        clutch_pbp = filter_clutch_time(pbp_with_lineups)
+        clutch_shots = filter_clutch_shots(shots_df)
 
-    if clutch_pbp.empty:
-        st.warning("No clutch-time plays found in this game (Q4/OT, ≤5 min left, ≤5 pt differential).")
-        return data
+        if clutch_pbp.empty:
+            status.update(label="No clutch-time data found", state="complete", expanded=False)
+            st.warning("No clutch-time plays found in this game (Q4/OT, ≤5 min left, ≤5 pt differential).")
+            return data
 
-    clutch_box = build_clutch_boxscore(clutch_pbp, original_box)
-    if clutch_box.empty:
-        return data
+        clutch_box = build_clutch_boxscore(clutch_pbp, original_box)
+        if clutch_box.empty:
+            status.update(label="No clutch-time data found", state="complete", expanded=False)
+            return data
 
-    advanced_df = compute_advanced_stats(clutch_box)
-    pbp_lu = clutch_pbp
-    lineup_stats = compute_lineup_stats(pbp_lu, clutch_box)
-    duo_synergy = compute_duo_trio_synergy(pbp_lu, clutch_box, combo_size=2)
-    trio_synergy = compute_duo_trio_synergy(pbp_lu, clutch_box, combo_size=3)
-    on_off_splits = compute_on_off_splits(pbp_lu, clutch_box)
-    clutch_stats = compute_clutch_stats(clutch_pbp, clutch_box)
-    stoppers = detect_runs_and_stoppers(pbp_lu)
-    foul_impact = foul_trouble_impact(clutch_pbp, clutch_box)
-    assists = build_assist_network(clutch_pbp)
-    shot_quality = compute_shot_quality(clutch_shots)
-    assist_shot_links = link_assists_to_shots(clutch_pbp, clutch_shots)
-    playmaking = compute_playmaking_metrics(assist_shot_links, min_assists=1)
-    advanced_df = compute_total_points_created(advanced_df, assist_shot_links)
+        st.write("⏳ Calculating clutch advanced metrics...")
+        advanced_df = compute_advanced_stats(clutch_box)
+        pbp_lu = clutch_pbp
+        lineup_stats = compute_lineup_stats(pbp_lu, clutch_box)
+        duo_synergy = compute_duo_trio_synergy(pbp_lu, clutch_box, combo_size=2)
+        trio_synergy = compute_duo_trio_synergy(pbp_lu, clutch_box, combo_size=3)
+        on_off_splits = compute_on_off_splits(pbp_lu, clutch_box)
+
+        st.write("⏳ Detecting runs, stoppers & foul impact...")
+        clutch_stats = compute_clutch_stats(clutch_pbp, clutch_box)
+        stoppers = detect_runs_and_stoppers(pbp_lu)
+        foul_impact = foul_trouble_impact(clutch_pbp, clutch_box)
+
+        st.write("⏳ Building clutch assist network & shot quality...")
+        assists = build_assist_network(clutch_pbp)
+        shot_quality = compute_shot_quality(clutch_shots)
+        assist_shot_links = link_assists_to_shots(clutch_pbp, clutch_shots)
+        playmaking = compute_playmaking_metrics(assist_shot_links, min_assists=1)
+        advanced_df = compute_total_points_created(advanced_df, assist_shot_links)
+
+        status.update(label="Clutch Analysis Complete!", state="complete", expanded=False)
 
     return {
         "boxscore": clutch_box, "pbp": clutch_pbp, "shots": clutch_shots,
