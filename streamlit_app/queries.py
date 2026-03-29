@@ -369,6 +369,50 @@ def query_team_stats_db() -> pd.DataFrame:
 
 
 @st.cache_data(ttl=_CACHE_TTL, show_spinner=False)
+def fetch_season_on_off_splits(
+    season: int,
+    team_code: Optional[str] = None,
+) -> pd.DataFrame:
+    """
+    Fetch pre-computed season-level On/Off Net Rating splits from the DB.
+
+    Returns a DataFrame with one row per player:
+        player_id, player_name, team, games,
+        on_ortg, on_drtg, on_net_rtg,
+        off_ortg, off_drtg, off_net_rtg, on_off_diff
+    """
+    engine = _get_db_engine()
+    if engine is None:
+        return pd.DataFrame()
+
+    from sqlalchemy import text
+
+    base = """
+        SELECT player_id, player_name, team, games,
+               on_events, on_pts_for, on_pts_against, on_poss,
+               on_ortg, on_drtg, on_net_rtg,
+               off_events, off_pts_for, off_pts_against, off_poss,
+               off_ortg, off_drtg, off_net_rtg, on_off_diff
+        FROM season_on_off_splits
+        WHERE season = :season
+    """
+    params: dict = {"season": season}
+
+    if team_code:
+        base += " AND team = :team"
+        params["team"] = team_code
+
+    base += " ORDER BY on_off_diff DESC"
+
+    try:
+        with engine.connect() as conn:
+            return pd.read_sql(text(base), conn, params=params)
+    except Exception as e:
+        logger.warning(f"season_on_off_splits query failed (table may not exist yet): {e}")
+        return pd.DataFrame()
+
+
+@st.cache_data(ttl=_CACHE_TTL, show_spinner=False)
 def fetch_season_game_metadata(
     season: int,
     competition: str = COMPETITION,

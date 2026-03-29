@@ -117,3 +117,14 @@ CREATE INDEX IF NOT EXISTS idx_boxscores_team
 
 CREATE INDEX IF NOT EXISTS idx_boxscores_season_team
     ON boxscores (season, team);
+
+
+-- -----------------------------------------------------------
+-- SEASON_ON_OFF_SPLITS
+-- -----------------------------------------------------------
+-- Season overview queries: WHERE season = :season AND team = :team
+CREATE INDEX IF NOT EXISTS idx_on_off_season_team
+    ON season_on_off_splits (season, team);
+
+CREATE INDEX IF NOT EXISTS idx_on_off_season_diff
+    ON season_on_off_splits (season, on_off_diff DESC);

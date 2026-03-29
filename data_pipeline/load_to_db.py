@@ -599,6 +599,189 @@ def ensure_schema(engine: Engine) -> None:
                 )
 
 
+def load_on_off_splits(engine: Engine, on_off_df: pd.DataFrame) -> None:
+    """Upsert season-level on/off splits into the season_on_off_splits table."""
+    if on_off_df.empty:
+        return
+
+    records = []
+    for _, row in on_off_df.iterrows():
+        records.append({
+            "season":          int(row["season"]),
+            "player_id":       _safe_str(row.get("player_id")),
+            "player_name":     _safe_str(row.get("player_name")),
+            "team":            _safe_str(row.get("team")),
+            "games":           _safe_int(row.get("games")),
+            "on_events":       _safe_int(row.get("on_events")),
+            "on_pts_for":      _safe_int(row.get("on_pts_for")),
+            "on_pts_against":  _safe_int(row.get("on_pts_against")),
+            "on_poss":         _safe_float(row.get("on_poss")),
+            "on_ortg":         _safe_float(row.get("on_ortg")),
+            "on_drtg":         _safe_float(row.get("on_drtg")),
+            "on_net_rtg":      _safe_float(row.get("on_net_rtg")),
+            "off_events":      _safe_int(row.get("off_events")),
+            "off_pts_for":     _safe_int(row.get("off_pts_for")),
+            "off_pts_against": _safe_int(row.get("off_pts_against")),
+            "off_poss":        _safe_float(row.get("off_poss")),
+            "off_ortg":        _safe_float(row.get("off_ortg")),
+            "off_drtg":        _safe_float(row.get("off_drtg")),
+            "off_net_rtg":     _safe_float(row.get("off_net_rtg")),
+            "on_off_diff":     _safe_float(row.get("on_off_diff")),
+        })
+
+    cols = [
+        "season", "player_id", "player_name", "team", "games",
+        "on_events", "on_pts_for", "on_pts_against", "on_poss",
+        "on_ortg", "on_drtg", "on_net_rtg",
+        "off_events", "off_pts_for", "off_pts_against", "off_poss",
+        "off_ortg", "off_drtg", "off_net_rtg", "on_off_diff",
+    ]
+
+    n = _bulk_execute(
+        engine,
+        """INSERT INTO season_on_off_splits (
+               season, player_id, player_name, team, games,
+               on_events, on_pts_for, on_pts_against, on_poss,
+               on_ortg, on_drtg, on_net_rtg,
+               off_events, off_pts_for, off_pts_against, off_poss,
+               off_ortg, off_drtg, off_net_rtg, on_off_diff
+           ) VALUES %s
+           ON CONFLICT (season, player_id, team) DO UPDATE SET
+               player_name    = EXCLUDED.player_name,
+               games          = EXCLUDED.games,
+               on_events      = EXCLUDED.on_events,
+               on_pts_for     = EXCLUDED.on_pts_for,
+               on_pts_against = EXCLUDED.on_pts_against,
+               on_poss        = EXCLUDED.on_poss,
+               on_ortg        = EXCLUDED.on_ortg,
+               on_drtg        = EXCLUDED.on_drtg,
+               on_net_rtg     = EXCLUDED.on_net_rtg,
+               off_events     = EXCLUDED.off_events,
+               off_pts_for    = EXCLUDED.off_pts_for,
+               off_pts_against= EXCLUDED.off_pts_against,
+               off_poss       = EXCLUDED.off_poss,
+               off_ortg       = EXCLUDED.off_ortg,
+               off_drtg       = EXCLUDED.off_drtg,
+               off_net_rtg    = EXCLUDED.off_net_rtg,
+               on_off_diff    = EXCLUDED.on_off_diff""",
+        cols,
+        records,
+    )
+    logger.info(f"Upserted {n} season on/off split rows")
+
+
+# ========================================================================
+# SEASON AGGREGATION  (On/Off splits computed from DB data)
+# ========================================================================
+
+def run_season_aggregations(season: int, engine: Optional[Engine] = None) -> None:
+    """
+    Post-load aggregation step: reads the full season's PBP and boxscores
+    from the database, computes per-game on/off splits via the transformer
+    pipeline, then aggregates across games and upserts into
+    season_on_off_splits.
+
+    Processes one game at a time to keep peak RAM low on CI runners.
+    """
+    from data_pipeline.transformers import track_lineups, compute_on_off_splits
+
+    if engine is None:
+        engine = get_engine()
+
+    t0 = time.time()
+    logger.info(f"=== Season aggregation start: season={season} ===")
+
+    with engine.connect() as conn:
+        gamecodes = [
+            r[0] for r in conn.execute(
+                text("SELECT DISTINCT gamecode FROM boxscores WHERE season = :s ORDER BY gamecode"),
+                {"s": season},
+            ).fetchall()
+        ]
+
+    if not gamecodes:
+        logger.warning("No boxscore data found — skipping aggregation.")
+        return
+
+    logger.info(f"Computing on/off splits for {len(gamecodes)} games...")
+
+    per_game_frames = []
+    for gc in gamecodes:
+        try:
+            with engine.connect() as conn:
+                box_df = pd.read_sql(
+                    text("""
+                        SELECT season AS "Season", gamecode AS "Gamecode",
+                               player_id AS "Player_ID", player AS "Player",
+                               team AS "Team", home AS "Home",
+                               is_starter AS "IsStarter", is_playing AS "IsPlaying"
+                        FROM boxscores WHERE season = :s AND gamecode = :g
+                    """),
+                    conn, params={"s": season, "g": gc},
+                )
+                pbp_df = pd.read_sql(
+                    text("""
+                        SELECT season AS "Season", gamecode AS "Gamecode",
+                               period AS "PERIOD", playtype AS "PLAYTYPE",
+                               player_id AS "PLAYER_ID", player AS "PLAYER",
+                               codeteam AS "CODETEAM", markertime AS "MARKERTIME",
+                               numberofplay AS "NUMBEROFPLAY",
+                               numberofplay AS "TRUE_NUMBEROFPLAY",
+                               comment AS "COMMENT"
+                        FROM play_by_play WHERE season = :s AND gamecode = :g
+                        ORDER BY id ASC
+                    """),
+                    conn, params={"s": season, "g": gc},
+                )
+
+            if box_df.empty or pbp_df.empty:
+                continue
+
+            pbp_lu = track_lineups(pbp_df, box_df)
+            splits = compute_on_off_splits(pbp_lu, box_df)
+            if not splits.empty:
+                splits["gamecode"] = gc
+                per_game_frames.append(splits)
+        except Exception as e:
+            logger.warning(f"On/off split failed for game {gc}: {e}")
+
+    if not per_game_frames:
+        logger.warning("No on/off split data produced — skipping upsert.")
+        return
+
+    all_splits = pd.concat(per_game_frames, ignore_index=True)
+
+    # Group by (player_id, team) only — player_name can vary between games
+    # due to formatting differences. Take the latest name via 'last'.
+    agg = all_splits.groupby(["player_id", "team"], as_index=False).agg(
+        player_name=("player_name", "last"),
+        games=("gamecode", "nunique"),
+        on_events=("on_events", "sum"),
+        on_pts_for=("on_pts_for", "sum"),
+        on_pts_against=("on_pts_against", "sum"),
+        on_poss=("on_poss", "sum"),
+        off_events=("off_events", "sum"),
+        off_pts_for=("off_pts_for", "sum"),
+        off_pts_against=("off_pts_against", "sum"),
+        off_poss=("off_poss", "sum"),
+    )
+
+    agg["on_ortg"] = (agg["on_pts_for"] / agg["on_poss"].clip(lower=1) * 100).round(1)
+    agg["on_drtg"] = (agg["on_pts_against"] / agg["on_poss"].clip(lower=1) * 100).round(1)
+    agg["on_net_rtg"] = (agg["on_ortg"] - agg["on_drtg"]).round(1)
+    agg["off_ortg"] = (agg["off_pts_for"] / agg["off_poss"].clip(lower=1) * 100).round(1)
+    agg["off_drtg"] = (agg["off_pts_against"] / agg["off_poss"].clip(lower=1) * 100).round(1)
+    agg["off_net_rtg"] = (agg["off_ortg"] - agg["off_drtg"]).round(1)
+    agg["on_off_diff"] = (agg["on_net_rtg"] - agg["off_net_rtg"]).round(1)
+    agg["season"] = season
+
+    load_on_off_splits(engine, agg)
+    logger.info(
+        f"=== Season aggregation complete: {len(agg)} players, "
+        f"{time.time()-t0:.1f}s ==="
+    )
+
+
 # ========================================================================
 # HIGH-LEVEL PIPELINE FUNCTIONS
 # ========================================================================
@@ -734,10 +917,17 @@ def load_season(
     season: int,
     competition: str = "E",
     reset: bool = False,
+    limit: Optional[int] = None,
 ) -> None:
     """
     End-to-end pipeline for an entire season using concurrent extraction
     and bulk database loading.
+
+    Parameters
+    ----------
+    limit : int or None
+        When set, only the first *limit* played games are processed.
+        Useful for local testing without hitting API rate limits.
     """
     from data_pipeline.extractors import get_season_schedule
 
@@ -757,9 +947,23 @@ def load_season(
 
     played_games = schedule[schedule["played"] == True]
     gamecodes = played_games["gamecode"].tolist()
-    logger.info(f"Found {len(gamecodes)} played games to load.")
+    total_available = len(gamecodes)
+
+    if limit is not None:
+        gamecodes = gamecodes[:limit]
+        logger.warning(
+            f"TESTING MODE ACTIVE: Processing only the first "
+            f"{len(gamecodes)} of {total_available} played games."
+        )
+
+    logger.info(f"Found {total_available} played games; loading {len(gamecodes)}.")
 
     result = run_pipeline_batch(season, gamecodes, competition, engine=engine)
+
+    # Phase 4: Season-level aggregations (on/off splits, etc.)
+    if result["loaded"] > 0:
+        run_season_aggregations(season, engine=engine)
+
     logger.info(
         f"=== Season {competition}{season} complete: "
         f"{result['loaded']}/{result['total']} loaded, "
@@ -777,6 +981,12 @@ if __name__ == "__main__":
         action="store_true",
         default=False,
         help="Hard reset: drop ALL tables, recreate strict schema, then load.",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Limit the number of games to process (for local testing).",
     )
     args = parser.parse_args()
 
@@ -796,4 +1006,4 @@ if __name__ == "__main__":
         else:
             run_pipeline(args.season, args.game)
     else:
-        load_season(args.season, reset=args.reset)
+        load_season(args.season, reset=args.reset, limit=args.limit)

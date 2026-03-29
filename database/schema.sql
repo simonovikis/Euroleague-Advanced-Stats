@@ -198,3 +198,34 @@ CREATE TABLE IF NOT EXISTS shots (
 
 CREATE INDEX IF NOT EXISTS idx_shots_game
     ON shots (season, gamecode);
+
+
+-- -----------------------------------------------------------
+-- 8. SEASON_ON_OFF_SPLITS — Pre-computed per-player On/Off
+--    Net Rating aggregated across all games in a season.
+--    Populated by run_season_aggregations() in the nightly ETL.
+-- -----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS season_on_off_splits (
+    season          INT          NOT NULL,
+    player_id       VARCHAR(20)  NOT NULL,
+    player_name     VARCHAR(150),
+    team            VARCHAR(10),
+    games           INT,          -- number of games the player appeared in
+    on_events       INT,
+    on_pts_for      INT,
+    on_pts_against  INT,
+    on_poss         REAL,
+    on_ortg         REAL,
+    on_drtg         REAL,
+    on_net_rtg      REAL,
+    off_events      INT,
+    off_pts_for     INT,
+    off_pts_against INT,
+    off_poss        REAL,
+    off_ortg        REAL,
+    off_drtg        REAL,
+    off_net_rtg     REAL,
+    on_off_diff     REAL,
+
+    PRIMARY KEY (season, player_id, team)
+);

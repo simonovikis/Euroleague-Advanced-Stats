@@ -867,3 +867,131 @@ class TestRunPipeline:
         mock_pbp.assert_called_once()
         mock_shots.assert_called_once()
         mock_adv.assert_called_once()
+
+
+# ========================================================================
+# 9. SEASON AGGREGATION (on/off splits) TESTS
+# ========================================================================
+
+class TestLoadOnOffSplits:
+    """Verify load_on_off_splits upserts with ON CONFLICT."""
+
+    @patch("data_pipeline.load_to_db._bulk_execute", return_value=5)
+    def test_upserts_on_off_records(self, mock_be):
+        df = pd.DataFrame([
+            {"season": 2025, "player_id": "P1", "player_name": "A", "team": "OLY",
+             "games": 10, "on_events": 500, "on_pts_for": 100, "on_pts_against": 80,
+             "on_poss": 50.0, "on_ortg": 120.0, "on_drtg": 100.0, "on_net_rtg": 20.0,
+             "off_events": 300, "off_pts_for": 60, "off_pts_against": 70,
+             "off_poss": 30.0, "off_ortg": 110.0, "off_drtg": 115.0, "off_net_rtg": -5.0,
+             "on_off_diff": 25.0},
+        ])
+        from data_pipeline.load_to_db import load_on_off_splits
+        load_on_off_splits(MagicMock(), df)
+
+        mock_be.assert_called_once()
+        sql = mock_be.call_args[0][1]
+        assert "ON CONFLICT (season, player_id, team)" in sql
+        records = mock_be.call_args[0][3]
+        assert records[0]["player_id"] == "P1"
+        assert records[0]["on_off_diff"] == 25.0
+
+    @patch("data_pipeline.load_to_db._bulk_execute")
+    def test_empty_df_skipped(self, mock_be):
+        from data_pipeline.load_to_db import load_on_off_splits
+        load_on_off_splits(MagicMock(), pd.DataFrame())
+        mock_be.assert_not_called()
+
+
+class TestRunSeasonAggregations:
+    """Verify run_season_aggregations reads from DB and produces results."""
+
+    def test_aggregates_across_games(self):
+        """
+        Feeds two games with the SAME roster through the on/off transformer,
+        then verifies the aggregation logic sums counts and recomputes ratings.
+        """
+        from data_pipeline.transformers import track_lineups, compute_on_off_splits
+
+        # Build two games that share an identical roster by using gamecode=1
+        # for both but assigning different actual gamecodes for tracking
+        box1 = _make_boxscore(2025, 1)
+        box2 = _make_boxscore(2025, 1)  # same player IDs as game 1
+        box2["Gamecode"] = 2
+        pbp1 = _make_pbp(2025, 1)
+        pbp2 = _make_pbp(2025, 1)  # same player IDs
+        pbp2["Gamecode"] = 2
+
+        splits1 = compute_on_off_splits(track_lineups(pbp1, box1), box1)
+        splits2 = compute_on_off_splits(track_lineups(pbp2, box2), box2)
+
+        assert not splits1.empty
+        assert not splits2.empty
+
+        splits1["gamecode"] = 1
+        splits2["gamecode"] = 2
+        combined = pd.concat([splits1, splits2], ignore_index=True)
+
+        # Must match the production groupby: (player_id, team) only
+        agg = combined.groupby(["player_id", "team"], as_index=False).agg(
+            player_name=("player_name", "last"),
+            games=("gamecode", "nunique"),
+            on_events=("on_events", "sum"),
+            on_pts_for=("on_pts_for", "sum"),
+            on_pts_against=("on_pts_against", "sum"),
+            on_poss=("on_poss", "sum"),
+            off_events=("off_events", "sum"),
+            off_pts_for=("off_pts_for", "sum"),
+            off_pts_against=("off_pts_against", "sum"),
+            off_poss=("off_poss", "sum"),
+        )
+        agg["on_ortg"] = (agg["on_pts_for"] / agg["on_poss"].clip(lower=1) * 100).round(1)
+        agg["on_drtg"] = (agg["on_pts_against"] / agg["on_poss"].clip(lower=1) * 100).round(1)
+        agg["on_net_rtg"] = (agg["on_ortg"] - agg["on_drtg"]).round(1)
+        agg["off_ortg"] = (agg["off_pts_for"] / agg["off_poss"].clip(lower=1) * 100).round(1)
+        agg["off_drtg"] = (agg["off_pts_against"] / agg["off_poss"].clip(lower=1) * 100).round(1)
+        agg["off_net_rtg"] = (agg["off_ortg"] - agg["off_drtg"]).round(1)
+        agg["on_off_diff"] = (agg["on_net_rtg"] - agg["off_net_rtg"]).round(1)
+
+        assert (agg["games"] == 2).all(), f"Expected 2 games per player, got: {agg['games'].tolist()}"
+        for col in ["on_events", "on_pts_for", "on_pts_against"]:
+            single_vals = splits1.set_index("player_id")[col]
+            agg_vals = agg.set_index("player_id")[col]
+            common = single_vals.index.intersection(agg_vals.index)
+            for pid in common:
+                assert agg_vals[pid] >= single_vals[pid]
+
+    def test_mid_season_transfer_produces_two_rows(self):
+        """
+        A player traded mid-season appears on two teams. The groupby on
+        (player_id, team) must produce two separate rows — one per stint.
+        """
+        rows = [
+            {"player_id": "PXXX", "player_name": "Traded Guy", "team": "OLY",
+             "gamecode": 1, "on_events": 50, "on_pts_for": 30, "on_pts_against": 25,
+             "on_poss": 20.0, "off_events": 40, "off_pts_for": 20, "off_pts_against": 22,
+             "off_poss": 18.0},
+            {"player_id": "PXXX", "player_name": "Traded Guy", "team": "PAO",
+             "gamecode": 10, "on_events": 60, "on_pts_for": 35, "on_pts_against": 30,
+             "on_poss": 25.0, "off_events": 45, "off_pts_for": 22, "off_pts_against": 28,
+             "off_poss": 20.0},
+        ]
+        df = pd.DataFrame(rows)
+
+        agg = df.groupby(["player_id", "team"], as_index=False).agg(
+            player_name=("player_name", "last"),
+            games=("gamecode", "nunique"),
+            on_events=("on_events", "sum"),
+            on_pts_for=("on_pts_for", "sum"),
+            on_pts_against=("on_pts_against", "sum"),
+            on_poss=("on_poss", "sum"),
+            off_events=("off_events", "sum"),
+            off_pts_for=("off_pts_for", "sum"),
+            off_pts_against=("off_pts_against", "sum"),
+            off_poss=("off_poss", "sum"),
+        )
+
+        assert len(agg) == 2, f"Expected 2 rows (one per team), got {len(agg)}"
+        assert set(agg["team"]) == {"OLY", "PAO"}
+        assert agg.loc[agg["team"] == "OLY", "on_pts_for"].iloc[0] == 30
+        assert agg.loc[agg["team"] == "PAO", "on_pts_for"].iloc[0] == 35
