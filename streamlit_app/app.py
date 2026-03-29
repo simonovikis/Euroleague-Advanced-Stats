@@ -429,11 +429,9 @@ tools_pages.append(
     st.Page(_page_glossary, title=t("nav_glossary_label"), icon="📖", url_path="glossary"),
 )
 
-nav = st.navigation({
-    "Main": main_pages,
-    "Analytics": analytics_pages,
-    "Tools": tools_pages,
-})
+# Flatten pages into a single list to show them all as top-level tabs
+all_pages = main_pages + analytics_pages + tools_pages
+nav = st.navigation(all_pages, position="top")
 nav.run()
 
 
