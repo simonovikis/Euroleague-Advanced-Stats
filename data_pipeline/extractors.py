@@ -11,19 +11,57 @@ Key classes from euroleague-api:
 
 The API returns pandas DataFrames directly.  Column names come from the
 Euroleague official API (PascalCase for boxscore, UPPERCASE for PBP/shots).
+
+Performance (Phase 59.5):
+  - Single-game extraction parallelises boxscore/pbp/shots via ThreadPoolExecutor.
+  - extract_games_concurrent() fetches N games in parallel with a Semaphore
+    to cap concurrent HTTP connections and tenacity-powered retries for 429/5xx.
 """
 
 import logging
-from typing import Dict
+import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
+from requests.exceptions import ConnectionError, HTTPError, Timeout
+from tenacity import (
+    retry,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_exponential,
+    before_sleep_log,
+)
 from euroleague_api.boxscore_data import BoxScoreData
 from euroleague_api.game_stats import GameStats
 from euroleague_api.play_by_play_data import PlayByPlay
 from euroleague_api.shot_data import ShotData
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# CONCURRENCY & RETRY CONFIGURATION
+# ---------------------------------------------------------------------------
+MAX_CONCURRENT_API_CALLS = 15
+_api_semaphore = threading.Semaphore(MAX_CONCURRENT_API_CALLS)
+
+
+def _is_retryable(exc: BaseException) -> bool:
+    """Return True for transient HTTP errors worth retrying."""
+    if isinstance(exc, HTTPError) and hasattr(exc, "response") and exc.response is not None:
+        return exc.response.status_code in (429, 500, 502, 503, 504)
+    return isinstance(exc, (ConnectionError, Timeout, OSError))
+
+
+_api_retry = retry(
+    retry=retry_if_exception(_is_retryable),
+    stop=stop_after_attempt(5),
+    wait=wait_exponential(multiplier=1, min=2, max=60),
+    before_sleep=before_sleep_log(logger, logging.WARNING),
+    reraise=True,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -57,6 +95,14 @@ def apply_team_aliases(df: pd.DataFrame, columns: list) -> pd.DataFrame:
     return df
 
 
+@_api_retry
+def _fetch_boxscore_raw(season: int, gamecode: int, competition: str) -> pd.DataFrame:
+    """Retry-wrapped raw API call for boxscore data."""
+    with _api_semaphore:
+        api = BoxScoreData(competition)
+        return api.get_player_boxscore_stats_data(season, gamecode)
+
+
 def get_boxscore(
     season: int,
     gamecode: int,
@@ -64,9 +110,6 @@ def get_boxscore(
 ) -> pd.DataFrame:
     """
     Fetch player-level boxscore stats for a single game.
-
-    The euroleague-api `get_player_boxscore_stats_data` method returns a
-    DataFrame with one row per player (no Team/Total summary rows).
 
     Returned columns (28 total):
         Season, Gamecode, Home, Player_ID, IsStarter, IsPlaying,
@@ -77,39 +120,25 @@ def get_boxscore(
         OffensiveRebounds, DefensiveRebounds, TotalRebounds,
         Assistances, Steals, Turnovers, BlocksFavour, BlocksAgainst,
         FoulsCommited, FoulsReceived, Valuation, Plusminus
-
-    Parameters
-    ----------
-    season : int
-        The start year of the season (e.g. 2024 for the 2024-25 season).
-    gamecode : int
-        The game code from the Euroleague website.
-    competition : str
-        "E" for Euroleague, "U" for EuroCup.
-
-    Returns
-    -------
-    pd.DataFrame
-        Player-level boxscore stats for the game.
     """
     logger.info(f"Fetching boxscore — season={season}, gamecode={gamecode}")
-
-    boxscore_api = BoxScoreData(competition)
-    df = boxscore_api.get_player_boxscore_stats_data(season, gamecode)
-
+    df = _fetch_boxscore_raw(season, gamecode, competition)
     logger.info(f"Boxscore returned {len(df)} rows (before filtering)")
 
-    # ---------------------------------------------------------------
-    # The API may return "Team" and "Total" summary rows alongside
-    # real player rows.  These have Player_ID == "Team" or "Total".
-    # We strip them here so downstream code only ever sees real players.
-    # ---------------------------------------------------------------
     summary_mask = df["Player_ID"].astype(str).str.strip().isin(["Team", "Total"])
     df = df[~summary_mask].reset_index(drop=True)
 
     logger.info(f"Boxscore: {len(df)} player rows after removing summary rows")
     df = apply_team_aliases(df, ["Team"])
     return df
+
+
+@_api_retry
+def _fetch_pbp_raw(season: int, gamecode: int, competition: str) -> pd.DataFrame:
+    """Retry-wrapped raw API call for play-by-play data."""
+    with _api_semaphore:
+        api = PlayByPlay(competition)
+        return api.get_game_play_by_play_data(season, gamecode)
 
 
 def get_play_by_play(
@@ -120,39 +149,22 @@ def get_play_by_play(
     """
     Fetch play-by-play data for a single game.
 
-    The euroleague-api `get_game_play_by_play_data` method returns a DataFrame
-    with one row per action.  Columns include:
-        Season, Gamecode, CODETEAM, PLAYER_ID, PLAYER,
-        PLAYTYPE, PERIOD, MARKERTIME, NUMBEROFPLAY,
-        PLAYINFO, COMMENT, TRUE_NUMBEROFPLAY, ...
-
-    PLAYTYPE values include: "2FGM" (2pt made), "2FGA" (2pt attempt/miss),
-    "3FGM", "3FGA", "FTM", "FTA", "D" (defensive rebound), "O" (offensive
-    rebound), "TO" (turnover), "ST" (steal), "AS" (assist), "FV" (block),
-    "IN" (sub in), "OUT" (sub out), etc.
-
-    Parameters
-    ----------
-    season : int
-        The start year of the season.
-    gamecode : int
-        The game code.
-    competition : str
-        "E" for Euroleague, "U" for EuroCup.
-
-    Returns
-    -------
-    pd.DataFrame
-        Play-by-play actions for the game.
+    PLAYTYPE values include: "2FGM", "2FGA", "3FGM", "3FGA", "FTM", "FTA",
+    "D", "O", "TO", "ST", "AS", "FV", "IN", "OUT", etc.
     """
     logger.info(f"Fetching PBP — season={season}, gamecode={gamecode}")
-
-    pbp_api = PlayByPlay(competition)
-    df = pbp_api.get_game_play_by_play_data(season, gamecode)
-
+    df = _fetch_pbp_raw(season, gamecode, competition)
     logger.info(f"PBP returned {len(df)} rows")
     df = apply_team_aliases(df, ["CODETEAM"])
     return df
+
+
+@_api_retry
+def _fetch_shots_raw(season: int, gamecode: int, competition: str) -> pd.DataFrame:
+    """Retry-wrapped raw API call for shot data."""
+    with _api_semaphore:
+        api = ShotData(competition)
+        return api.get_game_shot_data(season, gamecode)
 
 
 def get_shot_data(
@@ -160,39 +172,14 @@ def get_shot_data(
     gamecode: int,
     competition: str = COMPETITION,
 ) -> pd.DataFrame:
-    """
-    Fetch shot-level data with X/Y coordinates for a single game.
-
-    The euroleague-api `get_game_shot_data` method returns a DataFrame with:
-        Season, Gamecode, NUM_ANOT, TEAM, ID_PLAYER, PLAYER,
-        ID_ACTION, ACTION, POINTS, COORD_X, COORD_Y, ZONE,
-        FASTBREAK, SECOND_CHANCE, POINTS_OFF_TURNOVER,
-        MINUTE, CONSOLE, POINTS_A, POINTS_B, UTC
-
-    ZONE values: A-G representing different court zones.
-    COORD_X / COORD_Y: pixel coordinates on the court diagram.
-
-    Parameters
-    ----------
-    season : int
-    gamecode : int
-    competition : str
-
-    Returns
-    -------
-    pd.DataFrame
-        Shot-level data with coordinates.
-    """
+    """Fetch shot-level data with X/Y coordinates for a single game."""
     logger.info(f"Fetching shot data — season={season}, gamecode={gamecode}")
-
-    shot_api = ShotData(competition)
     try:
-        df = shot_api.get_game_shot_data(season, gamecode)
+        df = _fetch_shots_raw(season, gamecode, competition)
         logger.info(f"Shot data returned {len(df)} rows")
     except Exception as e:
         logger.warning(f"Shot data unavailable for game {gamecode}: {e}")
         df = pd.DataFrame()
-
     return df
 
 
@@ -203,31 +190,19 @@ def extract_game_data(
 ) -> Dict[str, pd.DataFrame]:
     """
     High-level extraction function: fetches all data for a single game.
+    Boxscore, PBP, and shots are fetched concurrently (3 threads).
 
-    Returns a dict with:
-      - "boxscore"  : player boxscore DataFrame
-      - "pbp"       : play-by-play DataFrame
-      - "shots"     : shot data with X/Y coordinates
-      - "game_info" : single-row DataFrame with game metadata
-
-    Parameters
-    ----------
-    season : int
-    gamecode : int
-    competition : str
-
-    Returns
-    -------
-    dict[str, pd.DataFrame]
+    Returns a dict with keys: boxscore, pbp, shots, game_info.
     """
-    boxscore_df = get_boxscore(season, gamecode, competition)
-    pbp_df = get_play_by_play(season, gamecode, competition)
-    shots_df = get_shot_data(season, gamecode, competition)
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        f_box = pool.submit(get_boxscore, season, gamecode, competition)
+        f_pbp = pool.submit(get_play_by_play, season, gamecode, competition)
+        f_shots = pool.submit(get_shot_data, season, gamecode, competition)
 
-    # ---------------------------------------------------------------
-    # Extract game metadata.  Use PBP final score (most reliable)
-    # and boxscore for team codes / home-away designation.
-    # ---------------------------------------------------------------
+    boxscore_df = f_box.result()
+    pbp_df = f_pbp.result()
+    shots_df = f_shots.result()
+
     game_info = _extract_game_info(boxscore_df, pbp_df, season, gamecode)
 
     return {
@@ -301,10 +276,8 @@ def extract_multiple_games(
     competition: str = COMPETITION,
 ) -> Dict[str, pd.DataFrame]:
     """
-    Extract data for multiple games in a season.
-
-    Concatenates results into a single dict of DataFrames.
-    Gracefully handles failures for individual games.
+    Extract data for multiple games in a season (legacy sequential).
+    Kept for backward-compat; prefer extract_games_concurrent() for ETL.
     """
     all_boxscores = []
     all_pbps = []
@@ -328,6 +301,59 @@ def extract_multiple_games(
         "shots": pd.concat(all_shots, ignore_index=True) if all_shots else pd.DataFrame(),
         "game_info": pd.concat(all_game_infos, ignore_index=True) if all_game_infos else pd.DataFrame(),
     }
+
+
+def extract_games_concurrent(
+    season: int,
+    gamecodes: List[int],
+    competition: str = COMPETITION,
+    max_workers: int = 12,
+    progress_callback: Optional[callable] = None,
+) -> List[Dict[str, pd.DataFrame]]:
+    """
+    Extract data for many games concurrently using a thread pool.
+
+    Each game internally spawns 3 sub-threads (box/pbp/shots) but the
+    global _api_semaphore caps total in-flight HTTP requests to
+    MAX_CONCURRENT_API_CALLS, preventing 429s.
+
+    Parameters
+    ----------
+    season : int
+    gamecodes : list[int]
+    competition : str
+    max_workers : int
+        Number of games fetched in parallel (default 12).
+    progress_callback : callable(current, total) or None
+
+    Returns
+    -------
+    list[dict]
+        One dict per successfully-extracted game (same shape as
+        extract_game_data output). Failed games are logged and skipped.
+    """
+    results: List[Dict[str, pd.DataFrame]] = []
+    total = len(gamecodes)
+
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        future_to_gc = {
+            pool.submit(extract_game_data, season, gc, competition): gc
+            for gc in gamecodes
+        }
+
+        for i, future in enumerate(as_completed(future_to_gc), 1):
+            gc = future_to_gc[future]
+            try:
+                data = future.result()
+                results.append(data)
+                logger.info(f"Extracted game {gc} ({i}/{total})")
+            except Exception as e:
+                logger.error(f"Failed to extract game {gc}: {e}")
+
+            if progress_callback:
+                progress_callback(i, total)
+
+    return results
 
 
 def get_season_schedule(

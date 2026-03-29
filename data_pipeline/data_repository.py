@@ -383,33 +383,44 @@ class DataRepository:
         progress_callback=None,
     ) -> Dict[str, int]:
         """
-        Bulk-sync all missing played games for a season.
+        Bulk-sync all missing played games for a season using the
+        concurrent batch pipeline.
 
         Parameters
         ----------
         progress_callback : callable(current, total) or None
-            Called after each game so the UI can update a progress bar.
+            Called after each game extraction completes.
 
         Returns
         -------
         dict with keys: total, synced, failed
         """
         missing = self.get_missing_gamecodes(season, competition)
+        if not missing:
+            return {"total": 0, "synced": 0, "failed": 0}
+
+        if self.db_available():
+            from data_pipeline.load_to_db import run_pipeline_batch, ensure_schema
+            ensure_schema(self.engine)
+            result = run_pipeline_batch(
+                season, missing, competition,
+                engine=self.engine,
+                progress_callback=progress_callback,
+            )
+            return {"total": result["total"], "synced": result["loaded"], "failed": result["failed"]}
+
+        # Fallback: no DB, extract only (for UI display)
+        from data_pipeline.extractors import extract_game_data
         total = len(missing)
         synced = 0
         failed = 0
-
         for i, gc in enumerate(missing):
             try:
-                from data_pipeline.extractors import extract_game_data
-                raw = extract_game_data(season, gc, competition)
-                if self.db_available():
-                    self._save_raw_to_db(raw, season, gc)
+                extract_game_data(season, gc, competition)
                 synced += 1
             except Exception as e:
                 logger.error(f"Failed to sync game {season}/{gc}: {e}")
                 failed += 1
-
             if progress_callback:
                 progress_callback(i + 1, total)
 
