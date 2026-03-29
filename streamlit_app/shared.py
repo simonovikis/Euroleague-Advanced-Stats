@@ -43,6 +43,98 @@ TEAM_NAME_MAP = get_team_name_map()
 GLOBAL_DECIMALS = get_global_decimals()
 
 
+def get_team_logo_map() -> dict:
+    """Return a dict of team_code -> logo_url from the schedule in session state."""
+    logo_map = st.session_state.get("_team_logo_map")
+    if logo_map is not None:
+        return logo_map
+    logo_map = {}
+    schedule = st.session_state.get("schedule", pd.DataFrame())
+    if not schedule.empty:
+        for _, row in schedule.iterrows():
+            hc = row.get("home_code", "")
+            ac = row.get("away_code", "")
+            hl = row.get("home_logo")
+            al = row.get("away_logo")
+            if hc and pd.notna(hl) and hl:
+                logo_map[hc] = str(hl)
+            if ac and pd.notna(al) and al:
+                logo_map[ac] = str(al)
+    st.session_state["_team_logo_map"] = logo_map
+    return logo_map
+
+
+def get_team_logo_url(team_code: str) -> str:
+    """Get logo URL for a team code, with avatar fallback."""
+    logo_map = get_team_logo_map()
+    url = logo_map.get(team_code, "")
+    if not url:
+        url = (
+            f"https://ui-avatars.com/api/?name={team_code}"
+            f"&background=2a2a5a&color=e4e4f0&size=128&rounded=true&bold=true"
+        )
+    return url
+
+
+def add_logo_images_to_figure(
+    fig, df, x_col, y_col, team_col="team_code", size=0.04,
+    selected_team=None, ring_size=50,
+):
+    """
+    Overlay team logo images on a Plotly scatter figure.
+    The *selected_team* gets a colored ring (circle border) around its logo.
+
+    Parameters
+    ----------
+    size : float
+        Logo size as a fraction of the axis range.
+    selected_team : str or None
+        Team code to highlight with a colored ring.
+    ring_size : int
+        Marker diameter (px) for the ring on the selected team.
+    """
+    logo_map = get_team_logo_map()
+    x_range = df[x_col].max() - df[x_col].min()
+    y_range = df[y_col].max() - df[y_col].min()
+    sx = x_range * size if x_range > 0 else 1
+    sy = y_range * size if y_range > 0 else 1
+
+    # Ring only for the selected team
+    if selected_team is not None:
+        sel_rows = df[df[team_col] == selected_team]
+        if not sel_rows.empty:
+            color = TEAM_COLORS.get(selected_team, DEFAULT_ACCENT)[0]
+            fig.add_trace(go.Scatter(
+                x=sel_rows[x_col], y=sel_rows[y_col],
+                mode="markers",
+                marker=dict(
+                    size=ring_size,
+                    color="rgba(0,0,0,0)",
+                    line=dict(width=3, color=color),
+                ),
+                hoverinfo="skip",
+                showlegend=False,
+            ))
+
+    # Logo images
+    for _, row in df.iterrows():
+        tc = row[team_col]
+        url = logo_map.get(tc, "")
+        if not url:
+            continue
+        fig.add_layout_image(
+            dict(
+                source=url,
+                xref="x", yref="y",
+                x=row[x_col], y=row[y_col],
+                sizex=sx, sizey=sy,
+                xanchor="center", yanchor="middle",
+                layer="above",
+            )
+        )
+    return fig
+
+
 # ========================================================================
 # TRANSLATIONS
 # ========================================================================
@@ -60,6 +152,174 @@ def t(key: str, **kwargs) -> str:
     default = kwargs.pop("default", key)
     text = TRANSLATIONS.get(key, {}).get(lang, TRANSLATIONS.get(key, {}).get(_FALLBACK_LANG, default))
     return text.format(**kwargs) if kwargs else text
+
+
+# ========================================================================
+# FAVORITE TEAM — Persistence & Selection Dialog
+# ========================================================================
+import logging as _logging
+
+_fav_logger = _logging.getLogger(__name__)
+
+
+def _supabase_has_session() -> bool:
+    """Return True if the Supabase client holds a valid user session."""
+    try:
+        from streamlit_app.utils.auth import get_supabase_client
+        client = get_supabase_client()
+        session = client.auth.get_session()
+        return session is not None and session.access_token is not None
+    except Exception:
+        return False
+
+
+def _fetch_favorite_team_from_db(email: str) -> str | None:
+    """Load favorite_team_code from user_profiles (Supabase)."""
+    if not _supabase_has_session():
+        return None
+    try:
+        from streamlit_app.utils.auth import get_supabase_client
+        client = get_supabase_client()
+        resp = (
+            client.table("user_profiles")
+            .select("favorite_team_code")
+            .eq("user_email", email)
+            .limit(1)
+            .execute()
+        )
+        if resp.data:
+            return resp.data[0].get("favorite_team_code")
+    except Exception as exc:
+        _fav_logger.debug("Could not fetch favorite team from DB: %s", exc)
+    return None
+
+
+def _save_favorite_team_to_db(email: str, team_code: str | None) -> bool:
+    """Upsert favorite_team_code into user_profiles (Supabase)."""
+    if not _supabase_has_session():
+        _fav_logger.debug("Skipping favorite team save — no active Supabase session")
+        return False
+    try:
+        from streamlit_app.utils.auth import get_supabase_client
+        client = get_supabase_client()
+        client.table("user_profiles").upsert(
+            {"user_email": email, "favorite_team_code": team_code},
+            on_conflict="user_email",
+        ).execute()
+        return True
+    except Exception as exc:
+        _fav_logger.debug("Could not save favorite team to DB: %s", exc)
+        return False
+
+
+def init_favorite_team() -> None:
+    """Initialise ``st.session_state.favorite_team`` on app load.
+
+    Priority: 1) already set  2) DB (logged-in user)  3) query param ``fav_team``
+    """
+    if "favorite_team" in st.session_state:
+        return
+
+    email = st.session_state.get("user_email")
+    if email and REQUIRE_LOGIN:
+        db_fav = _fetch_favorite_team_from_db(email)
+        if db_fav:
+            st.session_state["favorite_team"] = db_fav
+            return
+
+    qp_fav = st.query_params.get("fav_team")
+    if qp_fav:
+        st.session_state["favorite_team"] = qp_fav
+        return
+
+    st.session_state["favorite_team"] = None
+
+
+def save_favorite_team(team_code: str | None) -> None:
+    """Persist a favorite-team choice to session + DB + query params."""
+    st.session_state["favorite_team"] = team_code
+    email = st.session_state.get("user_email")
+    if email and REQUIRE_LOGIN:
+        _save_favorite_team_to_db(email, team_code)
+    if team_code:
+        st.query_params["fav_team"] = team_code
+    else:
+        st.query_params.pop("fav_team", None)
+
+
+def get_favorite_team() -> str | None:
+    """Return the current favorite team code (or None)."""
+    return st.session_state.get("favorite_team")
+
+
+def _build_team_display_name(code: str) -> str:
+    """Return ``'CODE — Team Name'`` when a name is known, else just the code."""
+    name = TEAM_NAME_MAP.get(code)
+    if name:
+        return f"{code} — {name}"
+    return code
+
+
+@st.dialog(t("fav_dialog_title", default="Pick Your Favorite Team"))
+def show_favorite_team_selector(team_options: list[str] | None = None) -> None:
+    """Modal dialog that lets the user pick (or skip) a favorite team."""
+    st.markdown(
+        f"<p style='color:#9ca3af;'>{t('fav_dialog_subtitle', default='Personalise your dashboard by choosing a favorite team. It will be pre-selected across all views.')}</p>",
+        unsafe_allow_html=True,
+    )
+
+    if team_options is None:
+        schedule = st.session_state.get("schedule", pd.DataFrame())
+        if not schedule.empty:
+            team_options = sorted(
+                list(
+                    set(schedule["home_code"].unique())
+                    | set(schedule["away_code"].unique())
+                )
+            )
+        else:
+            team_options = sorted(TEAM_NAME_MAP.keys()) if TEAM_NAME_MAP else []
+
+    if not team_options:
+        st.warning(t("fav_no_teams", default="No teams available yet. Please select a season first."))
+        return
+
+    display_map = {code: _build_team_display_name(code) for code in team_options}
+
+    chosen = st.selectbox(
+        t("fav_select_label", default="Choose a team"),
+        team_options,
+        format_func=lambda c: display_map.get(c, c),
+        key="_fav_team_dialog_select",
+    )
+
+    col_save, col_skip = st.columns(2)
+    with col_save:
+        if st.button(t("fav_save_btn", default="Save Preference"), type="primary", use_container_width=True):
+            save_favorite_team(chosen)
+            st.rerun()
+    with col_skip:
+        if st.button(t("fav_skip_btn", default="Skip for now"), use_container_width=True):
+            st.session_state["favorite_team_skipped"] = True
+            st.rerun()
+
+
+def favorite_team_index(team_options: list[str], fallback: int = 0) -> int:
+    """Return the index of the favorite team in *team_options*, or *fallback*."""
+    fav = get_favorite_team()
+    if fav and fav in team_options:
+        return team_options.index(fav)
+    return fallback
+
+
+def format_team_option(code: str) -> str:
+    """Format a team code for display, prepending a star if it is the favorite."""
+    fav = get_favorite_team()
+    name = TEAM_NAME_MAP.get(code, "")
+    star = "⭐ " if code == fav else ""
+    if name:
+        return f"{star}{code} — {name}"
+    return f"{star}{code}"
 
 
 # ========================================================================
@@ -235,6 +495,13 @@ def render_game_sidebar():
                 if ginfo.get("gamecode") == _url_gc:
                     _default_idx = i
                     break
+        elif "matchup_picker" not in st.session_state:
+            fav = get_favorite_team()
+            if fav:
+                for i, (_lbl, ginfo) in enumerate(matchup_dict.items()):
+                    if fav in (ginfo.get("home_code"), ginfo.get("away_code")):
+                        _default_idx = i
+                        break
 
         selected_label = st.selectbox(
             t("matchup_dropdown"),
@@ -284,7 +551,7 @@ def render_team_sidebar():
             )
         st.session_state["season_team_codes"] = set(team_options)
 
-        _default_idx = 0
+        _default_idx = favorite_team_index(team_options, fallback=0)
         _url_team = st.session_state.pop("_url_team", None)
         if _url_team and _url_team in team_options and "team_picker" not in st.session_state:
             _default_idx = team_options.index(_url_team)
@@ -293,6 +560,7 @@ def render_team_sidebar():
             t("team_dropdown"),
             team_options,
             index=_default_idx,
+            format_func=format_team_option,
             key="team_picker",
         )
 

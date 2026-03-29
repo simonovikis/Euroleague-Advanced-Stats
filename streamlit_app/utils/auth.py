@@ -6,14 +6,78 @@ access control for the Streamlit application.
 
 Admin users (defined in ADMIN_EMAILS) get access to the
 Database Sync Manager. Regular users see the analytics dashboard only.
+
+Session persistence across page refreshes
+------------------------------------------
+``components.html()`` JS cannot run in the same render cycle as
+``st.rerun()`` because Streamlit discards the page. To work around
+this, login stores the tokens in ``st.session_state["_pending_tokens"]``
+and calls ``st.rerun()``. On the *next* render ``flush_pending_cookies()``
+(called from ``app.py``) writes them to the browser via a tiny JS
+component. On a full browser refresh ``init_auth_state()`` reads the
+cookie back via ``st.context.cookies`` and restores the Supabase session.
 """
 
+from __future__ import annotations
+
+import logging
 import streamlit as st
+import streamlit.components.v1 as components
 from supabase import create_client, Client
 
 from streamlit_app.utils.secrets_manager import SUPABASE_URL, SUPABASE_KEY, ADMIN_EMAILS
 
+_auth_logger = logging.getLogger(__name__)
 
+_COOKIE_REFRESH = "sb_refresh_token"
+_COOKIE_MAX_AGE = 604800  # 7 days
+
+
+# ------------------------------------------------------------------
+# Cookie helpers
+# ------------------------------------------------------------------
+def _write_cookie_js(name: str, value: str, max_age: int):
+    components.html(
+        f"<script>document.cookie='{name}={value}; path=/; "
+        f"max-age={max_age}; SameSite=Strict';</script>",
+        height=0, width=0,
+    )
+
+
+def _expire_cookie_js(name: str):
+    components.html(
+        f"<script>document.cookie='{name}=; path=/; "
+        f"max-age=0; SameSite=Strict';</script>",
+        height=0, width=0,
+    )
+
+
+def _read_cookie(name: str) -> str | None:
+    try:
+        return st.context.cookies.get(name)
+    except Exception:
+        return None
+
+
+def flush_pending_cookies():
+    """Write any pending auth tokens to the browser.
+
+    Must be called from ``app.py`` *after* ``init_auth_state()``
+    and *without* an ``st.rerun()`` in the same render, so the
+    ``components.html`` JS actually reaches the browser.
+    """
+    tokens = st.session_state.pop("_pending_tokens", None)
+    if tokens:
+        _write_cookie_js(_COOKIE_REFRESH, tokens[1], _COOKIE_MAX_AGE)
+
+    if st.session_state.get("_clear_cookies"):
+        st.session_state.pop("_clear_cookies", None)
+        _expire_cookie_js(_COOKIE_REFRESH)
+
+
+# ------------------------------------------------------------------
+# Supabase client
+# ------------------------------------------------------------------
 def get_supabase_client() -> Client:
     if "supabase_client" not in st.session_state:
         url = SUPABASE_URL.strip()
@@ -34,6 +98,42 @@ def _get_admin_emails() -> list:
     return ADMIN_EMAILS
 
 
+def _check_admin(email: str) -> bool:
+    return email.strip().lower() in _get_admin_emails()
+
+
+# ------------------------------------------------------------------
+# Session restore
+# ------------------------------------------------------------------
+def _try_restore_session() -> bool:
+    """Restore an authenticated session from the browser cookie."""
+    refresh_token = _read_cookie(_COOKIE_REFRESH)
+    if not refresh_token:
+        return False
+
+    try:
+        client = get_supabase_client()
+        response = client.auth.refresh_session(refresh_token)
+        session = response.session
+        user = response.user
+        if user and session:
+            st.session_state["authenticated"] = True
+            st.session_state["user_email"] = user.email
+            st.session_state["is_admin"] = _check_admin(user.email)
+            # Queue updated tokens so the cookie gets refreshed
+            st.session_state["_pending_tokens"] = (
+                session.access_token,
+                session.refresh_token,
+            )
+            _auth_logger.info("Session restored from cookie for %s", user.email)
+            return True
+    except Exception as e:
+        _auth_logger.debug("Could not restore session from cookie: %s", e)
+        st.session_state["_clear_cookies"] = True
+
+    return False
+
+
 def init_auth_state():
     if "authenticated" not in st.session_state:
         st.session_state["authenticated"] = False
@@ -42,11 +142,13 @@ def init_auth_state():
     if "is_admin" not in st.session_state:
         st.session_state["is_admin"] = False
 
+    if not st.session_state["authenticated"]:
+        _try_restore_session()
 
-def _check_admin(email: str) -> bool:
-    return email.strip().lower() in _get_admin_emails()
 
-
+# ------------------------------------------------------------------
+# Login / Signup / Logout
+# ------------------------------------------------------------------
 def _handle_login(email: str, password: str):
     try:
         client = get_supabase_client()
@@ -54,10 +156,18 @@ def _handle_login(email: str, password: str):
             {"email": email, "password": password}
         )
         user = response.user
+        session = response.session
         if user:
             st.session_state["authenticated"] = True
             st.session_state["user_email"] = user.email
             st.session_state["is_admin"] = _check_admin(user.email)
+            if session:
+                # Stash tokens; they will be flushed to cookies on the
+                # next render cycle (after the rerun).
+                st.session_state["_pending_tokens"] = (
+                    session.access_token,
+                    session.refresh_token,
+                )
             st.rerun()
         else:
             st.error("Login failed. Please check your credentials.")
@@ -103,6 +213,7 @@ def handle_logout():
     st.session_state["authenticated"] = False
     st.session_state["user_email"] = None
     st.session_state["is_admin"] = False
+    st.session_state["_clear_cookies"] = True
     st.rerun()
 
 

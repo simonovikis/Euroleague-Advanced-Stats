@@ -188,7 +188,9 @@ def fetch_league_efficiency_landscape(season: int, competition: str = COMPETITIO
                 from sqlalchemy import text
                 query = text("""
                     WITH team_poss AS (
-                        SELECT pa.team_code, SUM(pa.possessions) AS poss, MAX(tm.team_name) AS team_name
+                        SELECT pa.team_code, SUM(pa.possessions) AS poss,
+                               MAX(tm.team_name) AS team_name,
+                               MAX(tm.logo_url) AS logo_url
                         FROM player_advanced_stats pa
                         JOIN teams tm ON pa.team_code = tm.team_code
                         WHERE pa.season = :season
@@ -206,7 +208,7 @@ def fetch_league_efficiency_landscape(season: int, competition: str = COMPETITIO
                         GROUP BY t.team_code
                     )
                     SELECT
-                        p.team_code, p.team_name,
+                        p.team_code, p.team_name, p.logo_url,
                         t.games,
                         p.poss AS possessions,
                         (p.poss / t.games) AS pace,

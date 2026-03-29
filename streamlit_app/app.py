@@ -23,9 +23,13 @@ from streamlit_app.shared import (
     t, fetch_season_schedule,
     is_feature_enabled,
     REQUIRE_LOGIN,
+    init_favorite_team,
+    get_favorite_team,
+    show_favorite_team_selector,
+    format_team_option,
 )
 from streamlit_app.utils.config_loader import get_default_language, get_language_map
-from streamlit_app.utils.auth import init_auth_state, render_auth_page, render_user_sidebar
+from streamlit_app.utils.auth import init_auth_state, render_auth_page, render_user_sidebar, flush_pending_cookies
 
 # ========================================================================
 # PAGE CONFIG
@@ -133,9 +137,15 @@ st.markdown(
 # ========================================================================
 if REQUIRE_LOGIN:
     init_auth_state()
+    flush_pending_cookies()
     if not st.session_state.get("authenticated"):
         render_auth_page()
         st.stop()
+
+# ========================================================================
+# FAVORITE TEAM STATE
+# ========================================================================
+init_favorite_team()
 
 # ========================================================================
 # DEEP LINKING: Initialize state from URL query parameters
@@ -278,6 +288,24 @@ with st.sidebar:
         _gc_match = schedule[schedule["gamecode"] == _url_gc]
         if not _gc_match.empty:
             st.session_state.selected_round = int(_gc_match.iloc[0]["round"])
+
+    st.markdown("---")
+
+    # --- Favorite Team quick-view & change button ---
+    _fav = get_favorite_team()
+    if _fav:
+        st.markdown(
+            f"<p style='font-size:0.85rem;'>⭐ {t('fav_sidebar_label', default='Favorite')}: "
+            f"<strong>{format_team_option(_fav).lstrip('⭐ ')}</strong></p>",
+            unsafe_allow_html=True,
+        )
+    if st.button(
+        t("fav_change_btn", default="Change Favorite Team") if _fav
+        else t("fav_set_btn", default="Set Favorite Team"),
+        key="sidebar_change_fav",
+        use_container_width=True,
+    ):
+        show_favorite_team_selector()
 
     st.markdown("---")
     st.markdown(

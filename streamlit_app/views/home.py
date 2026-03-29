@@ -1,5 +1,8 @@
 import streamlit as st
-from streamlit_app.shared import t, is_feature_enabled
+from streamlit_app.shared import (
+    t, is_feature_enabled,
+    get_favorite_team, show_favorite_team_selector,
+)
 
 # Card definitions: (icon, title_key, desc_key, feature_flag_or_None)
 # Icons match the st.Page icons in app.py navigation.
@@ -19,6 +22,9 @@ _CARDS = [
 
 
 def render():
+    if get_favorite_team() is None and not st.session_state.get("favorite_team_skipped"):
+        show_favorite_team_selector()
+
     st.markdown("")
     st.markdown(
         f'<h1 style="text-align:center; color:#e4e4f0; margin-bottom:4px;">{t("home_welcome_title")}</h1>'

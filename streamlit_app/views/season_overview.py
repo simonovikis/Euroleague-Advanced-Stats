@@ -1,4 +1,3 @@
-import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -9,6 +8,7 @@ from streamlit_app.shared import (
     render_team_sidebar, format_df_decimals, get_decimal_column_config,
     GLOBAL_DECIMALS, render_skeleton_loader, render_page_header,
     skeleton_kpi_row, skeleton_dataframe, skeleton_chart,
+    add_logo_images_to_figure, get_team_logo_map,
 )
 from streamlit_app.utils.config_loader import get_feature_toggle
 
@@ -60,14 +60,17 @@ def render():
     else:
         if valid_teams:
             eff_df = eff_df[eff_df["team_code"].isin(valid_teams)].copy()
-        eff_df["color"] = np.where(eff_df["team_code"] == team_code, _tc_primary, "#4b5563")
-        eff_df["size"] = np.where(eff_df["team_code"] == team_code, 15, 10)
+        logo_map = get_team_logo_map()
 
-        fig_eff = px.scatter(
-            eff_df, x="ortg", y="drtg", hover_name="team_name",
-            color="color", size="size", color_discrete_map="identity",
-            labels={"ortg": t("lbl_ortg"), "drtg": t("lbl_drtg")},
-        )
+        fig_eff = go.Figure()
+        fig_eff.add_trace(go.Scatter(
+            x=eff_df["ortg"], y=eff_df["drtg"],
+            mode="markers",
+            marker=dict(size=1, opacity=0),
+            text=eff_df["team_name"],
+            hovertemplate="%{text}<br>" + t("lbl_ortg") + ": %{x:.1f}<br>" + t("lbl_drtg") + ": %{y:.1f}<extra></extra>",
+            showlegend=False,
+        ))
         fig_eff.update_yaxes(autorange="reversed")
         mean_ortg = eff_df["ortg"].mean()
         mean_drtg = eff_df["drtg"].mean()
@@ -76,8 +79,9 @@ def render():
         fig_eff.update_layout(
             plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
             font=dict(color="#e4e4f0"), showlegend=False, height=500,
+            xaxis_title=t("lbl_ortg"), yaxis_title=t("lbl_drtg"),
         )
-        # Replace skeleton with actual chart
+        add_logo_images_to_figure(fig_eff, eff_df, "ortg", "drtg", size=0.16, selected_team=team_code)
         eff_placeholder.plotly_chart(fig_eff)
 
         # Pace vs Net Rating
@@ -92,16 +96,15 @@ def render():
             avg_games = max(total_games / max(n_teams, 1), 1)
             eff_df["pace"] = eff_df["poss_off"] / avg_games
 
-        eff_df["color_pace"] = np.where(eff_df["team_code"] == team_code, _tc_primary, "#4b5563")
-        eff_df["size_pace"] = np.where(eff_df["team_code"] == team_code, 15, 10)
-
-        fig_pace = px.scatter(
-            eff_df, x="pace", y="net_rtg", hover_name="team_name",
-            color="color_pace", size="size_pace", color_discrete_map="identity",
-            text="team_code",
-            labels={"pace": t("lbl_pace"), "net_rtg": t("lbl_net_rtg")},
-        )
-        fig_pace.update_traces(textposition="top center", textfont_size=9)
+        fig_pace = go.Figure()
+        fig_pace.add_trace(go.Scatter(
+            x=eff_df["pace"], y=eff_df["net_rtg"],
+            mode="markers",
+            marker=dict(size=1, opacity=0),
+            text=eff_df["team_name"],
+            hovertemplate="%{text}<br>" + t("lbl_pace") + ": %{x:.1f}<br>" + t("lbl_net_rtg") + ": %{y:.1f}<extra></extra>",
+            showlegend=False,
+        ))
         mean_pace = eff_df["pace"].mean()
         mean_net = eff_df["net_rtg"].mean()
         fig_pace.add_hline(y=mean_net, line_dash="dash", line_color="#374151")
@@ -123,7 +126,9 @@ def render():
         fig_pace.update_layout(
             plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
             font=dict(color="#e4e4f0"), showlegend=False, height=520,
+            xaxis_title=t("lbl_pace"), yaxis_title=t("lbl_net_rtg"),
         )
+        add_logo_images_to_figure(fig_pace, eff_df, "pace", "net_rtg", size=0.16, selected_team=team_code)
         st.plotly_chart(fig_pace)
 
     st.markdown("---")
@@ -311,30 +316,15 @@ def render():
             st.markdown(f"<p style='color:#9ca3af; font-size:0.85rem;'>{t('desc_clutch_dominance')}</p>", unsafe_allow_html=True)
 
             fig_dom = go.Figure()
-            others = plot_df[~plot_df["is_selected"]]
             _hover_dom = "%{customdata[0]}<br>" + t("hover_pt_diff") + f": %{{x:.{_d}f}}<br>" + t("hover_close_win_pct") + f": %{{y:.{_d}f}}%%<br>" + t("hover_close_gp") + ": %{customdata[1]}<extra></extra>"
             fig_dom.add_trace(go.Scatter(
-                x=others["avg_point_diff"], y=others["close_win_pct"],
-                mode="markers+text", text=others["team_code"],
-                textposition="top center", textfont=dict(size=9, color="#9ca3af"),
-                marker=dict(size=others["close_games_played"] * 3 + 8, color="#4b5563", opacity=0.7,
-                            line=dict(width=1, color="rgba(255,255,255,0.2)")),
+                x=plot_df["avg_point_diff"], y=plot_df["close_win_pct"],
+                mode="markers",
+                marker=dict(size=1, opacity=0),
                 hovertemplate=_hover_dom,
-                customdata=list(zip(others["team_name"], others["close_games_played"])),
+                customdata=list(zip(plot_df["team_name"], plot_df["close_games_played"])),
                 showlegend=False,
             ))
-            sel = plot_df[plot_df["is_selected"]]
-            if not sel.empty:
-                fig_dom.add_trace(go.Scatter(
-                    x=sel["avg_point_diff"], y=sel["close_win_pct"],
-                    mode="markers+text", text=sel["team_code"],
-                    textposition="top center", textfont=dict(size=11, color="#f0f0ff"),
-                    marker=dict(size=sel["close_games_played"].iloc[0] * 3 + 8, color=_tc_primary, opacity=1.0,
-                                line=dict(width=2, color="#f0f0ff")),
-                    hovertemplate=_hover_dom,
-                    customdata=list(zip(sel["team_name"], sel["close_games_played"])),
-                    showlegend=False,
-                ))
 
             fig_dom.add_hline(y=league_avg_cw, line_dash="dash", line_color="#f59e0b",
                               annotation_text=f"League Avg: {_pct_fmt.format(league_avg_cw)}",
@@ -354,6 +344,7 @@ def render():
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                 font=dict(color="#e4e4f0"), height=520, showlegend=False,
             )
+            add_logo_images_to_figure(fig_dom, plot_df, "avg_point_diff", "close_win_pct", size=0.135, selected_team=team_code)
             st.plotly_chart(fig_dom)
 
             # Clutch vs. Overall
@@ -361,28 +352,14 @@ def render():
             st.markdown(f"<p style='color:#9ca3af; font-size:0.85rem;'>{t('desc_clutch_overall')}</p>", unsafe_allow_html=True)
 
             fig_ov = go.Figure()
-            others2 = plot_df[~plot_df["is_selected"]]
             _hover_ov = "%{customdata}<br>" + t("lbl_overall_win_pct") + f": %{{x:.{_d}f}}%%<br>" + t("hover_close_win_pct") + f": %{{y:.{_d}f}}%%<extra></extra>"
             fig_ov.add_trace(go.Scatter(
-                x=others2["overall_win_pct"], y=others2["close_win_pct"],
-                mode="markers+text", text=others2["team_code"],
-                textposition="top center", textfont=dict(size=9, color="#9ca3af"),
-                marker=dict(size=10, color="#4b5563", opacity=0.7,
-                            line=dict(width=1, color="rgba(255,255,255,0.2)")),
+                x=plot_df["overall_win_pct"], y=plot_df["close_win_pct"],
+                mode="markers",
+                marker=dict(size=1, opacity=0),
                 hovertemplate=_hover_ov,
-                customdata=others2["team_name"], showlegend=False,
+                customdata=plot_df["team_name"], showlegend=False,
             ))
-            sel2 = plot_df[plot_df["is_selected"]]
-            if not sel2.empty:
-                fig_ov.add_trace(go.Scatter(
-                    x=sel2["overall_win_pct"], y=sel2["close_win_pct"],
-                    mode="markers+text", text=sel2["team_code"],
-                    textposition="top center", textfont=dict(size=11, color="#f0f0ff"),
-                    marker=dict(size=14, color=_tc_primary, opacity=1.0,
-                                line=dict(width=2, color="#f0f0ff")),
-                    hovertemplate=_hover_ov,
-                    customdata=sel2["team_name"], showlegend=False,
-                ))
 
             fig_ov.add_shape(type="line", x0=0, y0=0, x1=100, y1=100,
                              line=dict(dash="dot", color="rgba(255,255,255,0.15)"))
@@ -391,6 +368,7 @@ def render():
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                 font=dict(color="#e4e4f0"), height=500, showlegend=False,
             )
+            add_logo_images_to_figure(fig_ov, plot_df, "overall_win_pct", "close_win_pct", size=0.135, selected_team=team_code)
             st.plotly_chart(fig_ov)
         else:
             st.info(t("no_clutch_close"))

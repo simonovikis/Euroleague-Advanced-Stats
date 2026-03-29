@@ -2566,5 +2566,59 @@
     "el": "Εμφάνιση στατιστικών clutch-time μόνο (Q4/OT, ≤5 λεπτά, ≤5 πόντοι διαφορά)",
     "de": "Nur Clutch-Time-Statistiken (Q4/OT, ≤5 Min., ≤5 Punkte Diff.)",
     "es": "Mostrando solo estadísticas clutch-time (Q4/OT, ≤5 min, ≤5 pts dif.)"
+  },
+  "fav_dialog_title": {
+    "en": "Pick Your Favorite Team",
+    "el": "Επιλέξτε την Αγαπημένη σας Ομάδα",
+    "de": "Wähle dein Lieblingsteam",
+    "es": "Elige tu Equipo Favorito"
+  },
+  "fav_dialog_subtitle": {
+    "en": "Personalise your dashboard by choosing a favorite team. It will be pre-selected across all views.",
+    "el": "Εξατομικεύστε τον πίνακα επιλέγοντας αγαπημένη ομάδα. Θα προεπιλέγεται σε όλες τις προβολές.",
+    "de": "Personalisiere dein Dashboard mit einem Lieblingsteam. Es wird in allen Ansichten vorausgewählt.",
+    "es": "Personaliza tu panel eligiendo un equipo favorito. Se preseleccionará en todas las vistas."
+  },
+  "fav_select_label": {
+    "en": "Choose a team",
+    "el": "Επιλέξτε ομάδα",
+    "de": "Team auswählen",
+    "es": "Elige un equipo"
+  },
+  "fav_save_btn": {
+    "en": "Save Preference",
+    "el": "Αποθήκευση",
+    "de": "Speichern",
+    "es": "Guardar"
+  },
+  "fav_skip_btn": {
+    "en": "Skip for now",
+    "el": "Παράλειψη",
+    "de": "Überspringen",
+    "es": "Omitir"
+  },
+  "fav_no_teams": {
+    "en": "No teams available yet. Please select a season first.",
+    "el": "Δεν υπάρχουν ομάδες ακόμα. Επιλέξτε πρώτα σεζόν.",
+    "de": "Noch keine Teams verfügbar. Bitte wähle zuerst eine Saison.",
+    "es": "Aún no hay equipos disponibles. Selecciona primero una temporada."
+  },
+  "fav_sidebar_label": {
+    "en": "Favorite",
+    "el": "Αγαπημένη",
+    "de": "Favorit",
+    "es": "Favorito"
+  },
+  "fav_change_btn": {
+    "en": "Change Favorite Team",
+    "el": "Αλλαγή Αγαπημένης Ομάδας",
+    "de": "Lieblingsteam ändern",
+    "es": "Cambiar Equipo Favorito"
+  },
+  "fav_set_btn": {
+    "en": "Set Favorite Team",
+    "el": "Ορισμός Αγαπημένης Ομάδας",
+    "de": "Lieblingsteam festlegen",
+    "es": "Establecer Equipo Favorito"
   }
 }
