@@ -385,6 +385,10 @@ def _page_playoff_picture():
     from streamlit_app.views.playoff_probabilities import render
     render()
 
+def _page_team_dna():
+    from streamlit_app.views.team_dna import render
+    render()
+
 
 # ========================================================================
 # NAVIGATION  (grouped into Main / Analytics / Tools)
@@ -415,6 +419,9 @@ analytics_pages.append(
 if is_feature_enabled("ENABLE_ML_PREDICTIONS"):
     analytics_pages.append(
         st.Page(_page_playoff_picture, title=t("nav_playoff_picture", default="Playoff Picture"), icon="🎯", url_path="playoff-picture"),
+    )
+    analytics_pages.append(
+        st.Page(_page_team_dna, title=t("nav_team_dna", default="Team DNA"), icon="🧬", url_path="team-dna"),
     )
     analytics_pages.append(
         st.Page(_page_lineup_optimizer, title=t("nav_lineup_label", default="Lineup Optimizer"), icon="🧪", url_path="lineup-optimizer"),

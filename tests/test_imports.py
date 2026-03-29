@@ -219,6 +219,22 @@ class TestSeasonalTrendsImports:
         from data_pipeline.seasonal_trends import save_model, load_model
 
 
+class TestTeamDnaImports:
+    """Verify Team DNA clustering engine is importable."""
+
+    def test_import_extract_team_four_factors(self):
+        from data_pipeline.team_dna import extract_team_four_factors
+
+    def test_import_cluster_teams(self):
+        from data_pipeline.team_dna import cluster_teams
+
+    def test_import_compute_percentile_ranks(self):
+        from data_pipeline.team_dna import compute_percentile_ranks
+
+    def test_import_get_cluster_description(self):
+        from data_pipeline.team_dna import get_cluster_description
+
+
 class TestDataRepositoryImports:
     """Verify DataRepository is importable."""
 
