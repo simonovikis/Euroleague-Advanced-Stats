@@ -8,7 +8,7 @@ from streamlit_app.shared import (
     render_team_sidebar, format_df_decimals, get_decimal_column_config,
     GLOBAL_DECIMALS, render_skeleton_loader, render_page_header,
     skeleton_kpi_row, skeleton_dataframe, skeleton_chart,
-    add_logo_images_to_figure, get_team_logo_map,
+    add_logo_images_to_figure, get_team_logo_map, TEAM_NAME_MAP,
 )
 from streamlit_app.utils.config_loader import get_feature_toggle
 
@@ -256,6 +256,143 @@ def render():
             st.plotly_chart(build_ha_chart(ha_df, "home_ortg", "away_ortg", t("lbl_ortg", default="ORtg")))
         with tab_drtg:
             st.plotly_chart(build_ha_chart(ha_df, "home_drtg", "away_drtg", t("lbl_drtg", default="DRtg")))
+
+    st.markdown("---")
+
+    # --- Predictive Form Dashboard ---
+    st.markdown(
+        f"### {t('hdr_pred_form', default='Predictive Form Dashboard')}",
+    )
+    st.markdown(
+        f"<p style='color:#9ca3af; font-size:0.9rem;'>"
+        f"{t('sub_pred_form', default='ML-predicted monthly performance curve based on historical seasonal trends.')}"
+        f"</p>",
+        unsafe_allow_html=True,
+    )
+
+    form_placeholder = st.empty()
+    with form_placeholder.container():
+        skeleton_chart(height=450)
+
+    try:
+        from streamlit_app.queries import fetch_seasonal_form_data
+        from data_pipeline.seasonal_trends import MONTH_LABELS, SEASON_MONTH_ORDER, MONTH_TO_INDEX
+
+        training_seasons = tuple(
+            s for s in [season_to_fetch, season_to_fetch - 1, season_to_fetch - 2]
+            if s >= 2013
+        )
+
+        form_result = fetch_seasonal_form_data(training_seasons, team_code)
+        monthly_df = form_result["monthly_df"]
+        predicted_curve = form_result["predicted_curve"]
+        model_trained = form_result["model_trained"]
+        insight_text = form_result["insight_text"]
+
+        if monthly_df.empty:
+            form_placeholder.info(
+                t("no_pred_form", default="No seasonal form data available. Ensure game dates are populated in the database.")
+            )
+        else:
+            team_monthly = monthly_df[monthly_df["team_code"] == team_code].copy()
+
+            with form_placeholder.container():
+                with st.container(border=True):
+                    fig_form_curve = go.Figure()
+
+                    _season_colors = {
+                        training_seasons[0]: _tc_primary if len(training_seasons) > 0 else "#6366f1",
+                    }
+                    _light_palette = ["#60a5fa", "#93c5fd", "#bfdbfe"]
+                    for i, s in enumerate(training_seasons[1:]):
+                        _season_colors[s] = _light_palette[i % len(_light_palette)]
+
+                    for s in sorted(training_seasons, reverse=True):
+                        sdf = team_monthly[team_monthly["season"] == s].copy()
+                        if sdf.empty:
+                            continue
+                        sdf = sdf.sort_values("month_index")
+                        x_labels = [MONTH_LABELS.get(m, str(m)) for m in sdf["month"]]
+                        is_current = (s == season_to_fetch)
+
+                        fig_form_curve.add_trace(go.Scatter(
+                            x=x_labels,
+                            y=sdf["net_rtg"],
+                            mode="lines+markers",
+                            name=f"{s} Actual",
+                            line=dict(
+                                color=_season_colors.get(s, "#94a3b8"),
+                                width=3 if is_current else 1.5,
+                                dash="solid" if is_current else "dot",
+                            ),
+                            marker=dict(size=7 if is_current else 4),
+                            opacity=1.0 if is_current else 0.6,
+                            hovertemplate=(
+                                f"<b>{s}</b><br>"
+                                "%{x}<br>"
+                                "Net Rtg: %{y:.1f}<extra></extra>"
+                            ),
+                        ))
+
+                    if not predicted_curve.empty and model_trained:
+                        pred_sorted = predicted_curve.sort_values("month_index")
+                        pred_x = [MONTH_LABELS.get(SEASON_MONTH_ORDER[int(mi) - 1], "")
+                                  for mi in pred_sorted["month_index"]]
+
+                        fig_form_curve.add_trace(go.Scatter(
+                            x=pred_x,
+                            y=pred_sorted["x_net_rtg"],
+                            mode="lines+markers",
+                            name="ML Predicted (xNetRtg)",
+                            line=dict(color="#f59e0b", width=4),
+                            marker=dict(size=9, symbol="diamond"),
+                            hovertemplate=(
+                                "<b>ML Predicted</b><br>"
+                                "%{x}<br>"
+                                "xNetRtg: %{y:.1f}<extra></extra>"
+                            ),
+                        ))
+
+                    month_order = [MONTH_LABELS[m] for m in SEASON_MONTH_ORDER]
+                    fig_form_curve.add_hline(
+                        y=0, line_dash="dash", line_color="#374151", line_width=1,
+                    )
+
+                    fig_form_curve.update_layout(
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        font=dict(color="#e4e4f0"),
+                        height=450,
+                        xaxis=dict(
+                            title=t("lbl_month", default="Month"),
+                            categoryorder="array",
+                            categoryarray=month_order,
+                        ),
+                        yaxis_title=t("lbl_net_rtg", default="Net Rating"),
+                        legend=dict(
+                            orientation="h",
+                            yanchor="bottom", y=1.02,
+                            xanchor="right", x=1,
+                        ),
+                    )
+                    st.plotly_chart(fig_form_curve)
+
+                if insight_text:
+                    team_name = TEAM_NAME_MAP.get(team_code, team_code)
+                    st.markdown(
+                        f"<div style='background: rgba(99,102,241,0.08); border-left: 4px solid {_tc_primary}; "
+                        f"padding: 12px 16px; border-radius: 6px; margin-top: 8px;'>"
+                        f"<p style='color:#c4b5fd; font-size:0.8rem; margin:0 0 4px 0; font-weight:600;'>"
+                        f"HISTORICAL INSIGHT FOR {team_name.upper()}</p>"
+                        f"<p style='color:#d1d5db; font-size:0.95rem; margin:0;'>"
+                        f"{insight_text}</p></div>",
+                        unsafe_allow_html=True,
+                    )
+
+    except Exception as e:
+        form_placeholder.warning(
+            t("err_pred_form", default=f"Could not load predictive form data. Error: {type(e).__name__}")
+        )
 
     st.markdown("---")
 

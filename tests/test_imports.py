@@ -165,6 +165,28 @@ class TestLoaderImports:
         from data_pipeline.load_to_db import load_season
 
 
+class TestSeasonalTrendsImports:
+    """Verify seasonal trends ML pipeline is importable."""
+
+    def test_import_aggregate_monthly_stats(self):
+        from data_pipeline.seasonal_trends import aggregate_monthly_stats
+
+    def test_import_train_seasonal_form_model(self):
+        from data_pipeline.seasonal_trends import train_seasonal_form_model
+
+    def test_import_predict_team_form_curve(self):
+        from data_pipeline.seasonal_trends import predict_team_form_curve
+
+    def test_import_build_team_form_features(self):
+        from data_pipeline.seasonal_trends import build_team_form_features
+
+    def test_import_generate_insights(self):
+        from data_pipeline.seasonal_trends import generate_insights
+
+    def test_import_save_load_model(self):
+        from data_pipeline.seasonal_trends import save_model, load_model
+
+
 class TestDataRepositoryImports:
     """Verify DataRepository is importable."""
 

@@ -1650,3 +1650,79 @@ def predict_game_outcome(
     """Predict the home team's win probability for a matchup."""
     from data_pipeline.ml_pipeline import predict_matchup
     return predict_matchup(model, home_team, away_team, season, competition)
+
+
+# ========================================================================
+# SEASONAL FORM — Predictive Monthly Performance Curve
+# ========================================================================
+
+@st.cache_data(ttl=_CACHE_TTL, show_spinner=False)
+def fetch_seasonal_form_data(
+    seasons: tuple,
+    team_code: str,
+) -> Dict:
+    """Aggregate monthly stats, train (or load) the seasonal form model,
+    and return everything needed for the Predictive Form Dashboard.
+
+    Returns a dict with keys:
+        monthly_df: per-team per-month aggregated stats
+        predicted_curve: predicted xNetRtg per month for the selected team
+        model_trained: whether the model was successfully trained
+        insight_text: auto-generated insight string
+    """
+    from data_pipeline.seasonal_trends import (
+        aggregate_monthly_stats,
+        train_seasonal_form_model,
+        load_model,
+        save_model,
+        predict_team_form_curve,
+        build_team_form_features,
+        generate_insights,
+    )
+
+    seasons_list = list(seasons)
+    monthly_df = aggregate_monthly_stats(seasons_list)
+
+    if monthly_df.empty:
+        return {
+            "monthly_df": pd.DataFrame(),
+            "predicted_curve": pd.DataFrame(),
+            "model_trained": False,
+            "insight_text": "",
+        }
+
+    model = load_model()
+    if model is None:
+        model = train_seasonal_form_model(seasons_list)
+        if model is not None:
+            try:
+                save_model(model)
+            except Exception as e:
+                logger.warning("Could not save seasonal form model: %s", e)
+
+    if model is None:
+        return {
+            "monthly_df": monthly_df,
+            "predicted_curve": pd.DataFrame(),
+            "model_trained": False,
+            "insight_text": "",
+        }
+
+    features = build_team_form_features(monthly_df, team_code)
+    if features.empty:
+        return {
+            "monthly_df": monthly_df,
+            "predicted_curve": pd.DataFrame(),
+            "model_trained": True,
+            "insight_text": "",
+        }
+
+    predicted_curve = predict_team_form_curve(model, features)
+    insight_text = generate_insights(monthly_df, team_code, predicted_curve)
+
+    return {
+        "monthly_df": monthly_df,
+        "predicted_curve": predicted_curve,
+        "model_trained": True,
+        "insight_text": insight_text,
+    }
