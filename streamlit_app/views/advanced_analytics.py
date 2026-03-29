@@ -52,7 +52,7 @@ def render():
                     "passer_name": t("col_passer"), "team": t("col_team"),
                     "total_assists": t("col_total_ast"), "aaq": "AAQ (xP)",
                 })
-                st.dataframe(display_aaq, use_container_width=True, hide_index=True)
+                st.dataframe(display_aaq, hide_index=True)
 
                 if len(aaq_df) >= 2:
                     fig_aaq = px.bar(
@@ -66,7 +66,7 @@ def render():
                         plot_bgcolor="rgba(15,15,35,0.8)", height=420,
                         font=dict(family="Inter"), showlegend=False, xaxis_tickangle=-45,
                     )
-                    st.plotly_chart(fig_aaq, use_container_width=True)
+                    st.plotly_chart(fig_aaq)
 
         with sub_axp:
             st.markdown(f"#### {t('hdr_axp')}")
@@ -78,7 +78,7 @@ def render():
                     "shooter_name": t("col_shooter"), "team": t("col_team"),
                     "assisted_shots": t("col_ast_shots"), "axp_total": "AxP Total", "axp_avg": "AxP Avg",
                 })
-                st.dataframe(display_axp, use_container_width=True, hide_index=True)
+                st.dataframe(display_axp, hide_index=True)
 
                 if len(axp_df) >= 2:
                     fig_axp = px.scatter(
@@ -92,7 +92,7 @@ def render():
                         template="plotly_dark", paper_bgcolor="rgba(0,0,0,0)",
                         plot_bgcolor="rgba(15,15,35,0.8)", height=450, font=dict(family="Inter"),
                     )
-                    st.plotly_chart(fig_axp, use_container_width=True)
+                    st.plotly_chart(fig_axp)
 
         with sub_duos:
             st.markdown(f"#### {t('hdr_duos_xp')}")
@@ -108,7 +108,7 @@ def render():
                     "passer_name": t("col_passer"), "shooter_name": t("col_shooter"),
                     "team": t("col_team"), "assists": t("col_ast"), "duo_xp": t("col_duo_xp"),
                 })
-                st.dataframe(display_duos, use_container_width=True, hide_index=True)
+                st.dataframe(display_duos, hide_index=True)
 
         with sub_network:
             st.markdown(f"#### {t('hdr_duo_heatmap')}")
@@ -153,7 +153,7 @@ def render():
                         yaxis=dict(title=t("col_passer"), tickfont=dict(size=10), autorange="reversed"),
                         font=dict(family="Inter"), margin=dict(l=120, b=120),
                     )
-                    st.plotly_chart(fig_hm, use_container_width=True)
+                    st.plotly_chart(fig_hm)
 
     # ------------------------------------------------------------------
     # SUB-TAB: Clutch & Momentum
@@ -182,7 +182,7 @@ def render():
                         "clutch_fga": t("col_fga", default="FGA"), "clutch_turnovers": t("col_tov", default="TOV"),
                         "clutch_ts_pct": t("col_ts"), "clutch_usage": t("col_usage", default="Usage%"),
                     }).round(3),
-                    use_container_width=True, hide_index=True,
+                    hide_index=True,
                 )
 
         with sub_runs:
@@ -199,7 +199,7 @@ def render():
                         "stopper_team": t("col_team", default="Team"), "stopper_playtype": t("col_play_type", default="Play Type"),
                         "period": t("col_period", default="Period"), "markertime": t("col_time", default="Time"),
                     }),
-                    use_container_width=True, hide_index=True,
+                    hide_index=True,
                 )
 
         with sub_fouls:

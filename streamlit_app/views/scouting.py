@@ -218,7 +218,7 @@ def render():
         yaxis=dict(autorange="reversed"),
         font=dict(family="Inter"), margin=dict(l=150, r=60, t=20, b=40),
     )
-    st.plotly_chart(fig_sim, use_container_width=True)
+    st.plotly_chart(fig_sim)
 
     st.markdown("---")
 
@@ -252,7 +252,7 @@ def render():
             matrix_rows.append(row_data)
 
         matrix_df = pd.DataFrame(matrix_rows)
-        st.dataframe(matrix_df, use_container_width=True, hide_index=True)
+        st.dataframe(matrix_df, hide_index=True)
 
         # Key insight callout for #1 match
         best_match_name = similar_df.iloc[0]["player_name"]
@@ -345,6 +345,6 @@ def render():
                 font=dict(family="Inter"),
                 legend=dict(x=0.15, y=-0.12, orientation="h", font=dict(size=12)),
             )
-            st.plotly_chart(fig_radar, use_container_width=True)
+            st.plotly_chart(fig_radar)
     else:
         st.info(t("scout_select_radar_players"))

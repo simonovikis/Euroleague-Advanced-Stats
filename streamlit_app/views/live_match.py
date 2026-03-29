@@ -221,7 +221,7 @@ def render():
                             "ts_pct": t("col_ts"), "off_rating": t("col_ortg"),
                             "def_rating": t("col_drtg"), "plus_minus": "+/-",
                         }),
-                        use_container_width=True, hide_index=True, height=400,
+                        hide_index=True, height=400,
                     )
 
         # ------------------------------------------------------------------
@@ -292,7 +292,7 @@ def render():
                     font=dict(color="#ef4444", size=11), opacity=0.5,
                 )
 
-                st.plotly_chart(fig_mom, use_container_width=True)
+                st.plotly_chart(fig_mom)
 
                 # Run history table
                 st.markdown("#### Scoring Run History")
@@ -311,7 +311,7 @@ def render():
                                     "period": "Q", "markertime": "Time",
                                 }
                             ),
-                            use_container_width=True, hide_index=True,
+                            hide_index=True,
                         )
                     else:
                         st.info("No 8+ point runs detected yet.")
@@ -361,7 +361,7 @@ def render():
                     paper_bgcolor="rgba(0,0,0,0)", font=dict(color="#e4e4f0"),
                     height=250, margin=dict(t=60, b=20, l=30, r=30),
                 )
-                st.plotly_chart(fig_gauge_h, use_container_width=True)
+                st.plotly_chart(fig_gauge_h)
 
             with col_wp2:
                 fig_gauge_a = go.Figure(go.Indicator(
@@ -385,7 +385,7 @@ def render():
                     paper_bgcolor="rgba(0,0,0,0)", font=dict(color="#e4e4f0"),
                     height=250, margin=dict(t=60, b=20, l=30, r=30),
                 )
-                st.plotly_chart(fig_gauge_a, use_container_width=True)
+                st.plotly_chart(fig_gauge_a)
 
             # Win probability timeline
             st.markdown(f"### {t('live_wp_timeline')}")
@@ -427,7 +427,7 @@ def render():
                     showlegend=True,
                     legend=dict(x=0.02, y=0.98),
                 )
-                st.plotly_chart(fig_wp, use_container_width=True)
+                st.plotly_chart(fig_wp)
 
     # Schedule auto-rerun using a short sleep to avoid blocking indefinitely.
     # Streamlit will rerun when the sleep ends; the elapsed check at the top

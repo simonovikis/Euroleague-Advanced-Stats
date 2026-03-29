@@ -62,7 +62,7 @@ def render():
             plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
             font=dict(color="#e4e4f0"), showlegend=False, height=500,
         )
-        st.plotly_chart(fig_eff, use_container_width=True)
+        st.plotly_chart(fig_eff)
 
         # Pace vs Net Rating
         st.markdown(f"### {t('hdr_pace_eff')}")
@@ -108,7 +108,7 @@ def render():
             plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
             font=dict(color="#e4e4f0"), showlegend=False, height=520,
         )
-        st.plotly_chart(fig_pace, use_container_width=True)
+        st.plotly_chart(fig_pace)
 
     st.markdown("---")
 
@@ -157,7 +157,7 @@ def render():
                 font=dict(color="#e4e4f0"), height=400, yaxis_title=t("lbl_pct_of_pts"),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
             )
-            st.plotly_chart(fig_sit, use_container_width=True)
+            st.plotly_chart(fig_sit)
 
             c1, c2, c3, c4 = st.columns(4)
             c1.metric(
@@ -228,12 +228,12 @@ def render():
             return fig
 
         with tab_net:
-            st.plotly_chart(build_ha_chart(ha_df, "home_net", "away_net", t("lbl_net_rating", default="Net Rating")), use_container_width=True)
+            st.plotly_chart(build_ha_chart(ha_df, "home_net", "away_net", t("lbl_net_rating", default="Net Rating")))
             st.caption(t("cap_home_adv", default="Teams are sorted left-to-right from largest Home Advantage to smallest."))
         with tab_ortg:
-            st.plotly_chart(build_ha_chart(ha_df, "home_ortg", "away_ortg", t("lbl_ortg", default="ORtg")), use_container_width=True)
+            st.plotly_chart(build_ha_chart(ha_df, "home_ortg", "away_ortg", t("lbl_ortg", default="ORtg")))
         with tab_drtg:
-            st.plotly_chart(build_ha_chart(ha_df, "home_drtg", "away_drtg", t("lbl_drtg", default="DRtg")), use_container_width=True)
+            st.plotly_chart(build_ha_chart(ha_df, "home_drtg", "away_drtg", t("lbl_drtg", default="DRtg")))
 
     st.markdown("---")
 
@@ -336,7 +336,7 @@ def render():
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                 font=dict(color="#e4e4f0"), height=520, showlegend=False,
             )
-            st.plotly_chart(fig_dom, use_container_width=True)
+            st.plotly_chart(fig_dom)
 
             # Clutch vs. Overall
             st.markdown(f"#### {t('hdr_clutch_overall')}")
@@ -373,7 +373,7 @@ def render():
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                 font=dict(color="#e4e4f0"), height=500, showlegend=False,
             )
-            st.plotly_chart(fig_ov, use_container_width=True)
+            st.plotly_chart(fig_ov)
         else:
             st.info(t("no_clutch_close"))
 
@@ -418,7 +418,7 @@ def render():
         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
         font=dict(color="#e4e4f0"), height=500,
     )
-    st.plotly_chart(fig_usage, use_container_width=True)
+    st.plotly_chart(fig_usage)
 
     st.markdown("---")
 
@@ -443,7 +443,7 @@ def render():
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                 font=dict(color="#e4e4f0"), height=400, showlegend=False,
             )
-            st.plotly_chart(fig_donut, use_container_width=True)
+            st.plotly_chart(fig_donut)
         else:
             st.info(t("no_pos_scoring"))
     else:
@@ -585,7 +585,7 @@ def render():
                                 ticktext=game_label,
                             ),
                         )
-                        st.plotly_chart(fig_form, use_container_width=True)
+                        st.plotly_chart(fig_form)
 
                         # Summary metrics
                         last_5 = pdf.tail(window)
@@ -640,7 +640,7 @@ def render():
                     columns={"lineup_str": t("col_lineup"), "events": t("col_poss"),
                              "ortg": t("col_ortg"), "drtg": t("col_drtg"), "net_rtg": t("col_netrtg")}
                 ),
-                use_container_width=True, hide_index=True,
+                hide_index=True,
             )
         with col2:
             st.markdown(f"#### {t('hdr_worst_net')}")
@@ -649,5 +649,5 @@ def render():
                     columns={"lineup_str": t("col_lineup"), "events": t("col_poss"),
                              "ortg": t("col_ortg"), "drtg": t("col_drtg"), "net_rtg": t("col_netrtg")}
                 ),
-                use_container_width=True, hide_index=True,
+                hide_index=True,
             )

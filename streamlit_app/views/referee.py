@@ -67,4 +67,4 @@ def render():
             return styles
 
         styled = display_df.style.apply(highlight_win_pct, axis=1).format(precision=1)
-        st.dataframe(styled, use_container_width=True, hide_index=True, height=450)
+        st.dataframe(styled, hide_index=True, height=450)

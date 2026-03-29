@@ -87,6 +87,12 @@ def get_team_colors() -> Dict[str, Tuple[str, str]]:
     return {code: (info["primary"], info["secondary"]) for code, info in raw.items()}
 
 
+def get_team_name_map() -> Dict[str, str]:
+    """Return ``{team_code: display_name}`` from the config team_colors section."""
+    raw = get_config().get("ui", {}).get("team_colors", {})
+    return {code: info.get("name", code) for code, info in raw.items()}
+
+
 def get_default_accent() -> Tuple[str, str]:
     accent = get_config().get("ui", {}).get("default_accent", {})
     return (accent.get("primary", "#6366f1"), accent.get("secondary", "#8b5cf6"))

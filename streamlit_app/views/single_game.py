@@ -163,7 +163,7 @@ def render():
                         font=dict(family="Inter"),
                         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                     )
-                    st.plotly_chart(fig_tpc, use_container_width=True)
+                    st.plotly_chart(fig_tpc)
 
             st.markdown(f"#### ⚔️ {t('lbl_ortg')} vs {t('lbl_drtg')}")
             scatter_df = active.dropna(subset=["off_rating", "def_rating"])
@@ -184,7 +184,7 @@ def render():
                 avg_drtg = scatter_df["def_rating"].mean()
                 fig.add_hline(y=avg_ortg, line_dash="dash", line_color="rgba(255,255,255,0.2)")
                 fig.add_vline(x=avg_drtg, line_dash="dash", line_color="rgba(255,255,255,0.2)")
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig)
 
             # Positional Scoring Distribution
             st.markdown("---")
@@ -214,7 +214,7 @@ def render():
                     font=dict(color="#e4e4f0"), height=380, yaxis_title=t("lbl_pct_of_pts"),
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
                 )
-                st.plotly_chart(fig_pos, use_container_width=True)
+                st.plotly_chart(fig_pos)
             else:
                 st.info(t("no_pos_scoring"))
 
@@ -331,7 +331,7 @@ def render():
                             legend=dict(x=0.02, y=0.98, font=dict(size=12)),
                             font=dict(family="Inter"), margin=dict(l=20, r=20, t=30, b=20),
                         )
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig)
 
                     with col_summary:
                         st.markdown("#### Shooting Summary")
@@ -359,7 +359,7 @@ def render():
                                 "makes": "Makes", "fg_pct": "FG%", "actual_pts": "Actual Pts",
                                 "total_expected_pts": "Expected Pts", "shot_quality_diff": "Pts vs Expected",
                             })
-                            st.dataframe(sq_display.round(2), use_container_width=True, hide_index=True)
+                            st.dataframe(sq_display.round(2), hide_index=True)
                 else:
                     st.info(t("lbl_no_coords"))
                     zone_summary = (
@@ -368,7 +368,7 @@ def render():
                         .reset_index()
                     )
                     zone_summary["fg_pct"] = zone_summary["made"] / zone_summary["shots"]
-                    st.dataframe(zone_summary.round(3), use_container_width=True, hide_index=True)
+                    st.dataframe(zone_summary.round(3), hide_index=True)
 
     # ------------------------------------------------------------------
     # TAB: Player Comparison Radar
@@ -438,7 +438,7 @@ def render():
                 font=dict(family="Inter"),
                 legend=dict(x=0.35, y=-0.1, orientation="h", font=dict(size=13)),
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig)
 
             st.markdown(f"#### {t('hdr_raw_comparison')}")
             comparison = pd.DataFrame({
@@ -446,7 +446,7 @@ def render():
                 p1: [round(p1_data.iloc[i], 3) for i in range(len(radar_labels))],
                 p2: [round(p2_data.iloc[i], 3) for i in range(len(radar_labels))],
             })
-            st.dataframe(comparison, use_container_width=True, hide_index=True)
+            st.dataframe(comparison, hide_index=True)
 
     # ------------------------------------------------------------------
     # TAB: Lineup & Synergy
@@ -482,7 +482,7 @@ def render():
                                  "pts_for": t("col_pts"), "pts_against": t("col_pts_ag", default="Opp Pts"),
                                  "ortg": t("col_ortg"), "drtg": t("col_drtg"), "net_rtg": t("col_netrtg")}
                     )
-                    st.dataframe(best, use_container_width=True, hide_index=True)
+                    st.dataframe(best, hide_index=True)
 
                     st.markdown(f"##### {t('hdr_worst_net')}")
                     worst = lu_filtered.tail(5).sort_values("net_rtg")[["team", "lineup_str", "events", "pts_for", "pts_against", "ortg", "drtg", "net_rtg"]].rename(
@@ -490,7 +490,7 @@ def render():
                                  "pts_for": t("col_pts"), "pts_against": t("col_pts_ag", default="Opp Pts"),
                                  "ortg": t("col_ortg"), "drtg": t("col_drtg"), "net_rtg": t("col_netrtg")}
                     )
-                    st.dataframe(worst, use_container_width=True, hide_index=True)
+                    st.dataframe(worst, hide_index=True)
 
                     fig = px.bar(
                         lu_filtered.head(15), x="net_rtg", y="lineup_str", orientation="h",
@@ -502,7 +502,7 @@ def render():
                         plot_bgcolor="rgba(15,15,35,0.8)", height=450,
                         font=dict(family="Inter"), yaxis=dict(autorange="reversed"),
                     )
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig)
 
         with sub_duo:
             duo = data.get("duo_synergy", pd.DataFrame())
@@ -520,7 +520,7 @@ def render():
                         columns={"team": t("col_team"), "combo_names": t("col_lineup"), "events_together": t("col_poss"),
                                  "net_rtg_together": t("col_netrtg"), "net_rtg_apart": f"{t('col_netrtg')} ({t('lbl_away')})", "synergy": "Synergy"}
                     ),
-                    use_container_width=True, hide_index=True,
+                    hide_index=True,
                 )
 
                 st.markdown(f"##### {t('hdr_worst_duos')}")
@@ -529,7 +529,7 @@ def render():
                         columns={"team": t("col_team"), "combo_names": t("col_lineup"), "events_together": t("col_poss"),
                                  "net_rtg_together": t("col_netrtg"), "net_rtg_apart": f"{t('col_netrtg')} ({t('lbl_away')})", "synergy": "Synergy"}
                     ),
-                    use_container_width=True, hide_index=True,
+                    hide_index=True,
                 )
 
         with sub_trio:
@@ -548,7 +548,7 @@ def render():
                         columns={"team": t("col_team"), "combo_names": t("col_lineup"), "events_together": t("col_poss"),
                                  "net_rtg_together": t("col_netrtg"), "net_rtg_apart": f"{t('col_netrtg')} ({t('lbl_away')})", "synergy": "Synergy"}
                     ),
-                    use_container_width=True, hide_index=True,
+                    hide_index=True,
                 )
 
         with sub_on_off:
@@ -643,7 +643,7 @@ def render():
                         margin=dict(l=120, t=20, r=60, b=40),
                         showlegend=False,
                     )
-                    st.plotly_chart(fig_oo, use_container_width=True)
+                    st.plotly_chart(fig_oo)
 
                     # Full data table
                     display_cols = [
@@ -663,7 +663,7 @@ def render():
                         "off_net_rtg": t("col_off_net"),
                         "on_off_diff": t("col_on_off_diff"),
                     })
-                    st.dataframe(display_df, use_container_width=True, hide_index=True)
+                    st.dataframe(display_df, hide_index=True)
 
     # ------------------------------------------------------------------
     # TAB: Assist Network
@@ -706,7 +706,7 @@ def render():
                     yaxis=dict(title="Passer", tickfont=dict(size=10), autorange="reversed"),
                     font=dict(family="Inter"), margin=dict(l=120, b=120),
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig)
 
                 st.markdown(f"#### {t('hdr_top_ast_connections')}")
                 st.dataframe(
@@ -714,7 +714,7 @@ def render():
                         columns={"assister_name": t("lbl_passer_col"), "scorer_name": t("lbl_scorer_col"),
                                  "count": t("col_ast"), "play_types": t("col_shot_types")}
                     ),
-                    use_container_width=True, hide_index=True,
+                    hide_index=True,
                 )
 
     # ------------------------------------------------------------------
@@ -850,7 +850,7 @@ def render():
                     annotations=period_labels,
                     margin=dict(l=120, t=40, r=20, b=50),
                 )
-                st.plotly_chart(fig_rot, use_container_width=True)
+                st.plotly_chart(fig_rot)
 
                 # Color legend
                 st.markdown(
@@ -889,4 +889,4 @@ def render():
                 summary[t("col_min")] = summary[t("col_min")].round(1)
                 summary[t("rot_avg_stint", default="Avg Stint (min)")] = summary[t("rot_avg_stint", default="Avg Stint (min)")].round(1)
 
-                st.dataframe(summary, use_container_width=True, hide_index=True)
+                st.dataframe(summary, hide_index=True)

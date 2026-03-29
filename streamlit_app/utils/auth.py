@@ -123,7 +123,7 @@ def render_auth_page():
             with st.form("login_form"):
                 email = st.text_input("Email", key="login_email")
                 password = st.text_input("Password", type="password", key="login_pw")
-                submitted = st.form_submit_button("Log In", use_container_width=True)
+                submitted = st.form_submit_button("Log In", width="stretch")
                 if submitted:
                     if not email or not password:
                         st.error("Please enter both email and password.")
@@ -137,7 +137,7 @@ def render_auth_page():
                 confirm = st.text_input(
                     "Confirm Password", type="password", key="signup_confirm"
                 )
-                submitted = st.form_submit_button("Sign Up", use_container_width=True)
+                submitted = st.form_submit_button("Sign Up", width="stretch")
                 if submitted:
                     if not email or not password:
                         st.error("Please enter both email and password.")
@@ -162,5 +162,5 @@ def render_user_sidebar():
         f"👤 {email}{role_badge}</p>",
         unsafe_allow_html=True,
     )
-    if st.button("Logout", key="btn_logout", use_container_width=True):
+    if st.button("Logout", key="btn_logout", width="stretch"):
         handle_logout()

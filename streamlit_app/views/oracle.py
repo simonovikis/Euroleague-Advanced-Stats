@@ -120,7 +120,7 @@ def render():
                 paper_bgcolor="rgba(0,0,0,0)", font=dict(color="#e4e4f0"),
                 height=280, margin=dict(t=60, b=20, l=30, r=30),
             )
-            st.plotly_chart(fig_h, use_container_width=True)
+            st.plotly_chart(fig_h)
 
         with col_g2:
             fig_a = go.Figure(go.Indicator(
@@ -145,7 +145,7 @@ def render():
                 paper_bgcolor="rgba(0,0,0,0)", font=dict(color="#e4e4f0"),
                 height=280, margin=dict(t=60, b=20, l=30, r=30),
             )
-            st.plotly_chart(fig_a, use_container_width=True)
+            st.plotly_chart(fig_a)
 
         # Verdict
         winner = home_name if home_wp > 0.5 else away_name
@@ -198,7 +198,7 @@ def render():
                 f"{_compute_rest_days_latest(oracle_schedule, away_team)} days",
             ],
         })
-        st.dataframe(breakdown, use_container_width=True, hide_index=True)
+        st.dataframe(breakdown, hide_index=True)
 
         st.caption(
             f"Model trained on {len(training_seasons)} historical season(s): "

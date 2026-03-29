@@ -27,6 +27,7 @@ from streamlit_app.utils.config_loader import (
     get_team_colors,
     get_default_accent,
     get_leaders_defaults,
+    get_team_name_map,
 )
 from streamlit_app.utils.feature_flags import is_feature_enabled, show_disabled_message
 from streamlit_app.utils.secrets_manager import OPENAI_API_KEY, REQUIRE_LOGIN
@@ -37,6 +38,7 @@ _cfg_default = get_default_season()
 
 TEAM_COLORS = get_team_colors()
 DEFAULT_ACCENT = get_default_accent()
+TEAM_NAME_MAP = get_team_name_map()
 
 
 # ========================================================================
@@ -430,24 +432,34 @@ def apply_clutch_filter(data: dict) -> dict:
     }
 
 
+def _resolve_team_name(code: str, name_from_data: str = None) -> str:
+    """Resolve a team display name using data first, then config fallback."""
+    if name_from_data and name_from_data not in ("???", "", None) and name_from_data != code:
+        return name_from_data
+    return TEAM_NAME_MAP.get(code, code)
+
+
 def render_game_header():
     if "game_info_cache" in st.session_state and st.session_state["game_info_cache"]:
         gi = st.session_state["game_info_cache"]
-        home_name = gi.get("home_name", "???")
-        away_name = gi.get("away_name", "???")
-        hs = f"{int(gi['home_score'])}" if pd.notna(gi.get("home_score")) else "-"
-        as_ = f"{int(gi['away_score'])}" if pd.notna(gi.get("away_score")) else "-"
-        home_logo = gi.get("home_logo", "")
-        away_logo = gi.get("away_logo", "")
         home_code = gi.get("home_code", "HOM")
         away_code = gi.get("away_code", "AWA")
+        home_name = _resolve_team_name(home_code, gi.get("home_name"))
+        away_name = _resolve_team_name(away_code, gi.get("away_name"))
+        hs = f"{int(gi['home_score'])}" if pd.notna(gi.get("home_score")) else "-"
+        as_ = f"{int(gi['away_score'])}" if pd.notna(gi.get("away_score")) else "-"
+        _hl = gi.get("home_logo")
+        _al = gi.get("away_logo")
+        home_logo = str(_hl) if pd.notna(_hl) and _hl else ""
+        away_logo = str(_al) if pd.notna(_al) and _al else ""
     else:
         data = st.session_state.get("game_data", {})
         gi_df = data.get("game_info", pd.DataFrame())
         local_gi = gi_df.iloc[0] if not gi_df.empty else {}
         home_code = local_gi.get("home_team", "???")
         away_code = local_gi.get("away_team", "???")
-        home_name, away_name = home_code, away_code
+        home_name = _resolve_team_name(home_code)
+        away_name = _resolve_team_name(away_code)
         hs = local_gi.get("home_score", "-")
         as_ = local_gi.get("away_score", "-")
         home_logo, away_logo = "", ""
