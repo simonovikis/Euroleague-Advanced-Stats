@@ -421,29 +421,31 @@ def _fetch_team_season_from_db(
     lineup_stats = pd.DataFrame()
     box_query = text("""
         SELECT
-            season AS "Season", gamecode AS "Gamecode",
-            player_id AS "Player_ID", player AS "Player",
-            team AS "Team", home AS "Home",
-            is_starter AS "IsStarter", is_playing AS "IsPlaying",
-            dorsal AS "Dorsal", minutes AS "Minutes",
-            points AS "Points",
-            fgm2 AS "FieldGoalsMade2", fga2 AS "FieldGoalsAttempted2",
-            fgm3 AS "FieldGoalsMade3", fga3 AS "FieldGoalsAttempted3",
-            ftm AS "FreeThrowsMade", fta AS "FreeThrowsAttempted",
-            off_rebounds AS "OffensiveRebounds",
-            def_rebounds AS "DefensiveRebounds",
-            total_rebounds AS "TotalRebounds",
-            assists AS "Assistances", steals AS "Steals",
-            turnovers AS "Turnovers",
-            blocks_favour AS "BlocksFavour",
-            blocks_against AS "BlocksAgainst",
-            fouls_committed AS "FoulsCommited",
-            fouls_received AS "FoulsReceived",
-            valuation AS "Valuation",
-            plus_minus AS "Plusminus"
-        FROM boxscores
-        WHERE season = :season
-          AND gamecode = ANY(:gamecodes)
+            b.season AS "Season", b.gamecode AS "Gamecode",
+            b.player_id AS "Player_ID", b.player AS "Player",
+            b.team AS "Team", b.home AS "Home",
+            b.is_starter AS "IsStarter", b.is_playing AS "IsPlaying",
+            b.dorsal AS "Dorsal", b.minutes AS "Minutes",
+            b.points AS "Points",
+            b.fgm2 AS "FieldGoalsMade2", b.fga2 AS "FieldGoalsAttempted2",
+            b.fgm3 AS "FieldGoalsMade3", b.fga3 AS "FieldGoalsAttempted3",
+            b.ftm AS "FreeThrowsMade", b.fta AS "FreeThrowsAttempted",
+            b.off_rebounds AS "OffensiveRebounds",
+            b.def_rebounds AS "DefensiveRebounds",
+            b.total_rebounds AS "TotalRebounds",
+            b.assists AS "Assistances", b.steals AS "Steals",
+            b.turnovers AS "Turnovers",
+            b.blocks_favour AS "BlocksFavour",
+            b.blocks_against AS "BlocksAgainst",
+            b.fouls_committed AS "FoulsCommited",
+            b.fouls_received AS "FoulsReceived",
+            b.valuation AS "Valuation",
+            b.plus_minus AS "Plusminus",
+            p.position AS "position"
+        FROM boxscores b
+        LEFT JOIN players p ON b.player_id = p.player_id
+        WHERE b.season = :season
+          AND b.gamecode = ANY(:gamecodes)
     """)
     with engine.connect() as conn:
         all_box = pd.read_sql(box_query, conn, params={
@@ -730,6 +732,499 @@ def fetch_situational_scoring(
 
     from data_pipeline.extractors import get_situational_scoring
     return get_situational_scoring(season, competition)
+
+
+# ========================================================================
+# MATCHUP VULNERABILITY ENGINE
+# ========================================================================
+
+_ARCHETYPE_RULES = [
+    ("Tall Playmaker",  "Guard",   195, None,  "Guard > 195 cm"),
+    ("Standard Guard",  "Guard",   None, 195,  "Guard <= 195 cm"),
+    ("Stretch Big",     "Center",  200, None,  "Center > 200 cm"),
+    ("Undersized Big",  "Center",  None, 200,  "Center <= 200 cm"),
+    ("Tall Forward",    "Forward", 205, None,  "Forward > 205 cm"),
+    ("Standard Forward","Forward", None, 205,  "Forward <= 205 cm"),
+]
+
+
+@st.cache_data(ttl=_CACHE_TTL, show_spinner=False)
+def fetch_matchup_vulnerabilities(
+    season: int,
+    team_code: str,
+    competition: str = COMPETITION,
+) -> pd.DataFrame:
+    """
+    Compute the analyzed team's DRtg when specific opponent archetypes
+    are on the floor vs when they are absent.
+
+    Returns a DataFrame with columns:
+        archetype, description, with_drtg, without_drtg, drtg_diff, with_events
+    """
+    if not _use_db():
+        return pd.DataFrame()
+
+    engine = _get_db_engine()
+    if engine is None:
+        return pd.DataFrame()
+
+    try:
+        return _compute_matchup_vulnerabilities_db(engine, season, team_code)
+    except Exception as e:
+        logger.warning("Matchup vulnerability query failed: %s: %s", type(e).__name__, e)
+        return pd.DataFrame()
+
+
+def _compute_matchup_vulnerabilities_db(engine, season: int, team_code: str) -> pd.DataFrame:
+    from sqlalchemy import text
+    from data_pipeline.transformers import track_lineups
+
+    # 1. Load player metadata (height + position)
+    meta_query = text("""
+        SELECT player_id, height, position FROM players
+        WHERE height IS NOT NULL AND position IS NOT NULL
+    """)
+    with engine.connect() as conn:
+        meta_df = pd.read_sql(meta_query, conn)
+
+    if meta_df.empty:
+        return pd.DataFrame()
+
+    meta_lookup = dict(zip(meta_df["player_id"], zip(meta_df["height"], meta_df["position"])))
+
+    # 2. Load PBP + boxscores for the team's games
+    games_query = text("""
+        SELECT DISTINCT gamecode FROM boxscores
+        WHERE season = :season
+          AND (team = :team OR gamecode IN (
+                SELECT gamecode FROM boxscores WHERE season = :season AND team = :team
+          ))
+    """)
+    with engine.connect() as conn:
+        gamecodes = [r[0] for r in conn.execute(games_query, {"season": season, "team": team_code}).fetchall()]
+
+    if not gamecodes:
+        return pd.DataFrame()
+
+    pbp_query = text("""
+        SELECT season AS "Season", gamecode AS "Gamecode",
+               period AS "PERIOD", playtype AS "PLAYTYPE",
+               player_id AS "PLAYER_ID", player AS "PLAYER",
+               codeteam AS "CODETEAM", markertime AS "MARKERTIME",
+               numberofplay AS "NUMBEROFPLAY", comment AS "COMMENT"
+        FROM play_by_play
+        WHERE season = :season AND gamecode = ANY(:gamecodes)
+        ORDER BY id ASC
+    """)
+    box_query = text("""
+        SELECT season AS "Season", gamecode AS "Gamecode",
+               player_id AS "Player_ID", player AS "Player",
+               team AS "Team", home AS "Home",
+               is_starter AS "IsStarter", is_playing AS "IsPlaying",
+               dorsal AS "Dorsal", minutes AS "Minutes",
+               points AS "Points",
+               fgm2 AS "FieldGoalsMade2", fga2 AS "FieldGoalsAttempted2",
+               fgm3 AS "FieldGoalsMade3", fga3 AS "FieldGoalsAttempted3",
+               ftm AS "FreeThrowsMade", fta AS "FreeThrowsAttempted",
+               off_rebounds AS "OffensiveRebounds",
+               def_rebounds AS "DefensiveRebounds",
+               total_rebounds AS "TotalRebounds",
+               assists AS "Assistances", steals AS "Steals",
+               turnovers AS "Turnovers",
+               blocks_favour AS "BlocksFavour",
+               blocks_against AS "BlocksAgainst",
+               fouls_committed AS "FoulsCommited",
+               fouls_received AS "FoulsReceived",
+               valuation AS "Valuation",
+               plus_minus AS "Plusminus"
+        FROM boxscores
+        WHERE season = :season AND gamecode = ANY(:gamecodes)
+    """)
+    with engine.connect() as conn:
+        all_pbp = pd.read_sql(pbp_query, conn, params={"season": season, "gamecodes": gamecodes})
+        all_box = pd.read_sql(box_query, conn, params={"season": season, "gamecodes": gamecodes})
+
+    if all_pbp.empty or all_box.empty:
+        return pd.DataFrame()
+
+    if "NUMBEROFPLAY" in all_pbp.columns:
+        all_pbp["TRUE_NUMBEROFPLAY"] = all_pbp["NUMBEROFPLAY"]
+
+    # 3. Track lineups per game
+    pbp_lu_frames = []
+    for gc in gamecodes:
+        g_pbp = all_pbp[all_pbp["Gamecode"] == gc]
+        g_box = all_box[all_box["Gamecode"] == gc]
+        if not g_pbp.empty and not g_box.empty:
+            try:
+                pbp_lu_frames.append(track_lineups(g_pbp, g_box))
+            except Exception:
+                pass
+
+    if not pbp_lu_frames:
+        return pd.DataFrame()
+
+    pbp_lu = pd.concat(pbp_lu_frames, ignore_index=True)
+
+    # 4. Identify which team is the opponent on each row
+    home_team_col = pbp_lu["home_team"]
+    away_team_col = pbp_lu["away_team"]
+
+    is_home = home_team_col == team_code
+    pbp_lu["opp_lineup"] = pbp_lu.apply(
+        lambda r: r["home_lineup"] if r["away_team"] == team_code else r["away_lineup"],
+        axis=1,
+    )
+    pbp_lu["team_lineup"] = pbp_lu.apply(
+        lambda r: r["home_lineup"] if r["home_team"] == team_code else r["away_lineup"],
+        axis=1,
+    )
+
+    # 5. Score and possession tracking (from the analyzed team's perspective)
+    score_map = {"2FGM": 2, "3FGM": 3, "FTM": 1}
+    poss_events = {"2FGM", "2FGA", "3FGM", "3FGA", "TO", "D"}
+
+    pbp_lu["score_pts"] = pbp_lu["PLAYTYPE"].map(score_map).fillna(0).astype(int)
+
+    # Points scored AGAINST the analyzed team (= opponent scoring)
+    pbp_lu["opp_pts"] = pbp_lu.apply(
+        lambda r: r["score_pts"] if r["CODETEAM"] != team_code and r["score_pts"] > 0 else 0,
+        axis=1,
+    )
+    pbp_lu["team_pts"] = pbp_lu.apply(
+        lambda r: r["score_pts"] if r["CODETEAM"] == team_code and r["score_pts"] > 0 else 0,
+        axis=1,
+    )
+    is_poss = pbp_lu["PLAYTYPE"].isin(poss_events)
+    pbp_lu["opp_poss_ev"] = (is_poss & (pbp_lu["CODETEAM"] != team_code)).astype(int)
+    pbp_lu["team_poss_ev"] = (is_poss & (pbp_lu["CODETEAM"] == team_code)).astype(int)
+
+    # 6. Classify opponent archetypes present in each row's opponent lineup
+    def _classify_lineup(lineup_fs):
+        archetypes = set()
+        for pid in lineup_fs:
+            meta = meta_lookup.get(pid)
+            if meta is None:
+                continue
+            h, pos = meta
+            for name, req_pos, min_h, max_h, _ in _ARCHETYPE_RULES:
+                if pos != req_pos:
+                    continue
+                if min_h is not None and h <= min_h:
+                    continue
+                if max_h is not None and h > max_h:
+                    continue
+                archetypes.add(name)
+        return frozenset(archetypes)
+
+    pbp_lu["opp_archetypes"] = pbp_lu["opp_lineup"].apply(_classify_lineup)
+
+    # 7. For each archetype, compute DRtg WITH vs WITHOUT
+    results = []
+    total_events = len(pbp_lu)
+
+    for arch_name, _, _, _, description in _ARCHETYPE_RULES:
+        mask_with = pbp_lu["opp_archetypes"].apply(lambda a: arch_name in a)
+        with_df = pbp_lu[mask_with]
+        without_df = pbp_lu[~mask_with]
+
+        def _calc_drtg(df):
+            if df.empty:
+                return None, 0
+            opp_pts = df["opp_pts"].sum()
+            opp_poss = df["opp_poss_ev"].sum()
+            events = len(df)
+            if opp_poss < 10:
+                return None, events
+            return (opp_pts / opp_poss) * 100, events
+
+        with_drtg, with_events = _calc_drtg(with_df)
+        without_drtg, without_events = _calc_drtg(without_df)
+
+        if with_drtg is not None and without_drtg is not None and with_events >= 30:
+            results.append({
+                "archetype": arch_name,
+                "description": description,
+                "with_drtg": round(with_drtg, 2),
+                "without_drtg": round(without_drtg, 2),
+                "drtg_diff": round(with_drtg - without_drtg, 2),
+                "with_events": with_events,
+            })
+
+    if not results:
+        return pd.DataFrame()
+
+    return pd.DataFrame(results).sort_values("drtg_diff", ascending=False).reset_index(drop=True)
+
+
+# ========================================================================
+# FATIGUE & BIOMETRICS — Double Game Week Veteran Penalty
+# ========================================================================
+
+@st.cache_data(ttl=_CACHE_TTL, show_spinner=False)
+def fetch_double_week_fatigue(season: int) -> pd.DataFrame:
+    """
+    Identify double game weeks (two games within 2-4 days for the same
+    team) and compute per-player efficiency drop-offs between Game 1 and
+    Game 2, grouped by age bracket.
+
+    Returns a DataFrame with columns:
+        age_bracket, metric, game1_avg, game2_avg, drop, drop_pct, sample_size
+    """
+    engine = _get_db_engine()
+    if engine is None:
+        return pd.DataFrame()
+
+    from sqlalchemy import text
+
+    try:
+        return _compute_double_week_fatigue(engine, season)
+    except Exception as e:
+        logger.warning("Double-week fatigue query failed: %s: %s", type(e).__name__, e)
+        return pd.DataFrame()
+
+
+def _compute_double_week_fatigue(engine, season: int) -> pd.DataFrame:
+    from sqlalchemy import text
+    import numpy as np
+
+    query = text("""
+        WITH parsed_games AS (
+            SELECT
+                season, gamecode, home_team, away_team,
+                TO_DATE(game_date, 'Mon DD, YYYY') AS gdate
+            FROM games
+            WHERE season = :season
+              AND played = TRUE
+              AND game_date IS NOT NULL
+              AND game_date ~ '^[A-Z][a-z]+ \\d'
+        ),
+        team_games AS (
+            SELECT season, gamecode, gdate, home_team AS team_code FROM parsed_games
+            UNION ALL
+            SELECT season, gamecode, gdate, away_team AS team_code FROM parsed_games
+        ),
+        double_weeks AS (
+            SELECT
+                g1.team_code,
+                g1.gamecode AS gc1, g1.gdate AS date1,
+                g2.gamecode AS gc2, g2.gdate AS date2,
+                (g2.gdate - g1.gdate) AS day_gap
+            FROM team_games g1
+            JOIN team_games g2
+                ON g1.team_code = g2.team_code
+                AND g1.season = g2.season
+                AND g2.gdate > g1.gdate
+                AND (g2.gdate - g1.gdate) BETWEEN 2 AND 4
+            WHERE NOT EXISTS (
+                SELECT 1 FROM team_games g_mid
+                WHERE g_mid.team_code = g1.team_code
+                  AND g_mid.season = g1.season
+                  AND g_mid.gdate > g1.gdate
+                  AND g_mid.gdate < g2.gdate
+            )
+        )
+        SELECT
+            dw.team_code, dw.gc1, dw.gc2, dw.day_gap,
+            pas1.player_id,
+            pas1.player_name,
+            p.birthdate,
+            EXTRACT(YEAR FROM AGE(p.birthdate))::int AS age,
+            pas1.minutes AS g1_minutes,
+            pas1.ts_pct AS g1_ts,
+            pas1.plus_minus AS g1_pm,
+            pas1.fga2 + pas1.fga3 AS g1_fga,
+            pas1.fta AS g1_fta,
+            pas1.turnovers AS g1_tov,
+            pas1.assists AS g1_ast,
+            pas1.fouls_received AS g1_fr,
+            pas1.possessions AS g1_poss,
+            pas2.minutes AS g2_minutes,
+            pas2.ts_pct AS g2_ts,
+            pas2.plus_minus AS g2_pm,
+            pas2.fga2 + pas2.fga3 AS g2_fga,
+            pas2.fta AS g2_fta,
+            pas2.turnovers AS g2_tov,
+            pas2.assists AS g2_ast,
+            pas2.fouls_received AS g2_fr,
+            pas2.possessions AS g2_poss
+        FROM double_weeks dw
+        JOIN player_advanced_stats pas1
+            ON pas1.season = :season
+            AND pas1.gamecode = dw.gc1
+            AND pas1.team_code = dw.team_code
+            AND pas1.minutes > 5
+        JOIN player_advanced_stats pas2
+            ON pas2.season = :season
+            AND pas2.gamecode = dw.gc2
+            AND pas2.player_id = pas1.player_id
+            AND pas2.team_code = dw.team_code
+            AND pas2.minutes > 5
+        JOIN players p ON p.player_id = pas1.player_id
+        WHERE p.birthdate IS NOT NULL
+        ORDER BY dw.team_code, dw.gc1, pas1.player_name
+    """)
+
+    with engine.connect() as conn:
+        raw = pd.read_sql(query, conn, params={"season": season})
+
+    if raw.empty:
+        return pd.DataFrame()
+
+    # Compute per-row usage rate
+    def _usg(fga, fta, tov, ast, fr, poss):
+        if poss is None or poss == 0:
+            return None
+        return (fga + 0.44 * fta + tov + ast + fr) / poss
+
+    raw["g1_usg"] = raw.apply(
+        lambda r: _usg(r["g1_fga"], r["g1_fta"], r["g1_tov"], r["g1_ast"], r["g1_fr"], r["g1_poss"]), axis=1,
+    )
+    raw["g2_usg"] = raw.apply(
+        lambda r: _usg(r["g2_fga"], r["g2_fta"], r["g2_tov"], r["g2_ast"], r["g2_fr"], r["g2_poss"]), axis=1,
+    )
+
+    # Age brackets
+    def _bracket(age):
+        if age is None:
+            return None
+        if age < 25:
+            return "Under 25"
+        if age <= 30:
+            return "25-30"
+        return "31+ (Veterans)"
+
+    raw["age_bracket"] = raw["age"].apply(_bracket)
+    raw = raw.dropna(subset=["age_bracket"])
+
+    # Aggregate by age bracket
+    results = []
+    for bracket in ["Under 25", "25-30", "31+ (Veterans)"]:
+        bdf = raw[raw["age_bracket"] == bracket]
+        if bdf.empty:
+            continue
+        n = len(bdf)
+
+        for metric, g1_col, g2_col in [
+            ("TS%", "g1_ts", "g2_ts"),
+            ("Usage Rate", "g1_usg", "g2_usg"),
+            ("Plus/Minus", "g1_pm", "g2_pm"),
+        ]:
+            g1_vals = bdf[g1_col].dropna()
+            g2_vals = bdf[g2_col].dropna()
+            if g1_vals.empty or g2_vals.empty:
+                continue
+            g1_avg = g1_vals.mean()
+            g2_avg = g2_vals.mean()
+            drop = g2_avg - g1_avg
+            drop_pct = (drop / g1_avg * 100) if g1_avg != 0 else 0
+
+            results.append({
+                "age_bracket": bracket,
+                "metric": metric,
+                "game1_avg": round(g1_avg, 4),
+                "game2_avg": round(g2_avg, 4),
+                "drop": round(drop, 4),
+                "drop_pct": round(drop_pct, 2),
+                "sample_size": int(min(len(g1_vals), len(g2_vals))),
+            })
+
+    if not results:
+        return pd.DataFrame()
+
+    return pd.DataFrame(results)
+
+
+# ========================================================================
+# SCOUT FINDER — Moneyball Target Search
+# ========================================================================
+
+@st.cache_data(ttl=_CACHE_TTL, show_spinner=False)
+def fetch_scout_targets(season: int) -> pd.DataFrame:
+    """
+    Join player_advanced_stats (season aggregates), season_on_off_splits,
+    and players metadata to produce a single scouting DataFrame.
+
+    Returns one row per player with:
+        player_id, player_name, team_code, team_name, position, height,
+        birthdate, age, games, minutes_pg, points_pg, ts_pct, true_usg_pct,
+        off_rating, assist_ratio, stop_rate, on_off_diff, on_net_rtg
+    """
+    engine = _get_db_engine()
+    if engine is None:
+        return pd.DataFrame()
+
+    from sqlalchemy import text
+
+    query = text("""
+        WITH season_agg AS (
+            SELECT
+                pas.player_id,
+                MAX(pas.player_name) AS player_name,
+                pas.team_code,
+                MAX(t.team_name) AS team_name,
+                COUNT(DISTINCT pas.gamecode) AS games,
+                AVG(pas.minutes) AS minutes_pg,
+                AVG(pas.points) AS points_pg,
+                SUM(pas.minutes) AS total_minutes,
+                AVG(pas.ts_pct) AS ts_pct,
+                AVG(pas.off_rating) AS off_rating,
+                CASE WHEN SUM(pas.possessions) > 0
+                     THEN (SUM(pas.fga2 + pas.fga3) + 0.44 * SUM(pas.fta)
+                           + SUM(pas.turnovers) + SUM(pas.assists)
+                           + SUM(pas.fouls_received))::float
+                          / SUM(pas.possessions)
+                     ELSE 0 END AS true_usg_pct,
+                CASE WHEN SUM(pas.possessions) > 0
+                     THEN SUM(pas.assists)::float / SUM(pas.possessions)
+                     ELSE 0 END AS assist_ratio,
+                CASE WHEN SUM(pas.possessions) > 0
+                     THEN (SUM(pas.steals) + SUM(pas.blocks_favour)
+                           + SUM(pas.def_rebounds))::float
+                          / SUM(pas.possessions)
+                     ELSE 0 END AS stop_rate,
+                CASE WHEN SUM(pas.fga2 + pas.fga3) > 0
+                     THEN SUM(pas.fga3)::float / SUM(pas.fga2 + pas.fga3)
+                     ELSE 0 END AS three_pt_rate,
+                CASE WHEN SUM(pas.fga2 + pas.fga3) > 0
+                     THEN SUM(pas.fta)::float / SUM(pas.fga2 + pas.fga3)
+                     ELSE 0 END AS ft_rate,
+                AVG(pas.total_rebounds) AS rebounds_pg,
+                AVG(pas.assists) AS assists_pg,
+                AVG(pas.steals) AS steals_pg
+            FROM player_advanced_stats pas
+            LEFT JOIN teams t ON pas.team_code = t.team_code
+            WHERE pas.season = :season AND pas.minutes > 0
+            GROUP BY pas.player_id, pas.team_code
+        )
+        SELECT
+            sa.*,
+            p.height,
+            p.birthdate,
+            p.position,
+            p.country,
+            CASE WHEN p.birthdate IS NOT NULL
+                 THEN EXTRACT(YEAR FROM AGE(p.birthdate))
+                 ELSE NULL END AS age,
+            oo.on_net_rtg,
+            oo.off_net_rtg,
+            oo.on_off_diff
+        FROM season_agg sa
+        LEFT JOIN players p ON sa.player_id = p.player_id
+        LEFT JOIN season_on_off_splits oo
+            ON sa.player_id = oo.player_id
+            AND oo.season = :season
+            AND sa.team_code = oo.team
+        ORDER BY sa.minutes_pg DESC
+    """)
+
+    try:
+        with engine.connect() as conn:
+            df = pd.read_sql(query, conn, params={"season": season})
+        return df
+    except Exception as e:
+        logger.warning("fetch_scout_targets failed: %s: %s", type(e).__name__, e)
+        return pd.DataFrame()
 
 
 # ========================================================================

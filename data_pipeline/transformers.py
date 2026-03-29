@@ -1902,18 +1902,28 @@ def compute_positional_scoring(
     if player_id_col and agg_cols:
         # Keep Team for each player (take first occurrence)
         group_cols = [player_id_col]
-        if "Team" in df.columns:
-            # Aggregate and preserve Team
-            df_agg = df.groupby(group_cols, as_index=False).agg({
-                **agg_cols,
-                "Team": "first",
-            })
-        else:
-            df_agg = df.groupby(group_cols, as_index=False).agg(agg_cols)
+        extra_agg = {"Team": "first"} if "Team" in df.columns else {}
+        # Preserve real position if it came from DB
+        if "position" in df.columns:
+            extra_agg["position"] = "first"
+        df_agg = df.groupby(group_cols, as_index=False).agg({
+            **agg_cols,
+            **extra_agg,
+        })
         df = df_agg
 
-    # Now classify positions on aggregated data
-    df = classify_player_positions(df)
+    # Use real positions from DB if available, else classify heuristically
+    if "position" in df.columns and df["position"].notna().any():
+        _POSITION_MAP = {
+            "guard": "Guard", "Guard": "Guard", "G": "Guard",
+            "forward": "Forward", "Forward": "Forward", "F": "Forward",
+            "center": "Center", "Center": "Center", "C": "Center",
+            "forward-center": "Forward", "center-forward": "Forward",
+            "guard-forward": "Guard", "forward-guard": "Guard",
+        }
+        df["position"] = df["position"].map(_POSITION_MAP).fillna("Forward")
+    else:
+        df = classify_player_positions(df)
 
     if df.empty:
         return pd.DataFrame(columns=["position", "points", "pct"])

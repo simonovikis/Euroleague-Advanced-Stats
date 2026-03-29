@@ -212,10 +212,41 @@ def _save_favorite_team_to_db(email: str, team_code: str | None) -> bool:
         return False
 
 
+# ---- Favorite-team cookie helpers (no-login mode) ----
+_FAV_COOKIE_NAME = "fav_team"
+_FAV_COOKIE_MAX_AGE = 604800  # 7 days
+
+
+def _read_fav_cookie() -> str | None:
+    """Read the favorite-team cookie from the browser (no-login mode)."""
+    try:
+        return st.context.cookies.get(_FAV_COOKIE_NAME)
+    except Exception:
+        return None
+
+
+def _write_fav_cookie(team_code: str | None) -> None:
+    """Write (or expire) the favorite-team cookie via a tiny JS snippet."""
+    import streamlit.components.v1 as components
+    if team_code:
+        components.html(
+            f"<script>document.cookie='{_FAV_COOKIE_NAME}={team_code}; path=/; "
+            f"max-age={_FAV_COOKIE_MAX_AGE}; SameSite=Strict';</script>",
+            height=0, width=0,
+        )
+    else:
+        components.html(
+            f"<script>document.cookie='{_FAV_COOKIE_NAME}=; path=/; "
+            f"max-age=0; SameSite=Strict';</script>",
+            height=0, width=0,
+        )
+
+
 def init_favorite_team() -> None:
     """Initialise ``st.session_state.favorite_team`` on app load.
 
-    Priority: 1) already set  2) DB (logged-in user)  3) query param ``fav_team``
+    Priority: 1) already set  2) DB (logged-in user)  3) cookie (no-login)
+              4) query param ``fav_team``
     """
     if "favorite_team" in st.session_state:
         return
@@ -227,6 +258,13 @@ def init_favorite_team() -> None:
             st.session_state["favorite_team"] = db_fav
             return
 
+    # No-login mode: try the browser cookie
+    if not REQUIRE_LOGIN:
+        cookie_fav = _read_fav_cookie()
+        if cookie_fav:
+            st.session_state["favorite_team"] = cookie_fav
+            return
+
     qp_fav = st.query_params.get("fav_team")
     if qp_fav:
         st.session_state["favorite_team"] = qp_fav
@@ -236,11 +274,14 @@ def init_favorite_team() -> None:
 
 
 def save_favorite_team(team_code: str | None) -> None:
-    """Persist a favorite-team choice to session + DB + query params."""
+    """Persist a favorite-team choice to session + DB/cookie + query params."""
     st.session_state["favorite_team"] = team_code
     email = st.session_state.get("user_email")
     if email and REQUIRE_LOGIN:
         _save_favorite_team_to_db(email, team_code)
+    if not REQUIRE_LOGIN:
+        # Queue cookie write — it will render in the current page cycle
+        st.session_state["_pending_fav_cookie"] = team_code
     if team_code:
         st.query_params["fav_team"] = team_code
     else:

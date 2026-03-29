@@ -449,6 +449,11 @@ def compute_positional_scoring(
     """
     Compute the percentage of team points contributed by each position.
 
+    Uses the ``position`` column from the players DB table when it is
+    already present in *boxscore*.  Falls back to the heuristic
+    ``classify_player_positions()`` when the column is missing
+    (e.g. live-API mode).
+
     Args:
         boxscore: Player boxscore DataFrame (single game or multi-game).
         team_code: If provided, filter to a single team. Otherwise, all teams.
@@ -456,7 +461,26 @@ def compute_positional_scoring(
     Returns:
         DataFrame with columns: position, points, pct
     """
-    df = classify_player_positions(boxscore)
+    # Normalise the position column name (DB returns lowercase "position",
+    # but the heuristic classifier also adds "position").
+    _POS_COL = "position"
+
+    if _POS_COL in boxscore.columns and boxscore[_POS_COL].notna().any():
+        # Real positions from DB — use them directly
+        df = boxscore.copy()
+        # Normalise DB values (e.g. "guard" → "Guard") to match the three
+        # canonical buckets used by the donut chart.
+        _POSITION_MAP = {
+            "guard": "Guard", "Guard": "Guard", "G": "Guard",
+            "forward": "Forward", "Forward": "Forward", "F": "Forward",
+            "center": "Center", "Center": "Center", "C": "Center",
+            "forward-center": "Forward", "center-forward": "Forward",
+            "guard-forward": "Guard", "forward-guard": "Guard",
+        }
+        df[_POS_COL] = df[_POS_COL].map(_POSITION_MAP).fillna("Forward")
+    else:
+        # Fallback: infer from stats heuristic
+        df = classify_player_positions(boxscore)
 
     if team_code:
         df = df[df["Team"] == team_code]
@@ -464,7 +488,7 @@ def compute_positional_scoring(
     if df.empty:
         return pd.DataFrame(columns=["position", "points", "pct"])
 
-    grouped = df.groupby("position")["Points"].sum().reset_index()
+    grouped = df.groupby(_POS_COL)["Points"].sum().reset_index()
     grouped.columns = ["position", "points"]
     total = grouped["points"].sum()
     grouped["pct"] = (grouped["points"] / total * 100).round(1) if total > 0 else 0
@@ -479,3 +503,4 @@ def compute_positional_scoring(
     grouped = grouped.sort_values("position").reset_index(drop=True)
 
     return grouped
+

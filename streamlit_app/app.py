@@ -147,6 +147,13 @@ if REQUIRE_LOGIN:
 # ========================================================================
 init_favorite_team()
 
+# Flush any pending favorite-team cookie (no-login mode)
+if not REQUIRE_LOGIN:
+    _pending_fav = st.session_state.pop("_pending_fav_cookie", None)
+    if _pending_fav is not None:
+        from streamlit_app.shared import _write_fav_cookie
+        _write_fav_cookie(_pending_fav if _pending_fav else None)
+
 # ========================================================================
 # DEEP LINKING: Initialize state from URL query parameters
 # ========================================================================
@@ -370,6 +377,10 @@ def _page_lineup_optimizer():
     from streamlit_app.views.lineup_optimizer import render
     render()
 
+def _page_scout_finder():
+    from streamlit_app.views.scout_finder import render
+    render()
+
 
 # ========================================================================
 # NAVIGATION  (grouped into Main / Analytics / Tools)
@@ -394,6 +405,9 @@ if is_feature_enabled("ENABLE_SCOUTING"):
     analytics_pages.append(
         st.Page(_page_scouting, title=t("nav_scouting_label"), icon="🔍", url_path="scouting"),
     )
+analytics_pages.append(
+    st.Page(_page_scout_finder, title=t("nav_scout_finder", default="Scout Finder"), icon="💰", url_path="scout-finder"),
+)
 if is_feature_enabled("ENABLE_ML_PREDICTIONS"):
     analytics_pages.append(
         st.Page(_page_lineup_optimizer, title=t("nav_lineup_label", default="Lineup Optimizer"), icon="🧪", url_path="lineup-optimizer"),

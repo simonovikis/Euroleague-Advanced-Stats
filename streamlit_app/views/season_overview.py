@@ -344,7 +344,7 @@ def render():
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                 font=dict(color="#e4e4f0"), height=520, showlegend=False,
             )
-            add_logo_images_to_figure(fig_dom, plot_df, "avg_point_diff", "close_win_pct", size=0.135, selected_team=team_code)
+            add_logo_images_to_figure(fig_dom, plot_df, "avg_point_diff", "close_win_pct", size=0.16, selected_team=team_code)
             st.plotly_chart(fig_dom)
 
             # Clutch vs. Overall
@@ -368,7 +368,7 @@ def render():
                 plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                 font=dict(color="#e4e4f0"), height=500, showlegend=False,
             )
-            add_logo_images_to_figure(fig_ov, plot_df, "overall_win_pct", "close_win_pct", size=0.135, selected_team=team_code)
+            add_logo_images_to_figure(fig_ov, plot_df, "overall_win_pct", "close_win_pct", size=0.16, selected_team=team_code)
             st.plotly_chart(fig_ov)
         else:
             st.info(t("no_clutch_close"))
@@ -649,3 +649,221 @@ def render():
                 st.markdown(f"#### {t('hdr_worst_net')}")
                 _worst_df = format_df_decimals(lineup_stats.tail(5)[_lineup_cols]).rename(columns=_lineup_rename)
                 st.dataframe(_worst_df, hide_index=True, column_config=_col_config)
+
+    st.markdown("---")
+
+    # --- Tactical Matchup Vulnerabilities ---
+    st.markdown(f"### {t('hdr_matchup_vuln', default='Tactical Matchups')}")
+    st.markdown(
+        f"<p style='color:#9ca3af; font-size:0.9rem;'>"
+        f"{t('sub_matchup_vuln', default='How your team defends against different opponent player archetypes.')}"
+        f"</p>",
+        unsafe_allow_html=True,
+    )
+
+    try:
+        from streamlit_app.queries import fetch_matchup_vulnerabilities
+        vuln_df = fetch_matchup_vulnerabilities(season_to_fetch, team_code)
+    except Exception as e:
+        st.error(f"Could not load matchup data. Error: {type(e).__name__}")
+        vuln_df = pd.DataFrame()
+
+    if vuln_df.empty:
+        st.info(t("no_matchup_vuln", default="No matchup vulnerability data available. Ensure player metadata (height, position) has been enriched."))
+    else:
+        # Insight cards: biggest vulnerability and biggest strength
+        worst = vuln_df.iloc[0]
+        best = vuln_df.iloc[-1]
+
+        col_v, col_s = st.columns(2)
+        with col_v:
+            with st.container(border=True):
+                diff_v = worst["drtg_diff"]
+                st.markdown(
+                    f"<p style='color:#ef4444; font-size:0.8rem; margin-bottom:4px;'>"
+                    f"{t('lbl_biggest_vuln', default='BIGGEST VULNERABILITY')}</p>"
+                    f"<p style='font-size:1.1rem; font-weight:600; color:#f0f0ff;'>"
+                    f"{worst['archetype']}</p>"
+                    f"<p style='color:#ef4444; font-size:1.3rem; font-weight:700;'>"
+                    f"+{_fmt.format(diff_v)} DRtg</p>"
+                    f"<p style='color:#9ca3af; font-size:0.85rem;'>"
+                    f"{team_code} allows <strong>{_fmt.format(diff_v)}</strong> more pts/100 poss "
+                    f"when facing a <strong>{worst['description']}</strong></p>",
+                    unsafe_allow_html=True,
+                )
+        with col_s:
+            with st.container(border=True):
+                diff_s = best["drtg_diff"]
+                color_s = "#10b981" if diff_s < 0 else "#f59e0b"
+                st.markdown(
+                    f"<p style='color:{color_s}; font-size:0.8rem; margin-bottom:4px;'>"
+                    f"{t('lbl_biggest_strength', default='BIGGEST STRENGTH')}</p>"
+                    f"<p style='font-size:1.1rem; font-weight:600; color:#f0f0ff;'>"
+                    f"{best['archetype']}</p>"
+                    f"<p style='color:{color_s}; font-size:1.3rem; font-weight:700;'>"
+                    f"{_fmt.format(diff_s)} DRtg</p>"
+                    f"<p style='color:#9ca3af; font-size:0.85rem;'>"
+                    f"{team_code} allows <strong>{_fmt.format(abs(diff_s))}</strong> "
+                    f"{'fewer' if diff_s < 0 else 'more'} pts/100 poss "
+                    f"when facing a <strong>{best['description']}</strong></p>",
+                    unsafe_allow_html=True,
+                )
+
+        # Horizontal bar chart: DRtg difference by archetype
+        vuln_df["bar_color"] = vuln_df["drtg_diff"].apply(
+            lambda x: "#ef4444" if x > 0 else "#10b981"
+        )
+        fig_vuln = go.Figure()
+        fig_vuln.add_trace(go.Bar(
+            y=vuln_df["archetype"],
+            x=vuln_df["drtg_diff"],
+            orientation="h",
+            marker_color=vuln_df["bar_color"],
+            text=[f"{v:+.1f}" for v in vuln_df["drtg_diff"]],
+            textposition="outside",
+            hovertemplate=(
+                "<b>%{y}</b><br>"
+                "DRtg diff: %{x:+.1f}<br>"
+                "With: %{customdata[0]:.1f}<br>"
+                "Without: %{customdata[1]:.1f}<br>"
+                "Events: %{customdata[2]}"
+                "<extra></extra>"
+            ),
+            customdata=list(zip(
+                vuln_df["with_drtg"], vuln_df["without_drtg"], vuln_df["with_events"],
+            )),
+        ))
+        fig_vuln.add_vline(x=0, line_color="#374151", line_width=1)
+        fig_vuln.update_layout(
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="#e4e4f0"),
+            height=max(300, len(vuln_df) * 55),
+            xaxis_title=t("lbl_drtg_diff", default="DRtg Difference (with vs without archetype)"),
+            yaxis=dict(autorange="reversed"),
+            showlegend=False,
+            margin=dict(l=120),
+        )
+        st.plotly_chart(fig_vuln)
+
+        # Detail table
+        with st.expander(t("lbl_matchup_detail", default="View detailed matchup numbers")):
+            detail_df = vuln_df[["archetype", "description", "with_drtg", "without_drtg", "drtg_diff", "with_events"]].copy()
+            detail_df.columns = [
+                t("col_archetype", default="Archetype"),
+                t("col_description", default="Description"),
+                t("col_with_drtg", default="DRtg (with)"),
+                t("col_without_drtg", default="DRtg (without)"),
+                t("col_drtg_diff", default="Diff"),
+                t("col_events", default="Events"),
+            ]
+            st.dataframe(detail_df, hide_index=True)
+
+    st.markdown("---")
+
+    # --- Fatigue & Biometrics: Double Game Week Veteran Penalty ---
+    st.markdown(f"### {t('hdr_fatigue', default='Fatigue & Biometrics')}")
+    st.markdown(
+        f"<p style='color:#9ca3af; font-size:0.9rem;'>"
+        f"{t('sub_fatigue', default='Efficiency drop-off between Game 1 and Game 2 of double game weeks (2-4 day gap), broken down by age bracket.')}"
+        f"</p>",
+        unsafe_allow_html=True,
+    )
+
+    try:
+        from streamlit_app.queries import fetch_double_week_fatigue
+        fatigue_df = fetch_double_week_fatigue(season_to_fetch)
+    except Exception as e:
+        st.error(f"Could not load fatigue data. Error: {type(e).__name__}")
+        fatigue_df = pd.DataFrame()
+
+    if fatigue_df.empty:
+        st.info(t("no_fatigue", default="No double game week data available for this season."))
+    else:
+        _bracket_order = ["Under 25", "25-30", "31+ (Veterans)"]
+        _bracket_colors = {"Under 25": "#06b6d4", "25-30": "#6366f1", "31+ (Veterans)": "#ef4444"}
+
+        # Build grouped bar chart for each metric
+        metric_tabs = st.tabs([
+            t("tab_fatigue_ts", default="True Shooting %"),
+            t("tab_fatigue_usg", default="Usage Rate"),
+            t("tab_fatigue_pm", default="Plus/Minus"),
+        ])
+
+        for tab, metric_name in zip(metric_tabs, ["TS%", "Usage Rate", "Plus/Minus"]):
+            with tab:
+                mdf = fatigue_df[fatigue_df["metric"] == metric_name].copy()
+                if mdf.empty:
+                    st.info(t("no_fatigue_metric", default="Not enough data for this metric."))
+                    continue
+
+                mdf["age_bracket"] = pd.Categorical(mdf["age_bracket"], categories=_bracket_order, ordered=True)
+                mdf = mdf.sort_values("age_bracket")
+
+                is_pct = metric_name in ("TS%", "Usage Rate")
+                fmt_val = lambda v: f"{v:.1%}" if is_pct else f"{v:+.1f}"
+                fmt_drop = lambda v: f"{v:+.1%}" if is_pct else f"{v:+.1f}"
+
+                fig_fat = go.Figure()
+                fig_fat.add_trace(go.Bar(
+                    x=mdf["age_bracket"],
+                    y=mdf["game1_avg"],
+                    name=t("lbl_game1", default="Game 1"),
+                    marker_color="#6366f1",
+                    text=[fmt_val(v) for v in mdf["game1_avg"]],
+                    textposition="outside",
+                ))
+                fig_fat.add_trace(go.Bar(
+                    x=mdf["age_bracket"],
+                    y=mdf["game2_avg"],
+                    name=t("lbl_game2", default="Game 2"),
+                    marker_color="#f59e0b",
+                    text=[fmt_val(v) for v in mdf["game2_avg"]],
+                    textposition="outside",
+                ))
+
+                y_vals = list(mdf["game1_avg"]) + list(mdf["game2_avg"])
+                y_min = min(y_vals) if y_vals else 0
+                y_max = max(y_vals) if y_vals else 1
+                y_pad = (y_max - y_min) * 0.20 if y_max != y_min else 0.05
+
+                fig_fat.update_layout(
+                    barmode="group",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    font=dict(color="#e4e4f0"),
+                    height=400,
+                    yaxis_title=metric_name,
+                    yaxis=dict(range=[y_min - y_pad, y_max + y_pad]),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+                )
+                st.plotly_chart(fig_fat)
+
+                # Insight text for each age bracket
+                for _, row in mdf.iterrows():
+                    bracket = row["age_bracket"]
+                    drop = row["drop"]
+                    drop_pct = row["drop_pct"]
+                    n = row["sample_size"]
+                    color = "#ef4444" if drop < 0 and metric_name != "Plus/Minus" else (
+                        "#ef4444" if drop < 0 and metric_name == "Plus/Minus" else "#10b981"
+                    )
+                    if metric_name == "Plus/Minus":
+                        color = "#ef4444" if drop < 0 else "#10b981"
+                    else:
+                        color = "#ef4444" if drop < 0 else "#10b981"
+
+                    direction = "drop" if drop < 0 else "increase"
+                    if is_pct:
+                        change_str = f"{abs(drop):.1%}"
+                    else:
+                        change_str = f"{abs(drop):.1f}"
+
+                    st.markdown(
+                        f"<p style='color:#9ca3af; font-size:0.88rem;'>"
+                        f"<span style='color:{color}; font-weight:600;'>{bracket}</span> players see a "
+                        f"<span style='color:{color}; font-weight:600;'>{change_str} {direction}</span> "
+                        f"in {metric_name} in Game 2 "
+                        f"<span style='color:#6b7280;'>({n} player-game pairs)</span></p>",
+                        unsafe_allow_html=True,
+                    )
