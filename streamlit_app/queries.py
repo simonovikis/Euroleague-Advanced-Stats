@@ -66,7 +66,7 @@ def fetch_season_schedule(
                         ht.team_name AS home_name, at.team_name AS away_name,
                         ht.logo_url  AS home_logo, at.logo_url  AS away_logo,
                         g.home_score, g.away_score, 
-                        g.game_date, g.round, g.played, 
+                        g.game_date AS date, g.round, g.played, 
                         g.referee1, g.referee2, g.referee3 
                     FROM games g
                     LEFT JOIN teams ht ON g.home_team = ht.team_code

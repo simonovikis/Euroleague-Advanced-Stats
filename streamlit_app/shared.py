@@ -491,7 +491,11 @@ def render_game_sidebar():
     with st.sidebar:
         rounds = sorted(schedule["round"].unique())
         if st.session_state.get("selected_round") not in rounds:
-            played_games = schedule[schedule["home_score"].notna() & schedule["away_score"].notna()] if "home_score" in schedule.columns else pd.DataFrame()
+            if "played" in schedule.columns:
+                played_games = schedule[schedule["played"] == True]
+            else:
+                played_games = schedule[schedule["home_score"].notna() & schedule["away_score"].notna()]
+                
             if not played_games.empty:
                 st.session_state.selected_round = int(played_games["round"].max())
             else:
@@ -521,7 +525,8 @@ def render_game_sidebar():
         def _fmt_matchup(row):
             home = row.get("home_code", row.get("home_team", "???"))
             away = row.get("away_code", row.get("away_team", "???"))
-            if pd.notna(row.get("home_score")) and pd.notna(row.get("away_score")):
+            played = row.get("played", False)
+            if played and pd.notna(row.get("home_score")) and pd.notna(row.get("away_score")):
                 return f"{home}-{away} [{int(row['home_score'])}-{int(row['away_score'])}]"
             return f"{home}-{away} [{t('lbl_upcoming', default='Upcoming')}]"
 
