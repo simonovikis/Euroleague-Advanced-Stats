@@ -1,9 +1,10 @@
 import pandas as pd
 import streamlit as st
-from streamlit_app.shared import t, TEAM_COLORS, DEFAULT_ACCENT, _cfg_default
+from streamlit_app.shared import t, TEAM_COLORS, DEFAULT_ACCENT, _cfg_default, render_team_sidebar
 
 
 def render():
+    render_team_sidebar()
     st.markdown(f'<p class="section-header">{t("hdr_referee_stats")}</p>', unsafe_allow_html=True)
     st.markdown(f"<p style='color:#9ca3af; font-size:0.9rem;'>{t('sub_referee_stats')}</p>", unsafe_allow_html=True)
     st.markdown("---")

@@ -1,9 +1,9 @@
 """
-app.py — Euroleague Advanced Analytics Dashboard (Router)
-==========================================================
-Thin router that handles page config, authentication, navigation,
-and sidebar filters, then dispatches to per-page modules under
-streamlit_app/pages/.
+app.py — Euroleague Advanced Analytics Dashboard (st.navigation router)
+========================================================================
+Thin router that handles page config, authentication, common sidebar
+(language & season), then dispatches to per-page modules via
+Streamlit's native st.navigation + st.Page APIs.
 
 Launch:  streamlit run streamlit_app/app.py
 """
@@ -11,26 +11,20 @@ Launch:  streamlit run streamlit_app/app.py
 import sys
 from pathlib import Path
 
-import pandas as pd
 import streamlit as st
-from streamlit_option_menu import option_menu
 
 _project_root = str(Path(__file__).resolve().parent.parent)
 if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 from streamlit_app.shared import (
-    CFG, TEAM_COLORS, DEFAULT_ACCENT,
+    CFG, get_team_accent,
     _cfg_seasons, _cfg_default,
-    t, render_aggrid, get_team_accent,
-    ensure_game_data, apply_clutch_filter, render_game_header,
-    fetch_season_schedule,
-    is_feature_enabled, show_disabled_message,
-    REQUIRE_LOGIN, OPENAI_API_KEY,
+    t, fetch_season_schedule,
+    is_feature_enabled,
+    REQUIRE_LOGIN,
 )
-from streamlit_app.utils.config_loader import (
-    get_default_language, get_language_map,
-)
+from streamlit_app.utils.config_loader import get_default_language, get_language_map
 from streamlit_app.utils.auth import init_auth_state, render_auth_page, render_user_sidebar
 
 # ========================================================================
@@ -129,7 +123,6 @@ if REQUIRE_LOGIN:
         render_auth_page()
         st.stop()
 
-
 # ========================================================================
 # DEEP LINKING: Initialize state from URL query parameters
 # ========================================================================
@@ -156,20 +149,6 @@ if "_deep_link_applied" not in st.session_state:
         st.session_state["_url_team"] = _qp["team"]
     st.session_state["_deep_link_applied"] = True
 
-# URL-friendly page key <-> nav label mapping (populated after NAV labels)
-_PAGE_KEYS = [
-    ("home", "nav_home_label"),
-    ("single_game", "nav_single_label"),
-    ("season", "nav_season_label"),
-    ("advanced", "nav_advanced_label"),
-    ("live", "nav_live_label"),
-    ("leaders", "nav_leaders_label"),
-    ("scouting", "nav_scouting_label"),
-    ("oracle", None),
-    ("referee", "nav_referee_label"),
-    ("chat", "nav_chat_label"),
-    ("glossary", "nav_glossary_label"),
-]
 
 # ========================================================================
 # DYNAMIC TEAM BRANDING
@@ -213,7 +192,6 @@ def _inject_team_css(primary: str, secondary: str):
         box-shadow: 0 8px 30px {pri_glow} !important;
         border-color: {hex_to_rgba(primary, 0.3)} !important;
     }}
-    .nav-link-selected {{ background-color: {primary} !important; }}
     .stDataFrame [data-testid="glideDataEditor"] .dvn-scroller .dvn-header {{
         background-color: {hex_to_rgba(primary, 0.10)} !important;
     }}
@@ -224,7 +202,7 @@ def _inject_team_css(primary: str, secondary: str):
 
 
 # ========================================================================
-# SIDEBAR — Language Selector
+# SIDEBAR — Language & Season (common to all pages)
 # ========================================================================
 with st.sidebar:
     lang_map = get_language_map()
@@ -246,84 +224,6 @@ with st.sidebar:
         render_user_sidebar()
     st.markdown("---")
 
-# ========================================================================
-# TOP NAVIGATION
-# ========================================================================
-NAV_HOME = t("nav_home_label")
-NAV_SINGLE = t("nav_single_label")
-NAV_SEASON = t("nav_season_label")
-NAV_ADVANCED = t("nav_advanced_label")
-NAV_LIVE = t("nav_live_label")
-NAV_LEADERS = t("nav_leaders_label")
-NAV_SCOUTING = t("nav_scouting_label")
-NAV_REFEREE = t("nav_referee_label")
-NAV_CHAT = t("nav_chat_label")
-NAV_GLOSSARY = t("nav_glossary_label")
-NAV_ORACLE = "Oracle"
-
-_ALL_NAV = [
-    (NAV_HOME,     "house-fill",              None),
-    (NAV_SINGLE,   "trophy-fill",             None),
-    (NAV_SEASON,   "bar-chart-line-fill",     None),
-    (NAV_ADVANCED, "lightning-charge-fill",    None),
-    (NAV_LIVE,     "broadcast",               "ENABLE_LIVE_MATCH"),
-    (NAV_LEADERS,  "award-fill",              None),
-    (NAV_SCOUTING, "search",                  "ENABLE_SCOUTING"),
-    (NAV_ORACLE,   "eye",                     "ENABLE_ML_PREDICTIONS"),
-    (NAV_REFEREE,  "clipboard-check",         None),
-    (NAV_CHAT,     "chat-dots-fill",          "ENABLE_LLM_CHAT"),
-    (NAV_GLOSSARY, "book-half",               None),
-]
-
-NAV_OPTIONS = [label for label, _, flag in _ALL_NAV if flag is None or is_feature_enabled(flag)]
-NAV_ICONS = [icon for _, icon, flag in _ALL_NAV if flag is None or is_feature_enabled(flag)]
-
-# Build bidirectional mappings between URL page keys and translated nav labels
-_NAV_LABEL_TO_KEY = {}
-_KEY_TO_NAV_LABEL = {}
-for _pk, _tk in _PAGE_KEYS:
-    _label = t(_tk) if _tk else _pk.capitalize()
-    if _label in NAV_OPTIONS:
-        _NAV_LABEL_TO_KEY[_label] = _pk
-        _KEY_TO_NAV_LABEL[_pk] = _label
-
-_default_nav_idx = 0
-if "page" in st.query_params and "main_nav" not in st.session_state:
-    _target_label = _KEY_TO_NAV_LABEL.get(st.query_params["page"])
-    if _target_label and _target_label in NAV_OPTIONS:
-        _default_nav_idx = NAV_OPTIONS.index(_target_label)
-
-selected_nav = option_menu(
-    menu_title=None,
-    options=NAV_OPTIONS,
-    icons=NAV_ICONS,
-    default_index=_default_nav_idx,
-    orientation="horizontal",
-    key="main_nav",
-    styles={
-        "container": {"padding": "0!important", "background-color": "#0f0f23", "border-bottom": "1px solid rgba(255,255,255,0.06)"},
-        "icon": {"color": "#a78bfa", "font-size": "16px"},
-        "nav-link": {
-            "font-size": "14px",
-            "text-align": "center",
-            "margin": "0px",
-            "--hover-color": "#1a1a3e",
-            "color": "#9ca3af",
-            "padding": "10px 16px",
-        },
-        "nav-link-selected": {"background-color": "#312e81", "color": "#f0f0ff", "font-weight": "600"},
-    },
-)
-
-needs_game_data = selected_nav in (NAV_SINGLE, NAV_ADVANCED)
-needs_team_filter = selected_nav in (NAV_SEASON, NAV_REFEREE)
-
-# ========================================================================
-# SIDEBAR — Context-sensitive Filters
-# ========================================================================
-gamecode = None
-
-with st.sidebar:
     st.markdown(f"### 📅 {t('selection_header')}")
 
     if "selected_season" not in st.session_state:
@@ -345,101 +245,17 @@ with st.sidebar:
     st.session_state.selected_season = selected_season_input
 
     schedule = fetch_season_schedule(st.session_state.selected_season)
+    st.session_state["schedule"] = schedule
 
-    # Deep link: resolve gamecode -> round when round wasn't explicitly provided
+    if schedule.empty:
+        st.warning(t("err_no_schedule", season=st.session_state.selected_season))
+
+    # Deep link: resolve gamecode -> round
     _url_gc = st.session_state.get("_url_gamecode")
     if _url_gc is not None and not schedule.empty:
         _gc_match = schedule[schedule["gamecode"] == _url_gc]
         if not _gc_match.empty:
             st.session_state.selected_round = int(_gc_match.iloc[0]["round"])
-
-    if schedule.empty:
-        st.warning(t("err_no_schedule", season=st.session_state.selected_season))
-        st.session_state["game_info_cache"] = None
-    else:
-        if needs_game_data:
-            rounds = sorted(schedule["round"].unique())
-            if st.session_state.selected_round not in rounds:
-                st.session_state.selected_round = rounds[0] if rounds else 1
-
-            def format_round(r):
-                round_name = schedule[schedule["round"] == r]["round_name"].iloc[0]
-                if not round_name:
-                    return f"Round {r}"
-                return f"{round_name}" if "Round" in round_name else f"Round {r} ({round_name})"
-
-            selected_round_input = st.selectbox(
-                t("round_dropdown"),
-                rounds,
-                index=rounds.index(st.session_state.selected_round) if st.session_state.selected_round in rounds else 0,
-                format_func=format_round,
-                key="round_picker",
-            )
-            st.session_state.selected_round = selected_round_input
-
-            round_games = schedule[schedule["round"] == st.session_state.selected_round].copy()
-
-            def format_matchup(row):
-                home = row.get("home_code", row.get("home_team", "???"))
-                away = row.get("away_code", row.get("away_team", "???"))
-                if pd.notna(row.get("home_score")) and pd.notna(row.get("away_score")):
-                    return f"{home}-{away} [{int(row['home_score'])}-{int(row['away_score'])}]"
-                return f"{home}-{away} [{t('lbl_upcoming', default='Upcoming')}]"
-
-            round_games["matchup_label"] = round_games.apply(format_matchup, axis=1)
-            matchup_dict = {row["matchup_label"]: row.to_dict() for _, row in round_games.iterrows()}
-            labels = list(matchup_dict.keys())
-
-            _default_game_idx = 0
-            _url_gc = st.session_state.pop("_url_gamecode", None)
-            if _url_gc is not None and "matchup_picker" not in st.session_state:
-                for _i, (_lbl, _ginfo) in enumerate(matchup_dict.items()):
-                    if _ginfo.get("gamecode") == _url_gc:
-                        _default_game_idx = _i
-                        break
-
-            selected_label = st.selectbox(
-                t("matchup_dropdown"), labels,
-                index=_default_game_idx, key="matchup_picker",
-            )
-
-            if selected_label:
-                selected_game = matchup_dict[selected_label]
-                gamecode = selected_game["gamecode"]
-                st.session_state["game_info_cache"] = selected_game
-                st.session_state["_active_home_team"] = selected_game.get("home_code")
-            else:
-                st.session_state["game_info_cache"] = None
-                st.session_state["_active_home_team"] = None
-
-            st.markdown("---")
-            clutch_mode = st.toggle(
-                "🧊 Isolate Clutch Time Only",
-                value=st.session_state.get("clutch_mode", False),
-                key="clutch_toggle",
-                help="Recalculate all stats for Clutch Time only: last 5 min of Q4/OT, score within 5 pts.",
-            )
-            st.session_state["clutch_mode"] = clutch_mode
-            if clutch_mode:
-                st.caption("Showing clutch-time stats only (Q4/OT, ≤5 min, ≤5 pt diff)")
-
-        if needs_team_filter:
-            euroleague_games = schedule[schedule["played"] == True] if "played" in schedule.columns else schedule
-            if not euroleague_games.empty:
-                team_options = sorted(list(set(euroleague_games["home_code"].unique()) | set(euroleague_games["away_code"].unique())))
-            else:
-                team_options = sorted(list(set(schedule["home_code"].unique()) | set(schedule["away_code"].unique())))
-            st.session_state["season_team_codes"] = set(team_options)
-
-            _default_team_idx = 0
-            _url_team = st.session_state.pop("_url_team", None)
-            if _url_team and _url_team in team_options and "team_picker" not in st.session_state:
-                _default_team_idx = team_options.index(_url_team)
-
-            st.session_state["selected_team"] = st.selectbox(
-                t("team_dropdown"), team_options,
-                index=_default_team_idx, key="team_picker",
-            )
 
     st.markdown("---")
     st.markdown(
@@ -454,75 +270,103 @@ _inject_team_css(_team_primary, _team_secondary)
 
 
 # ========================================================================
-# DEEP LINKING: Sync current state back to URL query parameters
+# PAGE DEFINITIONS  (lazy imports for isolation)
 # ========================================================================
-_new_qp = {"page": _NAV_LABEL_TO_KEY.get(selected_nav, "home")}
-_new_qp["season"] = str(st.session_state.get("selected_season", _cfg_default))
-
-if selected_nav in (NAV_SINGLE, NAV_ADVANCED):
-    _new_qp["round"] = str(st.session_state.get("selected_round", 1))
-    if gamecode is not None:
-        _new_qp["gamecode"] = str(gamecode)
-
-if selected_nav in (NAV_SEASON, NAV_REFEREE):
-    _sel_team = st.session_state.get("selected_team")
-    if _sel_team:
-        _new_qp["team"] = _sel_team
-
-st.query_params.clear()
-for _k, _v in _new_qp.items():
-    st.query_params[_k] = _v
-
-# ========================================================================
-# PAGE ROUTING
-# ========================================================================
-if selected_nav == NAV_HOME:
+def _page_home():
     from streamlit_app.views.home import render
     render()
 
-elif selected_nav == NAV_SINGLE:
+def _page_single_game():
     from streamlit_app.views.single_game import render
-    render(gamecode)
+    render()
 
-elif selected_nav == NAV_SEASON:
+def _page_season():
     from streamlit_app.views.season_overview import render
-    render(schedule)
+    render()
 
-elif selected_nav == NAV_ADVANCED:
+def _page_advanced():
     from streamlit_app.views.advanced_analytics import render
-    render(gamecode)
+    render()
 
-elif selected_nav == NAV_LIVE:
+def _page_live():
     from streamlit_app.views.live_match import render
     render()
 
-elif selected_nav == NAV_LEADERS:
+def _page_leaders():
     from streamlit_app.views.leaders import render
     render()
 
-elif selected_nav == NAV_SCOUTING:
+def _page_scouting():
     from streamlit_app.views.scouting import render
     render()
 
-elif selected_nav == NAV_ORACLE:
+def _page_oracle():
     from streamlit_app.views.oracle import render
     render()
 
-elif selected_nav == NAV_REFEREE:
+def _page_referee():
     from streamlit_app.views.referee import render
     render()
 
-elif selected_nav == NAV_CHAT:
+def _page_chat():
     from streamlit_app.views.chat import render
     render()
 
-elif selected_nav == NAV_GLOSSARY:
+def _page_glossary():
     from streamlit_app.views.glossary import render
     render()
 
 
 # ========================================================================
-# SIDEBAR — Admin: Database Sync Manager
+# NAVIGATION  (grouped into Main / Analytics / Tools)
+# ========================================================================
+main_pages = [
+    st.Page(_page_home, title=t("nav_home_label"), icon="🏠", default=True, url_path="home"),
+    st.Page(_page_single_game, title=t("nav_single_label"), icon="🏆", url_path="single-game"),
+    st.Page(_page_season, title=t("nav_season_label"), icon="📊", url_path="season"),
+]
+
+analytics_pages = [
+    st.Page(_page_advanced, title=t("nav_advanced_label"), icon="⚡", url_path="advanced"),
+]
+if is_feature_enabled("ENABLE_LIVE_MATCH"):
+    analytics_pages.append(
+        st.Page(_page_live, title=t("nav_live_label"), icon="📡", url_path="live"),
+    )
+analytics_pages.append(
+    st.Page(_page_leaders, title=t("nav_leaders_label"), icon="🏅", url_path="leaders"),
+)
+if is_feature_enabled("ENABLE_SCOUTING"):
+    analytics_pages.append(
+        st.Page(_page_scouting, title=t("nav_scouting_label"), icon="🔍", url_path="scouting"),
+    )
+
+tools_pages = []
+if is_feature_enabled("ENABLE_ML_PREDICTIONS"):
+    tools_pages.append(
+        st.Page(_page_oracle, title="Oracle", icon="👁️", url_path="oracle"),
+    )
+tools_pages.append(
+    st.Page(_page_referee, title=t("nav_referee_label"), icon="📋", url_path="referee"),
+)
+if is_feature_enabled("ENABLE_LLM_CHAT"):
+    tools_pages.append(
+        st.Page(_page_chat, title=t("nav_chat_label"), icon="💬", url_path="chat"),
+    )
+tools_pages.append(
+    st.Page(_page_glossary, title=t("nav_glossary_label"), icon="📖", url_path="glossary"),
+)
+
+nav = st.navigation({
+    "Main": main_pages,
+    "Analytics": analytics_pages,
+    "Tools": tools_pages,
+})
+nav.run()
+
+
+# ========================================================================
+# SIDEBAR — Admin: Database Sync Manager (rendered after page content)
 # ========================================================================
 if not REQUIRE_LOGIN or st.session_state.get("is_admin"):
     with st.sidebar:

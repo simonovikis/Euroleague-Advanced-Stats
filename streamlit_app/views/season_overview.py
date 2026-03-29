@@ -6,10 +6,14 @@ import streamlit as st
 
 from streamlit_app.shared import (
     t, render_aggrid, TEAM_COLORS, DEFAULT_ACCENT, _cfg_default,
+    render_team_sidebar,
 )
 
 
-def render(schedule):
+def render():
+    render_team_sidebar()
+    schedule = st.session_state.get("schedule", pd.DataFrame())
+
     st.markdown(f'<p class="section-header">{t("hdr_season_overview")}</p>', unsafe_allow_html=True)
 
     season_to_fetch = st.session_state.get("selected_season", _cfg_default)

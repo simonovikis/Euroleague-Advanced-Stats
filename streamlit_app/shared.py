@@ -133,6 +133,133 @@ def get_team_accent() -> tuple:
 
 
 # ========================================================================
+# PAGE-SPECIFIC SIDEBAR HELPERS  (used by views under st.navigation)
+# ========================================================================
+def render_game_sidebar():
+    """Render round / game / clutch sidebar controls. Returns the selected gamecode."""
+    schedule = st.session_state.get("schedule")
+    if schedule is None or (hasattr(schedule, "empty") and schedule.empty):
+        st.session_state["game_info_cache"] = None
+        return None
+
+    with st.sidebar:
+        rounds = sorted(schedule["round"].unique())
+        if st.session_state.get("selected_round") not in rounds:
+            st.session_state.selected_round = rounds[0] if rounds else 1
+
+        def _fmt_round(r):
+            round_name = schedule[schedule["round"] == r]["round_name"].iloc[0]
+            if not round_name:
+                return f"Round {r}"
+            return f"{round_name}" if "Round" in round_name else f"Round {r} ({round_name})"
+
+        selected_round = st.selectbox(
+            t("round_dropdown"),
+            rounds,
+            index=rounds.index(st.session_state.selected_round)
+            if st.session_state.selected_round in rounds
+            else 0,
+            format_func=_fmt_round,
+            key="round_picker",
+        )
+        st.session_state.selected_round = selected_round
+
+        round_games = schedule[schedule["round"] == selected_round].copy()
+
+        def _fmt_matchup(row):
+            home = row.get("home_code", row.get("home_team", "???"))
+            away = row.get("away_code", row.get("away_team", "???"))
+            if pd.notna(row.get("home_score")) and pd.notna(row.get("away_score")):
+                return f"{home}-{away} [{int(row['home_score'])}-{int(row['away_score'])}]"
+            return f"{home}-{away} [{t('lbl_upcoming', default='Upcoming')}]"
+
+        round_games["matchup_label"] = round_games.apply(_fmt_matchup, axis=1)
+        matchup_dict = {row["matchup_label"]: row.to_dict() for _, row in round_games.iterrows()}
+        labels = list(matchup_dict.keys())
+
+        _default_idx = 0
+        _url_gc = st.session_state.pop("_url_gamecode", None)
+        if _url_gc is not None and "matchup_picker" not in st.session_state:
+            for i, (_lbl, ginfo) in enumerate(matchup_dict.items()):
+                if ginfo.get("gamecode") == _url_gc:
+                    _default_idx = i
+                    break
+
+        selected_label = st.selectbox(
+            t("matchup_dropdown"),
+            labels,
+            index=_default_idx,
+            key="matchup_picker",
+        )
+
+        gamecode = None
+        if selected_label:
+            selected_game = matchup_dict[selected_label]
+            gamecode = selected_game["gamecode"]
+            st.session_state["game_info_cache"] = selected_game
+            st.session_state["_active_home_team"] = selected_game.get("home_code")
+        else:
+            st.session_state["game_info_cache"] = None
+            st.session_state["_active_home_team"] = None
+
+        st.markdown("---")
+        clutch_mode = st.toggle(
+            "🧊 Isolate Clutch Time Only",
+            value=st.session_state.get("clutch_mode", False),
+            key="clutch_toggle",
+            help="Recalculate all stats for Clutch Time only: last 5 min of Q4/OT, score within 5 pts.",
+        )
+        st.session_state["clutch_mode"] = clutch_mode
+        if clutch_mode:
+            st.caption("Showing clutch-time stats only (Q4/OT, ≤5 min, ≤5 pt diff)")
+
+    return gamecode
+
+
+def render_team_sidebar():
+    """Render team-selector sidebar. Returns the selected team code."""
+    schedule = st.session_state.get("schedule")
+    if schedule is None or (hasattr(schedule, "empty") and schedule.empty):
+        return None
+
+    with st.sidebar:
+        euroleague_games = (
+            schedule[schedule["played"] == True]
+            if "played" in schedule.columns
+            else schedule
+        )
+        if not euroleague_games.empty:
+            team_options = sorted(
+                list(
+                    set(euroleague_games["home_code"].unique())
+                    | set(euroleague_games["away_code"].unique())
+                )
+            )
+        else:
+            team_options = sorted(
+                list(
+                    set(schedule["home_code"].unique())
+                    | set(schedule["away_code"].unique())
+                )
+            )
+        st.session_state["season_team_codes"] = set(team_options)
+
+        _default_idx = 0
+        _url_team = st.session_state.pop("_url_team", None)
+        if _url_team and _url_team in team_options and "team_picker" not in st.session_state:
+            _default_idx = team_options.index(_url_team)
+
+        st.session_state["selected_team"] = st.selectbox(
+            t("team_dropdown"),
+            team_options,
+            index=_default_idx,
+            key="team_picker",
+        )
+
+    return st.session_state["selected_team"]
+
+
+# ========================================================================
 # GAME DATA HELPERS
 # ========================================================================
 def ensure_game_data(gc: int) -> dict:

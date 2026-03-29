@@ -6,10 +6,12 @@ import streamlit as st
 from streamlit_app.shared import (
     t, TEAM_COLORS, DEFAULT_ACCENT, _cfg_default,
     ensure_game_data, apply_clutch_filter, render_game_header,
+    render_game_sidebar,
 )
 
 
-def render(gamecode):
+def render():
+    gamecode = render_game_sidebar()
     if gamecode is None:
         st.warning(t("err_no_schedule", season=st.session_state.selected_season))
         st.stop()
