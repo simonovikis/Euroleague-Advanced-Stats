@@ -18,6 +18,7 @@ def render():
 
     season_to_fetch = st.session_state.get("selected_season", _cfg_default)
     team_code = st.session_state.get("selected_team")
+    valid_teams = st.session_state.get("season_team_codes", set())
 
     if not team_code:
         st.warning(t("warn_select_team"))
@@ -42,7 +43,6 @@ def render():
     if eff_df.empty:
         st.warning(t("err_league_eff"))
     else:
-        valid_teams = st.session_state.get("season_team_codes", set())
         if valid_teams:
             eff_df = eff_df[eff_df["team_code"].isin(valid_teams)].copy()
         eff_df["color"] = np.where(eff_df["team_code"] == team_code, _tc_primary, "#4b5563")

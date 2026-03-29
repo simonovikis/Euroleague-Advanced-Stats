@@ -148,6 +148,8 @@ def render_game_sidebar():
             st.session_state.selected_round = rounds[0] if rounds else 1
 
         def _fmt_round(r):
+            if "round_name" not in schedule.columns:
+                return f"Round {r}"
             round_name = schedule[schedule["round"] == r]["round_name"].iloc[0]
             if not round_name:
                 return f"Round {r}"
