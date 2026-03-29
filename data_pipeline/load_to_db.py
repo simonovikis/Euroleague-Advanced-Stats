@@ -550,6 +550,8 @@ def teardown_database(engine: Engine) -> None:
     with engine.begin() as conn:
         conn.execute(text("DROP SCHEMA public CASCADE"))
         conn.execute(text("CREATE SCHEMA public"))
+        conn.execute(text("GRANT ALL ON SCHEMA public TO postgres"))
+        conn.execute(text("GRANT ALL ON SCHEMA public TO public"))
     logger.info("TEARDOWN: Public schema recreated (empty)")
 
 
@@ -568,8 +570,12 @@ def ensure_schema(engine: Engine) -> None:
                 if statement:
                     try:
                         conn.execute(text(statement))
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.warning(
+                            "ensure_schema [%s]: %s",
+                            sql_file,
+                            str(e).split("\n")[0],
+                        )
 
 
 # ========================================================================
