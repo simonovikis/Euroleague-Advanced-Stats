@@ -10,6 +10,7 @@ Requires a `.env` file at the project root with:
 """
 
 import logging
+import re
 import sys
 from pathlib import Path
 from typing import Optional
@@ -555,6 +556,11 @@ def teardown_database(engine: Engine) -> None:
     logger.info("TEARDOWN: Public schema recreated (empty)")
 
 
+def _strip_sql_comments(sql: str) -> str:
+    """Remove SQL line comments (--) so SQLAlchemy doesn't parse :params in them."""
+    return re.sub(r"--[^\n]*", "", sql)
+
+
 def ensure_schema(engine: Engine) -> None:
     """Create tables and indexes if they don't already exist (idempotent)."""
     db_dir = Path(__file__).resolve().parent.parent / "database"
@@ -563,19 +569,20 @@ def ensure_schema(engine: Engine) -> None:
         sql_path = db_dir / sql_file
         if not sql_path.exists():
             continue
-        ddl = sql_path.read_text()
-        with engine.begin() as conn:
-            for statement in ddl.split(";"):
-                statement = statement.strip()
-                if statement:
-                    try:
-                        conn.execute(text(statement))
-                    except Exception as e:
-                        logger.warning(
-                            "ensure_schema [%s]: %s",
-                            sql_file,
-                            str(e).split("\n")[0],
-                        )
+        ddl = _strip_sql_comments(sql_path.read_text())
+        for statement in ddl.split(";"):
+            statement = statement.strip()
+            if not statement:
+                continue
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text(statement))
+            except Exception as e:
+                logger.warning(
+                    "ensure_schema [%s]: %s",
+                    sql_file,
+                    str(e).split("\n")[0],
+                )
 
 
 # ========================================================================
