@@ -1,5 +1,21 @@
 import streamlit as st
-from streamlit_app.shared import t
+from streamlit_app.shared import t, is_feature_enabled
+
+# Card definitions: (icon, title_key, desc_key, feature_flag_or_None)
+# Icons match the st.Page icons in app.py navigation.
+_CARDS = [
+    ("🏆", "card_single_title", "card_single_desc", None),
+    ("📊", "card_season_title", "card_season_desc", None),
+    ("⚡", "card_advanced_title", "card_advanced_desc", None),
+    ("📡", "card_live_title", "card_live_desc", "ENABLE_LIVE_MATCH"),
+    ("🏅", "card_leaders_title", "card_leaders_desc", None),
+    ("🔍", "card_scouting_title", "card_scouting_desc", "ENABLE_SCOUTING"),
+    ("🧪", "card_lineup_title", "card_lineup_desc", "ENABLE_ML_PREDICTIONS"),
+    ("👁️", "card_oracle_title", "card_oracle_desc", "ENABLE_ML_PREDICTIONS"),
+    ("📋", "card_referee_title", "card_referee_desc", None),
+    ("💬", "card_chat_title", "card_chat_desc", "ENABLE_LLM_CHAT"),
+    ("📖", "card_glossary_title", "card_glossary_desc", None),
+]
 
 
 def render():
@@ -10,55 +26,24 @@ def render():
         unsafe_allow_html=True,
     )
 
-    row1 = st.columns(3)
-    cards_row1 = [
-        ("🏀", t("card_single_title"), t("card_single_desc")),
-        ("📊", t("card_season_title"), t("card_season_desc")),
-        ("🧠", t("card_advanced_title"), t("card_advanced_desc")),
+    visible = [
+        (icon, t(title_key), t(desc_key))
+        for icon, title_key, desc_key, flag in _CARDS
+        if flag is None or is_feature_enabled(flag)
     ]
-    for col, (icon, title, desc) in zip(row1, cards_row1):
-        with col:
-            st.markdown(
-                f'<div class="landing-card">'
-                f'  <div class="card-icon">{icon}</div>'
-                f"  <h3>{title}</h3>"
-                f"  <p>{desc}</p>"
-                f"</div>",
-                unsafe_allow_html=True,
-            )
 
-    st.markdown("")
-    row2 = st.columns(3)
-    cards_row2 = [
-        ("📡", t("card_live_title"), t("card_live_desc")),
-        ("🏅", t("card_leaders_title"), t("card_leaders_desc")),
-        ("🔍", t("card_scouting_title"), t("card_scouting_desc")),
-    ]
-    for col, (icon, title, desc) in zip(row2, cards_row2):
-        with col:
-            st.markdown(
-                f'<div class="landing-card">'
-                f'  <div class="card-icon">{icon}</div>'
-                f"  <h3>{title}</h3>"
-                f"  <p>{desc}</p>"
-                f"</div>",
-                unsafe_allow_html=True,
-            )
-
-    st.markdown("")
-    row3 = st.columns(4)
-    cards_row3 = [
-        ("⚖️", t("card_referee_title"), t("card_referee_desc")),
-        ("💬", t("card_chat_title"), t("card_chat_desc")),
-        ("📖", t("card_glossary_title"), t("card_glossary_desc")),
-    ]
-    for col, (icon, title, desc) in zip(row3, cards_row3):
-        with col:
-            st.markdown(
-                f'<div class="landing-card">'
-                f'  <div class="card-icon">{icon}</div>'
-                f"  <h3>{title}</h3>"
-                f"  <p>{desc}</p>"
-                f"</div>",
-                unsafe_allow_html=True,
-            )
+    # Render in rows of 3
+    for row_start in range(0, len(visible), 3):
+        row_cards = visible[row_start : row_start + 3]
+        cols = st.columns(3)
+        for col, (icon, title, desc) in zip(cols, row_cards):
+            with col:
+                st.markdown(
+                    f'<div class="landing-card">'
+                    f'  <div class="card-icon">{icon}</div>'
+                    f"  <h3>{title}</h3>"
+                    f"  <p>{desc}</p>"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+        st.markdown("")

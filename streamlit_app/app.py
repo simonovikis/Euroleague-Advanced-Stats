@@ -47,12 +47,26 @@ st.markdown(
 
     .stApp { font-family: 'Inter', sans-serif; }
 
-    /* Sidebar */
+    /* Sidebar — force light text on dark background regardless of theme */
     [data-testid="stSidebar"] { background: linear-gradient(180deg, #0f0f23 0%, #1a1a3e 100%); }
+    [data-testid="stSidebar"],
+    [data-testid="stSidebar"] * { color: #e4e4f0 !important; }
+    [data-testid="stSidebar"] .stSelectbox label,
+    [data-testid="stSidebar"] .stRadio label,
+    [data-testid="stSidebar"] .stCheckbox label,
+    [data-testid="stSidebar"] .stSlider label,
+    [data-testid="stSidebar"] .stNumberInput label,
+    [data-testid="stSidebar"] .stTextInput label,
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] span,
+    [data-testid="stSidebar"] label,
     [data-testid="stSidebar"] .stMarkdown p,
     [data-testid="stSidebar"] .stMarkdown h1,
     [data-testid="stSidebar"] .stMarkdown h2,
-    [data-testid="stSidebar"] .stMarkdown h3 { color: #e4e4f0; }
+    [data-testid="stSidebar"] .stMarkdown h3 { color: #e4e4f0 !important; }
+    [data-testid="stSidebar"] [data-baseweb="select"] { background-color: rgba(255,255,255,0.08) !important; }
+    [data-testid="stSidebar"] [data-baseweb="select"] * { color: #e4e4f0 !important; }
+    [data-testid="stSidebar"] svg { fill: #e4e4f0 !important; }
 
     /* Metric cards */
     [data-testid="stMetric"] {
@@ -324,6 +338,10 @@ def _page_glossary():
     from streamlit_app.views.glossary import render
     render()
 
+def _page_lineup_optimizer():
+    from streamlit_app.views.lineup_optimizer import render
+    render()
+
 
 # ========================================================================
 # NAVIGATION  (grouped into Main / Analytics / Tools)
@@ -347,6 +365,10 @@ analytics_pages.append(
 if is_feature_enabled("ENABLE_SCOUTING"):
     analytics_pages.append(
         st.Page(_page_scouting, title=t("nav_scouting_label"), icon="🔍", url_path="scouting"),
+    )
+if is_feature_enabled("ENABLE_ML_PREDICTIONS"):
+    analytics_pages.append(
+        st.Page(_page_lineup_optimizer, title=t("nav_lineup_label", default="Lineup Optimizer"), icon="🧪", url_path="lineup-optimizer"),
     )
 
 tools_pages = []

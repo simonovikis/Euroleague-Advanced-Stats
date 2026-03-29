@@ -1325,6 +1325,30 @@
     "de": "Verstehen Sie jede erweiterte Metrik: ORtg, DRtg, TS%, tUSG% und mehr.",
     "es": "Comprenda cada métrica avanzada: ORtg, DRtg, TS%, tUSG% y más."
   },
+  "card_lineup_title": {
+    "en": "Lineup Optimizer",
+    "el": "Βελτιστοποίηση Πεντάδας",
+    "de": "Lineup-Optimierer",
+    "es": "Optimizador de Quinteto"
+  },
+  "card_lineup_desc": {
+    "en": "ML-powered simulator to predict the Expected Net Rating of any 5-man combination.",
+    "el": "Πρόβλεψη Net Rating πεντάδας με μηχανική μάθηση.",
+    "de": "ML-basierter Simulator zur Vorhersage des erwarteten Net Ratings jeder 5er-Kombination.",
+    "es": "Simulador basado en ML para predecir el Net Rating esperado de cualquier quinteto."
+  },
+  "card_oracle_title": {
+    "en": "Oracle",
+    "el": "Μαντείο",
+    "de": "Orakel",
+    "es": "Oráculo"
+  },
+  "card_oracle_desc": {
+    "en": "ML-powered win probability predictions based on season net rating, form, and home court advantage.",
+    "el": "Προβλέψεις πιθανότητας νίκης βασισμένες σε Net Rating, φόρμα και έδρα.",
+    "de": "ML-basierte Siegwahrscheinlichkeiten basierend auf Net Rating, Form und Heimvorteil.",
+    "es": "Predicciones de probabilidad de victoria basadas en Net Rating, forma y ventaja de local."
+  },
   "nav_live_label": {
     "en": "Live Center",
     "el": "Live Center",
